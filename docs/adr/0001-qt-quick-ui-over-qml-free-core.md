@@ -1,0 +1,3 @@
+# Qt Quick UI over a QML-free C++ core
+
+The interface is Qt Quick/QML, while the document model, operations/undo, JSON Canvas I/O and connection geometry (routing, Waypoints, hit-testing) live in a C++ core that depends only on QtCore/QtGui. We chose Qt Quick over `QGraphicsView` for GPU-smooth zoom/pan, crisp text at any zoom and because it is Qt's current direction; the cost is hand-writing selection, rubber-band and hit-testing, which is small because the core already owns all geometry. Keeping the core QML-free also keeps it unit-testable and lets the phase-2 sync layer reuse it unchanged.

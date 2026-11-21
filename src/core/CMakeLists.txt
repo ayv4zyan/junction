@@ -2,6 +2,7 @@
 add_library(junction_core STATIC
     CanvasItems.h CanvasItems.cpp
     Document.h Document.cpp
+    Library.h Library.cpp
     TransactionCommand.h
     Geometry.h Geometry.cpp
     CanvasPainter.h CanvasPainter.cpp

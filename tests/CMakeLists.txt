@@ -6,3 +6,4 @@ endfunction()
 
 junction_test(tst_document)
 junction_test(tst_geometry)
+junction_test(tst_library)

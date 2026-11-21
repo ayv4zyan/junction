@@ -8,7 +8,15 @@ A desktop tool for sketching boxes-and-arrows boards (such as software architect
 
 **Canvas**:
 An unbounded board holding Cards, Groups and Connections, saved as one document.
-_Avoid_: board, diagram, whiteboard
+_Avoid_: board, diagram, whiteboard, page
+
+**Project**:
+A named collection of Canvases kept together, such as all the Canvases for one web app. Only organises them: each Canvas is still shared on its own.
+_Avoid_: file, workspace, notebook, folder
+
+**Library**:
+Every Project the user has. The app keeps exactly one and owns where it is stored.
+_Avoid_: vault, workspace, home
 
 **Card**:
 A fixed-size rectangle on the Canvas holding Markdown text. Created by double-clicking empty space.

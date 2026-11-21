@@ -14,6 +14,13 @@ QtObject {
     readonly property color mutedText: dark ? "#8a8a8a" : "#777777"
     readonly property color line: dark ? "#8a8a8a" : "#8c8c8c"
     readonly property color selection: "#7f6df2"
+    readonly property color danger: dark ? "#fb464c" : "#e93147"
+
+    // The sidebar
+    readonly property color sidebar: dark ? "#181818" : "#f0f0f0"
+    readonly property color divider: dark ? "#333333" : "#dddddd"
+    readonly property color rowHover: Qt.alpha(text, 0.07)
+    readonly property color rowCurrent: Qt.alpha(selection, dark ? 0.28 : 0.16)
 
     // JSON Canvas colors "1".."6": red, orange, yellow, green, cyan, purple.
     readonly property var presets: dark

@@ -43,10 +43,11 @@ Item {
         border.width: card.selected ? 2 : 1.5
     }
 
-    // While editing, a click in the card's padding keeps the cursor in the text.
+    // While editing, a click in the card's padding keeps the cursor in the text. Hidden, not
+    // just disabled, otherwise: Qt shows a disabled MouseArea's I-beam all the same.
     MouseArea {
         anchors.fill: parent
-        enabled: card.editing
+        visible: card.editing
         cursorShape: Qt.IBeamCursor
         onPressed: textEdit.forceActiveFocus()
     }
@@ -143,7 +144,7 @@ Item {
         id: body
         canvas: card.canvas
         anchors.fill: parent
-        enabled: !card.editing
+        visible: !card.editing   // hidden, not disabled, so the text's I-beam shows while editing
         hoverEnabled: true
         property bool moving: false
 
@@ -196,7 +197,7 @@ Item {
             MouseArea {
                 id: handleMouse
                 anchors.fill: parent
-                anchors.margins: -4 / card.canvas.zoom
+                anchors.margins: card ? -4 / card.canvas.zoom : 0   // card is null while being destroyed
                 hoverEnabled: true
                 cursorShape: Qt.CrossCursor
                 onContainsMouseChanged: card.hoveredHandles += containsMouse ? 1 : -1

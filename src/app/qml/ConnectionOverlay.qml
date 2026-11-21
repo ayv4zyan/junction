@@ -54,6 +54,7 @@ Item {
                 canvas: overlay.canvas
                 anchors.fill: parent
                 anchors.margins: -4 / overlay.canvas.zoom
+                cursorShape: Qt.SizeAllCursor   // dragging it adds a Waypoint
                 onDragStarted: { overlay.draggingWaypoint = true; overlay.editor.beginWaypointDrag(overlay.info.id, midpoint.index, true) }
                 onDragged: (delta, invertSnap) => overlay.editor.updateWaypointDrag(delta, invertSnap)
                 onDragFinished: { overlay.editor.endWaypointDrag(); overlay.draggingWaypoint = false }
@@ -77,6 +78,7 @@ Item {
                 canvas: overlay.canvas
                 anchors.fill: parent
                 anchors.margins: -4 / overlay.canvas.zoom
+                cursorShape: Qt.SizeAllCursor
                 onDragStarted: { overlay.draggingWaypoint = true; overlay.editor.beginWaypointDrag(overlay.info.id, waypoint.index, false) }
                 onDragged: (delta, invertSnap) => overlay.editor.updateWaypointDrag(delta, invertSnap)
                 onDragFinished: { overlay.editor.endWaypointDrag(); overlay.draggingWaypoint = false }
@@ -100,6 +102,7 @@ Item {
                 canvas: overlay.canvas
                 anchors.fill: parent
                 anchors.margins: -4 / overlay.canvas.zoom
+                cursorShape: Qt.CrossCursor   // re-attaching an end, like connecting from a Handle
                 property point origin
                 onDragStarted: { origin = end.center; end.dragPoint = origin; end.dragging = true }
                 onDragged: (delta) => {

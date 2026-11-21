@@ -74,12 +74,13 @@ Item {
             onAccepted: group.canvas.forceActiveFocus()
             onActiveFocusChanged: if (!activeFocus && group.editing) group.finishEditing()
             Keys.onEscapePressed: group.canvas.forceActiveFocus()
+            HoverHandler { cursorShape: Qt.IBeamCursor }   // a plain TextInput sets none
         }
 
         DragArea {
             canvas: group.canvas
             anchors.fill: parent
-            enabled: !group.editing
+            visible: !group.editing   // hidden, not disabled, so the label's I-beam shows while editing
             property bool moving: false
 
             // Press: Shift/Ctrl toggles; otherwise an unselected item becomes the selection.

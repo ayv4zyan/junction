@@ -143,20 +143,62 @@ Item {
             spaceHeld = false
     }
 
-    // After opening a file the view fits the content, and keeps fitting while the window is
-    // being resized (tiling window managers resize right after showing), until the user
-    // pans or zooms.
+    // After opening a Canvas the view goes back to where the user left it, or fits the content
+    // if it was never moved. Until the user pans or zooms, resizing (tiling window managers
+    // resize right after showing; the sidebar opens and closes) keeps that: it fits again, or
+    // keeps the same point in the middle. Every pan and zoom the user makes is remembered.
     property bool autoFit: true
-    onPanChanged: if (!fitting) autoFit = false
-    property bool fitting: false
-    onWidthChanged: if (autoFit) Qt.callLater(fitToContent)
-    onHeightChanged: if (autoFit) Qt.callLater(fitToContent)
+    property var keepCenter: null   // world point kept in the middle, or null
+    property bool fitting: false    // pan and zoom are being set by the code, not the user
+    onPanChanged: viewMoved()
+    onZoomChanged: viewMoved()
+    onWidthChanged: Qt.callLater(followResize)
+    onHeightChanged: Qt.callLater(followResize)
+
+    function viewMoved() {
+        if (fitting)
+            return
+        autoFit = false
+        keepCenter = null
+        rememberView()
+    }
+    function rememberView() {
+        if (width > 0 && height > 0)
+            editor.rememberView(toWorld(Qt.point(width / 2, height / 2)), zoom)
+    }
+    function followResize() {
+        if (autoFit)
+            fitToContent()
+        else if (keepCenter)
+            centerOn(keepCenter)
+    }
+    function centerOn(point) {
+        fitting = true
+        pan = Qt.point(width / 2 - point.x * zoom, height / 2 - point.y * zoom)
+        fitting = false
+    }
+    function userFit() {   // the Fit button and Ctrl+1
+        fitToContent()
+        rememberView()
+    }
 
     Connections {
         target: view.editor
         function onDocumentLoaded() {
-            view.autoFit = true
-            Qt.callLater(view.fitToContent)
+            view.editingId = ""
+            const saved = view.editor.savedView()
+            if (saved.zoom) {
+                view.autoFit = false
+                view.fitting = true
+                view.zoom = saved.zoom
+                view.fitting = false
+                view.keepCenter = Qt.point(saved.x, saved.y)
+                view.centerOn(view.keepCenter)
+            } else {
+                view.keepCenter = null
+                view.autoFit = true
+                Qt.callLater(view.fitToContent)
+            }
         }
     }
 
@@ -186,6 +228,7 @@ Item {
         property bool overConnection: false
         property point last
         property point rubberStart
+        property var rubberBase: []   // what stays selected besides the rectangle's catch (Shift/Ctrl)
 
         onPressed: (mouse) => {
             view.forceActiveFocus()
@@ -210,6 +253,7 @@ Item {
                 view.editor.clearSelection()
             mode = "select"
             rubberStart = last
+            rubberBase = view.editor.selection
         }
 
         onPositionChanged: (mouse) => {
@@ -224,16 +268,14 @@ Item {
                 rubberBand.width = Math.abs(mouse.x - rubberStart.x)
                 rubberBand.height = Math.abs(mouse.y - rubberStart.y)
                 rubberBand.visible = true
+                // The selection follows the rectangle as it is dragged, not only on release.
+                const a = view.toWorld(Qt.point(rubberBand.x, rubberBand.y))
+                view.editor.selectInRect(Qt.rect(a.x, a.y, rubberBand.width / view.zoom,
+                                                   rubberBand.height / view.zoom), rubberBase)
             }
         }
 
-        onReleased: (mouse) => {
-            if (mode === "select" && rubberBand.visible) {
-                const a = view.toWorld(Qt.point(rubberBand.x, rubberBand.y))
-                view.editor.selectInRect(Qt.rect(a.x, a.y, rubberBand.width / view.zoom,
-                                                   rubberBand.height / view.zoom),
-                                           view.isToggle(mouse.modifiers))
-            }
+        onReleased: {
             rubberBand.visible = false
             mode = ""
         }

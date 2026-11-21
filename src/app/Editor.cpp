@@ -5,8 +5,6 @@
 #include "TransactionCommand.h"
 
 #include <QClipboard>
-#include <QDir>
-#include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QJsonArray>
@@ -46,8 +44,18 @@ Editor::Editor(QObject *parent)
 {
     m_snapToGrid = QSettings().value("snapToGrid", true).toBool();
 
-    connect(&m_undo, &QUndoStack::canUndoChanged, this, &Editor::historyChanged);
-    connect(&m_undo, &QUndoStack::canRedoChanged, this, &Editor::historyChanged);
+    connect(&m_history, &QUndoGroup::canUndoChanged, this, &Editor::historyChanged);
+    connect(&m_history, &QUndoGroup::canRedoChanged, this, &Editor::historyChanged);
+
+    // Before the Library changes files or opens another Canvas, the open one is saved.
+    connect(&m_library, &Library::aboutToChange, this, [this] {
+        if (m_saveTimer.isActive())
+            saveNow();
+    });
+    connect(&m_library, &Library::currentChanged, this, &Editor::loadCurrent);
+    connect(&m_library, &Library::canvasMoved, this, &Editor::canvasMoved);
+    connect(&m_library, &Library::canvasRemoved, this, &Editor::canvasRemoved);
+    connect(&m_library, &Library::errorOccurred, this, &Editor::errorOccurred);
 
     // Anything that changes in the Document may move the selected Connection's handles.
     for (auto signal : {&Document::nodeChanged, &Document::nodeRemoved, &Document::nodeAdded})
@@ -58,6 +66,9 @@ Editor::Editor(QObject *parent)
     m_saveTimer.setSingleShot(true);
     m_saveTimer.setInterval(500);
     connect(&m_saveTimer, &QTimer::timeout, this, &Editor::saveNow);
+    m_viewSaveTimer.setSingleShot(true);
+    m_viewSaveTimer.setInterval(1000);
+    connect(&m_viewSaveTimer, &QTimer::timeout, &m_library, &Library::saveIndex);
 }
 
 Editor::~Editor()
@@ -77,25 +88,25 @@ void Editor::commit(const Transaction &transaction, const QString &text)
         if (change.before != change.after)   // skip changes that change nothing
             real.append(change);
     }
-    if (real.isEmpty())
+    if (real.isEmpty() || !m_loadError.isEmpty() || !m_history.activeStack())
         return;
-    m_undo.push(new TransactionCommand(&m_document, real, text));
+    m_history.activeStack()->push(new TransactionCommand(&m_document, real, text));
     scheduleSave();
 }
 
 void Editor::undo()
 {
-    if (isDragging() || !m_undo.canUndo())
+    if (isDragging() || !m_history.canUndo())
         return;
-    m_undo.undo();
+    m_history.undo();
     scheduleSave();
 }
 
 void Editor::redo()
 {
-    if (isDragging() || !m_undo.canRedo())
+    if (isDragging() || !m_history.canRedo())
         return;
-    m_undo.redo();
+    m_history.redo();
     scheduleSave();
 }
 
@@ -143,11 +154,11 @@ void Editor::select(const QString &id, bool toggle)
     setSelection(ids);
 }
 
-void Editor::selectInRect(const QRectF &rect, bool add)
+void Editor::selectInRect(const QRectF &rect, const QStringList &base)
 {
     // Cards are selected when the rectangle touches them. Groups only when it covers them
     // completely, so a rectangle drawn inside a Group selects its cards, not the Group.
-    QStringList ids = add ? m_selection : QStringList();
+    QStringList ids = base;
     for (const Node &n : m_document.nodes()) {
         const bool hit = n.isCard() ? rect.intersects(n.rect) : rect.contains(n.rect);
         if (hit && !ids.contains(n.id))
@@ -716,54 +727,73 @@ void Editor::duplicate()
 
 // ---- Files ----
 
-void Editor::start(const QString &path)
+QString Editor::libraryFolder()
 {
-    const QString last = QSettings().value("lastFile").toString();
-    if (!path.isEmpty())
-        open(QUrl::fromLocalFile(path));
-    else if (!last.isEmpty() && QFileInfo::exists(last))
-        open(QUrl::fromLocalFile(last));
-    else
-        newCanvas();
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/Library");
 }
 
-void Editor::newCanvas()
+void Editor::start()
 {
-    if (m_saveTimer.isActive())
-        saveNow();
-    m_document.clear();
-    m_undo.clear();
-    setFilePath(untitledPath());
-    emit documentLoaded();
+    m_library.load();
+    loadCurrent();   // in case load() found nothing to open
 }
 
-void Editor::open(const QUrl &url)
+// Shows the Library's current Canvas. A Canvas that can't be read is shown as an error and
+// is never saved, so the file stays as it was.
+void Editor::loadCurrent()
 {
+    const QString path = m_library.currentPath();
+    if (path == m_filePath && !path.isEmpty())
+        return;   // the open file was only renamed or moved; canvasMoved() has followed it
     if (m_saveTimer.isActive())
         saveNow();
-    const QString path = url.toLocalFile();
+
+    setSelection({});
+    clearPreview();
     QString error;
-    if (!m_document.load(path, &error)) {
-        emit errorOccurred(tr("Could not open %1: %2").arg(path, error));
-        return;
-    }
-    m_undo.clear();
+    if (path.isEmpty())
+        error = tr("The library folder %1 can't be written to.").arg(m_library.root());
+    else if (!m_document.load(path, &error))
+        error = tr("%1 can't be read: %2").arg(QFileInfo(path).fileName(), error);
+    if (!error.isEmpty())
+        m_document.clear();
+    m_loadError = error;
     setFilePath(path);
-    QSettings().setValue("lastFile", path);
+
+    // Its undo history from earlier in this session, unless the file changed since then.
+    QUndoStack *&stack = m_stacks[path];
+    const QDateTime modified = QFileInfo(path).lastModified();
+    if (!stack) {
+        stack = new QUndoStack(&m_history);
+        m_history.addStack(stack);
+    } else if (m_lastWritten.value(path) != modified) {
+        stack->clear();
+    }
+    m_lastWritten[path] = modified;
+    m_history.setActiveStack(stack);
     emit documentLoaded();
 }
 
-void Editor::saveAs(const QUrl &url)
+void Editor::canvasMoved(const QString &oldPath, const QString &newPath)
 {
-    QString path = url.toLocalFile();
-    if (!path.endsWith(".canvas"))
-        path += ".canvas";
-    const QString previous = m_filePath;
-    const bool wasUntitled = isUntitled();
-    setFilePath(path);
-    saveNow();
-    if (wasUntitled && previous != path)   // "Save as" moves an untitled canvas, it doesn't copy it
-        QFile::remove(previous);
+    if (QUndoStack *stack = m_stacks.take(oldPath))
+        m_stacks[newPath] = stack;
+    if (m_lastWritten.contains(oldPath))
+        m_lastWritten[newPath] = m_lastWritten.take(oldPath);
+    if (m_filePath == oldPath)
+        setFilePath(newPath);
+}
+
+void Editor::canvasRemoved(const QString &path)
+{
+    delete m_stacks.take(path);   // also leaves m_history
+    m_lastWritten.remove(path);
+    if (m_filePath == path) {
+        // Nothing may be written there any more. A new Canvas may later get the same path
+        // (delete the only Project, and a new "Untitled" appears): it must be loaded afresh.
+        m_saveTimer.stop();
+        setFilePath({});
+    }
 }
 
 void Editor::save()
@@ -771,36 +801,28 @@ void Editor::save()
     saveNow();
 }
 
-// The new name keeps the file in its folder and keeps the .canvas extension. Empty or
-// unchanged names do nothing; a name with a slash, or one another file already has, is refused.
-void Editor::rename(const QString &name)
+void Editor::exportCanvas(const QUrl &url)
 {
-    const QString newName = name.trimmed();
-    const QFileInfo current(m_filePath);
-    if (newName.isEmpty() || newName == current.completeBaseName())
-        return;
-    if (newName.contains('/')) {
-        emit errorOccurred(tr("A name can't contain \"/\"."));
-        return;
-    }
-    const QString path = current.dir().filePath(newName + ".canvas");
-    if (QFileInfo::exists(path)) {
-        emit errorOccurred(tr("%1 already exists.").arg(path));
-        return;
-    }
-    saveNow();   // a new canvas may not be on disk yet
-    if (!QFile::rename(m_filePath, path)) {
-        emit errorOccurred(tr("Could not rename %1 to %2.").arg(m_filePath, path));
-        return;
-    }
-    setFilePath(path);
-    QSettings().setValue("lastFile", path);
+    QString path = url.toLocalFile();
+    if (!path.endsWith(".canvas"))
+        path += ".canvas";
+    QString error;
+    if (!m_document.save(path, &error))
+        emit errorOccurred(tr("Could not save %1: %2").arg(path, error));
 }
 
-bool Editor::isUntitled() const
+QVariantMap Editor::savedView() const
 {
-    return QFileInfo(m_filePath).absolutePath() == QFileInfo(untitledPath()).absolutePath()
-           && QFileInfo(m_filePath).fileName().startsWith("Untitled");
+    const auto view = m_library.view(m_library.currentProject(), m_library.currentCanvas());
+    if (!view)
+        return {};
+    return {{"x", view->center.x()}, {"y", view->center.y()}, {"zoom", view->zoom}};
+}
+
+void Editor::rememberView(QPointF center, qreal zoom)
+{
+    m_library.setView(m_library.currentProject(), m_library.currentCanvas(), {center, zoom});
+    m_viewSaveTimer.start();
 }
 
 void Editor::exportImage(const QUrl &url, const QVariantMap &palette)
@@ -843,20 +865,12 @@ void Editor::scheduleSave()
 void Editor::saveNow()
 {
     m_saveTimer.stop();
-    QDir().mkpath(QFileInfo(m_filePath).absolutePath());
+    if (m_filePath.isEmpty() || !m_loadError.isEmpty())
+        return;
     QString error;
     if (!m_document.save(m_filePath, &error)) {
         emit errorOccurred(tr("Could not save %1: %2").arg(m_filePath, error));
         return;
     }
-    QSettings().setValue("lastFile", m_filePath);
-}
-
-QString Editor::untitledPath()
-{
-    const QDir dir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Junction");
-    QString path = dir.filePath("Untitled.canvas");
-    for (int i = 2; QFileInfo::exists(path); ++i)
-        path = dir.filePath(QStringLiteral("Untitled %1.canvas").arg(i));
-    return path;
+    m_lastWritten[m_filePath] = QFileInfo(m_filePath).lastModified();
 }

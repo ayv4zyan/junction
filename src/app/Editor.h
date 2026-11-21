@@ -1,16 +1,24 @@
 #pragma once
 
-// The bridge between QML and the core: owns the Document, the undo stack, the selection and
-// the file. QML calls these methods in canvas (world) coordinates; it never edits the
-// Document directly, so every change goes through commit() and can be undone.
+// The bridge between QML and the core: owns the Library, the open Canvas's Document, the undo
+// history and the selection. QML calls these methods in canvas (world) coordinates; it never
+// edits the Document directly, so every change goes through commit() and can be undone.
+//
+// The Editor always shows the Library's current Canvas: when another one is opened (or the
+// open one is renamed, moved or deleted) the Library says so and the Editor follows.
 
 #include "Document.h"
+#include "Library.h"
+#include "LibraryModel.h"
 #include "NodeModel.h"
 
+#include <QDateTime>
+#include <QHash>
 #include <QObject>
 #include <QQmlEngine>
 #include <QRectF>
 #include <QTimer>
+#include <QUndoGroup>
 #include <QUndoStack>
 #include <QUrl>
 
@@ -19,6 +27,7 @@ class Editor : public QObject
     Q_OBJECT
     QML_ELEMENT
 
+    Q_PROPERTY(LibraryModel *library READ library CONSTANT)
     Q_PROPERTY(NodeModel *cards READ cards CONSTANT)
     Q_PROPERTY(NodeModel *groups READ groups CONSTANT)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
@@ -27,7 +36,7 @@ class Editor : public QObject
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
-    Q_PROPERTY(bool untitled READ isUntitled NOTIFY filePathChanged)
+    Q_PROPERTY(QString loadError READ loadError NOTIFY documentLoaded)   // why the Canvas can't be shown
     Q_PROPERTY(bool snapToGrid READ snapToGrid WRITE setSnapToGrid NOTIFY snapToGridChanged)
 
 public:
@@ -46,21 +55,23 @@ public:
 
     const Document &document() const { return m_document; }
     const Preview &preview() const { return m_preview; }
+    LibraryModel *library() { return &m_libraryModel; }
     NodeModel *cards() { return &m_cards; }
     NodeModel *groups() { return &m_groups; }
     QStringList selection() const { return m_selection; }
     QVariantMap selectedConnection() const;
     QString selectionColor() const;   // color of the selected items, "" if mixed or default
-    bool canUndo() const { return m_undo.canUndo(); }
-    bool canRedo() const { return m_undo.canRedo(); }
+    bool canUndo() const { return m_history.canUndo(); }
+    bool canRedo() const { return m_history.canRedo(); }
     QString filePath() const { return m_filePath; }
-    bool isUntitled() const;   // still in ~/Documents/Junction under its "Untitled" name
+    QString loadError() const { return m_loadError; }
     bool snapToGrid() const { return m_snapToGrid; }
     void setSnapToGrid(bool snap);
 
     // Selection
     Q_INVOKABLE void select(const QString &id, bool toggle = false);
-    Q_INVOKABLE void selectInRect(const QRectF &rect, bool add);
+    // The selection becomes `base` plus what the rectangle catches; called while it is dragged.
+    Q_INVOKABLE void selectInRect(const QRectF &rect, const QStringList &base);
     Q_INVOKABLE void selectAll();
     Q_INVOKABLE void clearSelection();
 
@@ -105,16 +116,19 @@ public:
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
 
-    // Files. Every Canvas is a file and is saved automatically; new ones go to
-    // ~/Documents/Junction until "Save As" moves them.
-    Q_INVOKABLE void start(const QString &path);
-    Q_INVOKABLE void newCanvas();
-    Q_INVOKABLE void open(const QUrl &url);
-    Q_INVOKABLE void saveAs(const QUrl &url);
+    // Files. Every Canvas is saved automatically, shortly after each change.
+    Q_INVOKABLE void start();   // loads the Library and opens what was open last time
     Q_INVOKABLE void save();
-    Q_INVOKABLE void rename(const QString &name);   // renames the file in its folder
+    Q_INVOKABLE void exportCanvas(const QUrl &url);   // a copy of the .canvas file
     Q_INVOKABLE void exportImage(const QUrl &url, const QVariantMap &palette);
     Q_INVOKABLE QRectF contentBounds() const;
+
+    // The part of the Canvas on screen, kept per Canvas so switching back returns to it.
+    // savedView() is {x, y, zoom} with (x, y) the world point at the center, or empty.
+    Q_INVOKABLE QVariantMap savedView() const;
+    Q_INVOKABLE void rememberView(QPointF center, qreal zoom);
+
+    static QString libraryFolder();
 
 signals:
     void selectionChanged();
@@ -146,10 +160,18 @@ private:
     void setFilePath(const QString &path);
     void scheduleSave();
     void saveNow();
-    static QString untitledPath();
+    void loadCurrent();
+    void canvasMoved(const QString &oldPath, const QString &newPath);
+    void canvasRemoved(const QString &path);
 
+    Library m_library{libraryFolder()};
+    LibraryModel m_libraryModel{&m_library};
     Document m_document;
-    QUndoStack m_undo;
+    // One undo history per Canvas, kept while the app runs, so switching Canvases loses nothing.
+    // m_history forwards undo/redo to the open Canvas's stack.
+    QUndoGroup m_history;
+    QHash<QString, QUndoStack *> m_stacks;      // by file path
+    QHash<QString, QDateTime> m_lastWritten;    // when each file was last loaded or saved by us
     NodeModel m_cards{&m_document, NodeModel::Cards};
     NodeModel m_groups{&m_document, NodeModel::Groups};
     QStringList m_selection;
@@ -164,5 +186,7 @@ private:
     QPoint m_resizeSides;   // which sides a resize moves, see beginResize()
 
     QString m_filePath;
+    QString m_loadError;
     QTimer m_saveTimer;
+    QTimer m_viewSaveTimer;   // writes the index a moment after the view stops moving
 };

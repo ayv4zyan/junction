@@ -2,19 +2,20 @@
 
 A desktop canvas for boxes-and-arrows thinking (software architecture, plans), combining
 Obsidian Canvas's quick card-and-connection workflow with tldraw-style control over how
-connections run. Files are [JSON Canvas](https://jsoncanvas.org), so Obsidian canvases open
-here and the other way round. Terms are defined in [GLOSSARY.md](GLOSSARY.md); decisions
+connections run. Canvases are organised in Projects, the way tldraw organises pages in files.
+Each Canvas is a [JSON Canvas](https://jsoncanvas.org) file, so Obsidian canvases can be
+imported and exported. Terms are defined in [GLOSSARY.md](GLOSSARY.md); decisions
 in [docs/adr](docs/adr).
 
 ## Build
 
-Requires Qt 6.8+ (Core, Gui, Svg, Quick, QuickControls2, Test), CMake and a C++20 compiler.
+Requires Qt 6.8+ (Core, Gui, Svg, Network, Quick, QuickControls2, Test), CMake and a C++20 compiler.
 
 ```sh
 cmake -S . -B build -G Ninja
 cmake --build build
 ctest --test-dir build          # core unit tests
-./build/src/app/junction [file.canvas]
+./build/src/app/junction
 ```
 
 ## Using it
@@ -38,17 +39,39 @@ ctest --test-dir build          # core unit tests
 | Group | Ctrl+G or right-click → Group selection (with nothing selected: an empty group) |
 | Nudge | arrow keys move the selection one grid step |
 | Snap | toolbar toggle; hold Alt while dragging for the opposite |
-| Rename the canvas | click its name in the toolbar (Enter to save, Esc to cancel) |
 
-Undo/redo, copy/paste, Ctrl+D duplicate (a Group comes with its cards), Delete. Canvases save
-automatically; new ones live in `~/Documents/Junction` until "Save as" moves them. Export PNG/SVG from the ☰ menu (exports the
-selection, or everything when nothing is selected).
+Undo/redo (each Canvas keeps its own history while the app runs), copy/paste, Ctrl+D duplicate
+(a Group comes with its cards), Delete. Export PNG/SVG from the ☰ menu (exports the selection,
+or everything when nothing is selected).
+
+### Projects and Canvases
+
+The sidebar lists every Project with its Canvases. Everything saves automatically, and each
+Canvas reopens where you left it.
+
+| Do | Gesture |
+|---|---|
+| Open a Canvas | click it; Alt+↑ / Alt+↓ for the previous / next one in the Project |
+| Open a Project | click it (opens the Canvas last open there); the chevron only expands/collapses |
+| New Canvas / Project | the + on a Project row / at the top (Ctrl+N / Ctrl+Shift+N) |
+| Rename | double-click a row, or click a name in the toolbar (F2: the open Canvas) |
+| Reorder, move to another Project | drag the row (or right-click → Move to) |
+| Duplicate, delete | right-click a row, or its ⋯ button (deleting moves files to the trash) |
+| Search | Ctrl+F (or Ctrl+P), type, Enter opens the first match |
+| Hide / resize the sidebar | Ctrl+\ / drag its edge |
+| Import an Obsidian canvas | ☰ → Import canvas…, or drop `.canvas` files on the window |
+| Export a canvas file | ☰ → Export as canvas file… |
+
+The Library lives in the app-data folder (`~/.local/share/Junction/Junction/Library` on Linux;
+☰ → Open library folder): one folder per Project, one `.canvas` file per Canvas, and a
+`.junction` index with the order, views and what was open. Only one Junction runs at a time;
+starting it again brings the window forward.
 
 ## Code layout
 
 - `src/core` — no QML: the model (`CanvasItems`, `Document`), every edit as a `Change`
-  inside a `Transaction` (undo, and later network sync), connection `Geometry`, and
-  `CanvasPainter` for drawing and export.
-- `src/app` — `Editor` (the object QML talks to), `NodeModel`, the painted grid/connection
-  layers, and the QML UI.
+  inside a `Transaction` (undo, and later network sync), connection `Geometry`,
+  `CanvasPainter` for drawing and export, and the `Library` of Projects and Canvases on disk.
+- `src/app` — `Editor` (the object QML talks to), `NodeModel`, `LibraryModel` (the sidebar),
+  the painted grid/connection layers, and the QML UI.
 - `tests` — Qt Test unit tests for the core.

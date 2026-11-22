@@ -48,7 +48,7 @@ void ConnectionLayer::paint(QPainter *painter)
         const Node *to = document.node(c.toNode);
         if (from && to) {
             CanvasPainter::drawConnection(*painter, Geometry::route(from->rect, to->rect, c), c, palette,
-                                          m_editor->selection().contains(c.id));
+                                          m_editor->selection().contains(c.id), c.id != m_hiddenLabel);
         }
     }
 

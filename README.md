@@ -29,10 +29,10 @@ ctest --test-dir build          # core unit tests
 | Connect | hover a card, drag from a Handle onto another card |
 | Connect to a new card | drag from a Handle into empty space |
 | Pin a side | drop the connection on a Handle (otherwise ends float) |
-| Add a Waypoint | select a connection, drag a hollow midpoint dot |
+| Add a Waypoint | select a connection, drag a hollow midpoint dot (or its label, which covers the middle dot) |
 | Remove a Waypoint | double-click it |
 | Re-attach an end | select a connection, drag its end dot onto a card or Handle |
-| Label a connection | double-click it (or its middle dot when selected) |
+| Label a connection | double-click it or its label (Enter, Esc or click away to finish; clear the text to remove the label) |
 | Pan | scroll, middle-drag or Space+drag |
 | Zoom | Ctrl+scroll; Ctrl+0 resets, Ctrl+1 fits |
 | Resize | drag any side or corner of a card or group |

@@ -24,7 +24,7 @@ signals:
 
 protected:
     QTransform view() const { return QTransform(m_zoom, 0, 0, m_zoom, m_pan.x(), m_pan.y()); }
-    Palette colors() const { return Palette::fromVariantMap(m_colors); }
+    std::optional<Palette> colors() const { return Palette::fromVariantMap(m_colors); }   // nothing until set
 
 private:
     qreal m_zoom = 1;

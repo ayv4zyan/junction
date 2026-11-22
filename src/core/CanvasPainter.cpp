@@ -65,10 +65,14 @@ QColor Palette::resolve(const QString &color, const QColor &fallback) const
     return fallback;
 }
 
-Palette Palette::fromVariantMap(const QVariantMap &map)
+std::optional<Palette> Palette::fromVariantMap(const QVariantMap &map)
 {
     Palette p;
-    auto read = [&](const char *key, QColor &target) { target = map.value(key).value<QColor>(); };
+    bool complete = map.contains("radius") && map.value("presets").toList().size() == 6;
+    auto read = [&](const char *key, QColor &target) {
+        target = map.value(key).value<QColor>();
+        complete = complete && target.isValid();
+    };
     read("background", p.background);
     read("grid", p.grid);
     read("cardFill", p.cardFill);
@@ -78,8 +82,12 @@ Palette Palette::fromVariantMap(const QVariantMap &map)
     read("line", p.line);
     read("selection", p.selection);
     p.radius = map.value("radius").toReal();
-    for (const QVariant &preset : map["presets"].toList())
+    for (const QVariant &preset : map.value("presets").toList()) {
         p.presets.append(preset.value<QColor>());
+        complete = complete && p.presets.last().isValid();
+    }
+    if (!complete)
+        return std::nullopt;
     return p;
 }
 

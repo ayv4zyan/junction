@@ -8,6 +8,7 @@
 
 #include <QColor>
 #include <QVariantMap>
+#include <optional>
 
 class QPainter;
 
@@ -28,7 +29,8 @@ struct Palette
     qreal radius = 0;          // corners of Cards, Groups and Connection labels
 
     QColor resolve(const QString &color, const QColor &fallback) const;
-    static Palette fromVariantMap(const QVariantMap &map);
+    // Nothing when a color is missing or invalid (tst_design_values checks Colors.forPainter).
+    static std::optional<Palette> fromVariantMap(const QVariantMap &map);
 };
 
 namespace CanvasPainter {

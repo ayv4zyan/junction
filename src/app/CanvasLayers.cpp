@@ -11,7 +11,8 @@ CanvasLayer::CanvasLayer(QQuickItem *parent)
 
 void GridLayer::paint(QPainter *painter)
 {
-    CanvasPainter::drawGrid(*painter, view(), size(), colors());
+    if (const auto palette = colors())
+        CanvasPainter::drawGrid(*painter, view(), size(), *palette);
 }
 
 void ConnectionLayer::setEditor(Editor *editor)
@@ -41,10 +42,11 @@ void ConnectionLayer::setEditor(Editor *editor)
 
 void ConnectionLayer::paint(QPainter *painter)
 {
-    if (!m_editor)
+    const auto colorsSet = colors();
+    if (!m_editor || !colorsSet)
         return;
+    const Palette &palette = *colorsSet;
     const Document &document = m_editor->document();
-    const Palette palette = colors();
     painter->setRenderHint(QPainter::Antialiasing);
     painter->setTransform(view());
 

@@ -1,3 +1,4 @@
+#include "CanvasPainter.h"
 #include "DesignValues.h"
 
 #include <QGuiApplication>
@@ -35,6 +36,15 @@ private slots:
         QCOMPARE(DesignValues::GroupLabelSpace, token("Sizes", "control").toReal() + token("Space", "xs").toReal());
         QCOMPARE(DesignValues::GroupTint, token("Colors", "groupTint").toReal());
         QCOMPARE(DesignValues::CardTint, token("Colors", "cardTint").toReal());
+    }
+
+    // The painted layers and exports get their colors from Colors.forPainter, by key.
+    void forPainterGivesACompletePalette()
+    {
+        QVERIFY(Palette::fromVariantMap(token("Colors", "forPainter").toMap()).has_value());
+        QVariantMap incomplete = token("Colors", "forPainter").toMap();
+        incomplete.remove("cardFill");
+        QVERIFY(!Palette::fromVariantMap(incomplete).has_value());
     }
 };
 

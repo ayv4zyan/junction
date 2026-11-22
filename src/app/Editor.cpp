@@ -769,13 +769,13 @@ void Editor::rememberView(QPointF center, qreal zoom)
 QUrl Editor::exportImage(const QUrl &url, const QVariantMap &palette)
 {
     // Exports the selection, or the whole Canvas when nothing is selected.
-    QString error;
-    const Palette colors = Palette::fromVariantMap(palette);
-    if (!CanvasPainter::exportCanvas(document(), document().nodesWithContents(m_selection), url.toLocalFile(), colors, &error)) {
-        emit errorOccurred(error);
-        return {};
-    }
-    return url;
+    const std::optional<Palette> colors = Palette::fromVariantMap(palette);
+    QString error = tr("The colors to export with are incomplete.");
+    if (colors && CanvasPainter::exportCanvas(document(), document().nodesWithContents(m_selection),
+                                              url.toLocalFile(), *colors, &error))
+        return url;
+    emit errorOccurred(error);
+    return {};
 }
 
 QRectF Editor::contentBounds() const

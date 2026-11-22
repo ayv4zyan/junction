@@ -64,7 +64,7 @@ void OpenCanvas::push(const Transaction &transaction, const QString &text)
 {
     Transaction real;
     for (const Change &change : transaction) {
-        if (change.before != change.after)
+        if (!change.changesNothing())
             real.append(change);
     }
     if (real.isEmpty() || !m_loadError.isEmpty() || !m_history.activeStack())   // nothing opened yet
@@ -92,7 +92,7 @@ void OpenCanvas::redo()
 void OpenCanvas::showUncommitted(const QVector<Item> &items)
 {
     for (const Item &item : items)
-        m_document.apply(Change{std::nullopt, item});
+        m_document.apply(Change::added(item));   // replaces the item with the same id
 }
 
 void OpenCanvas::save()

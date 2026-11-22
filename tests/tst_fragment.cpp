@@ -29,11 +29,11 @@ class TestFragment : public QObject
     // a -> b -> c
     static void fill(Document &doc)
     {
-        doc.apply(Transaction{{std::nullopt, card("a", {0, 0, 100, 50})},
-                              {std::nullopt, card("b", {200, 0, 100, 50})},
-                              {std::nullopt, card("c", {400, 0, 100, 50})},
-                              {std::nullopt, connection("ab", "a", "b")},
-                              {std::nullopt, connection("bc", "b", "c")}});
+        doc.apply(Transaction{Change::added(card("a", {0, 0, 100, 50})),
+                              Change::added(card("b", {200, 0, 100, 50})),
+                              Change::added(card("c", {400, 0, 100, 50})),
+                              Change::added(connection("ab", "a", "b")),
+                              Change::added(connection("bc", "b", "c"))});
     }
 
 private slots:

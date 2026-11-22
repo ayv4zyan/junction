@@ -23,7 +23,7 @@ struct ViewportForeign
     QML_VALUE_TYPE(viewport)
 };
 
-// Side and PathStyle: CanvasEnums.Side.Top, CanvasEnums.PathStyle.Curved, ...
+// Side, PathStyle and NodeKind: CanvasEnums.Side.Top, CanvasEnums.PathStyle.Curved, ...
 namespace CanvasEnumsForeign {
 Q_NAMESPACE
 QML_FOREIGN_NAMESPACE(CanvasEnums)

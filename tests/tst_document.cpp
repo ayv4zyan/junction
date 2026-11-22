@@ -25,15 +25,15 @@ private slots:
     {
         Document doc;
         const Node a = card("a", {0, 0, 100, 50}, "hello");
-        doc.apply(Change{std::nullopt, a});
+        doc.apply(Change::added(a));
         QCOMPARE(doc.nodes().size(), 1);
 
         Node moved = a;
         moved.rect.moveTo(40, 40);
-        doc.apply(Change{a, moved});
+        doc.apply(Change::updated(a, moved));
         QCOMPARE(doc.node("a")->rect.topLeft(), QPointF(40, 40));
 
-        doc.apply(Change{moved, std::nullopt});
+        doc.apply(Change::removed(moved));
         QVERIFY(doc.nodes().isEmpty());
     }
 
@@ -48,12 +48,12 @@ private slots:
         c.fromNode = "a";
         c.toNode = "b";
 
-        undo.push(new TransactionCommand(&doc, {{std::nullopt, a}, {std::nullopt, b}, {std::nullopt, c}}, "add"));
+        undo.push(new TransactionCommand(&doc, {Change::added(a), Change::added(b), Change::added(c)}, "add"));
         QCOMPARE(doc.nodes().size(), 2);
         QCOMPARE(doc.connections().size(), 1);
 
         // Deleting a card takes its Connection with it, in one step.
-        undo.push(new TransactionCommand(&doc, {{c, std::nullopt}, {a, std::nullopt}}, "delete"));
+        undo.push(new TransactionCommand(&doc, {Change::removed(c), Change::removed(a)}, "delete"));
         QCOMPARE(doc.nodes().size(), 1);
         QVERIFY(doc.connections().isEmpty());
 
@@ -85,10 +85,10 @@ private slots:
         c.label = "calls";
         c.style = PathStyle::Straight;
         c.waypoints = {{100, 300}};
-        doc.apply(Transaction{{std::nullopt, group},
-                              {std::nullopt, card("a", {0, 0, 100, 60}, "# API")},
-                              {std::nullopt, card("b", {300, 0, 100, 60}, "DB")},
-                              {std::nullopt, c}});
+        doc.apply(Transaction{Change::added(group),
+                              Change::added(card("a", {0, 0, 100, 60}, "# API")),
+                              Change::added(card("b", {300, 0, 100, 60}, "DB")),
+                              Change::added(c)});
 
         Document copy;
         copy.fromJson(doc.toJson());
@@ -129,7 +129,7 @@ private slots:
         file.close();
 
         Document doc;
-        doc.apply(Change{std::nullopt, card("kept", {0, 0, 10, 10})});
+        doc.apply(Change::added(card("kept", {0, 0, 10, 10})));
         QString error;
         QVERIFY(!doc.load(path, &error));
         QVERIFY(!error.isEmpty());

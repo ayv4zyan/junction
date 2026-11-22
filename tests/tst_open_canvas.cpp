@@ -28,7 +28,7 @@ class TestOpenCanvas : public QObject
         Node n;
         n.id = id;
         n.rect = {0, 0, 100, 50};
-        return {{std::nullopt, n}};
+        return {Change::added(n)};
     }
 
 private slots:

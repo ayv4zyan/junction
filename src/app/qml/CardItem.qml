@@ -10,7 +10,7 @@ Item {
     id: card
     required property CanvasView canvasView
     required property string nodeId
-    required property string nodeKind
+    required property int nodeKind   // a CanvasEnums.NodeKind
     required property real nodeX
     required property real nodeY
     required property real nodeWidth
@@ -20,7 +20,7 @@ Item {
     required property string nodeColor
 
     readonly property Editor editor: canvasView.editor
-    readonly property bool isText: nodeKind === "text"   // otherwise Unsupported: shown, never edited
+    readonly property bool isText: nodeKind === CanvasEnums.NodeKind.Text   // otherwise Unsupported: shown, never edited
     readonly property bool selected: editor.selection.includes(nodeId)
     readonly property bool editing: canvasView.editingId === nodeId
     readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)

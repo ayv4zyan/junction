@@ -42,7 +42,7 @@ Change edited(const T &item, Edit edit)
 {
     T changed = item;
     edit(changed);
-    return {item, changed};
+    return Change::updated(item, changed);
 }
 
 } // namespace
@@ -266,7 +266,7 @@ Node Editor::newCard(QPointF center, const QString &text) const
 QString Editor::createCard(QPointF center)
 {
     const Node card = newCard(center);
-    commit({{std::nullopt, card}}, tr("Add card"));
+    commit({Change::added(card)}, tr("Add card"));
     setSelection({card.id});
     return card.id;
 }
@@ -287,7 +287,7 @@ QString Editor::createGroup(QPointF center)
     group.label = tr("Group");
     const qreal margin = Geometry::GridSize * 2;
     group.rect = bounds.isEmpty() ? placed(center, GroupSize) : bounds.adjusted(-margin, -margin, margin, margin);
-    commit({{std::nullopt, group}}, tr("Group"));
+    commit({Change::added(group)}, tr("Group"));
     setSelection({group.id});
     return group.id;
 }
@@ -333,11 +333,11 @@ Transaction Editor::removal(const QSet<QString> &nodeIds, const QStringList &con
     Transaction t;
     for (const Connection &c : document().connections()) {
         if (nodeIds.contains(c.fromNode) || nodeIds.contains(c.toNode) || connectionIds.contains(c.id))
-            t.append({c, std::nullopt});
+            t.append(Change::removed(c));
     }
     for (const Node &n : document().nodes()) {
         if (nodeIds.contains(n.id))
-            t.append({n, std::nullopt});
+            t.append(Change::removed(n));
     }
     return t;
 }
@@ -368,7 +368,7 @@ void Editor::beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &k
 {
     Transaction changes;
     for (const Item &item : items)
-        changes.append({item, item});
+        changes.append(Change::updated(item, item));
     m_drag = Drag{changes, kind};
     emit draggingChanged();
 }
@@ -378,8 +378,8 @@ void Editor::showDrag(Moved moved)
 {
     QVector<Item> items;
     for (Change &change : m_drag->changes) {
-        change.after = moved(*change.before);
-        items.append(*change.after);
+        change = Change::updated(*change.before(), moved(*change.before()));
+        items.append(*change.after());
     }
     m_canvas.showUncommitted(items);
 }
@@ -391,7 +391,7 @@ void Editor::cancelDrag()
         return;
     QVector<Item> originals;
     for (const Change &change : std::as_const(m_drag->changes))
-        originals.append(*change.before);
+        originals.append(*change.before());
     m_canvas.showUncommitted(originals);
     m_drag.reset();
     emit draggingChanged();
@@ -439,7 +439,7 @@ void Editor::nudge(QPointF steps)
     const QPointF delta = steps * Geometry::GridSize;
     Transaction t;
     for (const Item &item : itemsMovingWithSelection())
-        t.append({item, translated(item, delta)});
+        t.append(Change::updated(item, translated(item, delta)));
     commit(t, tr("Move"));
 }
 
@@ -576,7 +576,7 @@ void Editor::connectNodes(const QString &from, const QString &to, Side toSide)
     if (from == to || !document().node(from) || !document().node(to))
         return;
     const Connection c = newConnection(from, to, toSide);
-    commit({{std::nullopt, c}}, tr("Connect"));
+    commit({Change::added(c)}, tr("Connect"));
     setSelection({c.id});
 }
 
@@ -585,7 +585,7 @@ QString Editor::connectToNewCard(const QString &from, QPointF center)
     if (!document().node(from))
         return {};
     const Node card = newCard(center);
-    commit({{std::nullopt, card}, {std::nullopt, newConnection(from, card.id, Side::Floating)}}, tr("Add connected card"));
+    commit({Change::added(card), Change::added(newConnection(from, card.id, Side::Floating))}, tr("Add connected card"));
     setSelection({card.id});
     return card.id;
 }
@@ -604,7 +604,7 @@ void Editor::reattach(const QString &connectionId, bool fromEnd, const QString &
         c.toSide = side;
     }
     if (c.fromNode != c.toNode && c != *existing)
-        commit({{*existing, c}}, tr("Reattach connection"));
+        commit({Change::updated(*existing, c)}, tr("Reattach connection"));
 }
 
 void Editor::removeWaypoint(const QString &connectionId, int index)
@@ -698,7 +698,7 @@ void Editor::paste(QPointF center)
     } else if (!text.trimmed().isEmpty()) {
         // Text copied from somewhere else becomes a new card.
         const Node card = newCard(center, text.trimmed());
-        commit({{std::nullopt, card}}, tr("Paste"));
+        commit({Change::added(card)}, tr("Paste"));
         setSelection({card.id});
     }
 }

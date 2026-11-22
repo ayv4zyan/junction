@@ -17,11 +17,12 @@ enum class Side { Floating, Top, Right, Bottom, Left };   // Floating: no Pinned
 Q_ENUM_NS(Side)
 enum class PathStyle { Straight, Curved, Elbow };
 Q_ENUM_NS(PathStyle)
+enum class NodeKind { Text, Group, Unsupported };
+Q_ENUM_NS(NodeKind)
 } // namespace CanvasEnums
 using CanvasEnums::Side;
 using CanvasEnums::PathStyle;
-
-enum class NodeKind { Text, Group, Unsupported };
+using CanvasEnums::NodeKind;
 
 QString sideToString(Side side);
 Side sideFromString(const QString &text);

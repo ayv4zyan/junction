@@ -35,7 +35,7 @@ Insertion insertion(const QJsonObject &fragment, QPointF offset)
         Node n = Node::fromJson(value.toObject());
         n.id = newIds[n.id] = Document::newId();
         n.rect.translate(offset);
-        result.transaction.append({std::nullopt, n});
+        result.transaction.append(Change::added(n));
         result.nodeIds.append(n.id);
     }
     for (const QJsonValue &value : fragment["edges"].toArray()) {
@@ -47,7 +47,7 @@ Insertion insertion(const QJsonObject &fragment, QPointF offset)
         c.toNode = newIds[c.toNode];
         for (QPointF &p : c.waypoints)
             p += offset;
-        result.transaction.append({std::nullopt, c});
+        result.transaction.append(Change::added(c));
     }
     return result;
 }

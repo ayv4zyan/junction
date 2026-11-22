@@ -59,13 +59,7 @@ QVariant NodeModel::data(const QModelIndex &index, int role) const
 
     switch (role) {
     case IdRole: return n->id;
-    case KindRole:
-        switch (n->kind) {
-        case NodeKind::Text: return QStringLiteral("text");
-        case NodeKind::Group: return QStringLiteral("group");
-        case NodeKind::Unsupported: return QStringLiteral("unsupported");
-        }
-        break;
+    case KindRole: return int(n->kind);   // QML compares it with CanvasEnums.NodeKind
     case XRole: return n->rect.x();
     case YRole: return n->rect.y();
     case WidthRole: return n->rect.width();

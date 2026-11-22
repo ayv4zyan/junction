@@ -7,17 +7,29 @@
 #include <QSet>
 #include <optional>
 
-// One edit to one item. Every modification of a Document is expressed as Changes, which is
-// what makes undo trivial (swap before/after) and what phase 2 will send over the network.
-//   add:    before empty, after set
-//   remove: before set,   after empty
-//   update: both set
-struct Change
+// One edit to one item: it is added, removed, or updated. Every modification of a Document is
+// expressed as Changes, which is what makes undo trivial (swap before and after) and what
+// phase 2 will send over the network. A Change always has at least one side.
+class Change
 {
-    std::optional<Item> before;
-    std::optional<Item> after;
+public:
+    static Change added(const Item &item) { return {std::nullopt, item}; }
+    static Change removed(const Item &item) { return {item, std::nullopt}; }
+    static Change updated(const Item &before, const Item &after) { return {before, after}; }
 
-    Change inverted() const { return {after, before}; }
+    const std::optional<Item> &before() const { return m_before; }   // empty when added
+    const std::optional<Item> &after() const { return m_after; }     // empty when removed
+    bool changesNothing() const { return m_before == m_after; }
+    Change inverted() const { return {m_after, m_before}; }
+
+private:
+    Change(std::optional<Item> before, std::optional<Item> after)
+        : m_before(std::move(before)), m_after(std::move(after))
+    {
+    }
+
+    std::optional<Item> m_before;
+    std::optional<Item> m_after;
 };
 
 // A user action: all its Changes are done and undone together.

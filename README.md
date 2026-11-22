@@ -83,5 +83,6 @@ starting it again brings the window forward.
   [its README](src/design/README.md) for the rules.
 - `src/app` — `Editor` (the object QML talks to), `NodeModel`, `LibraryModel` (the sidebar),
   the painted grid/connection layers, and the QML screens, built from `src/design`.
-- `tests` — Qt Test unit tests for the core and the Editor, and a check that the app's QML uses
-  the design tokens.
+- `tests` — Qt Test unit tests for the core and the Editor, the design check's rules, and that the
+  C++ side's design values match the tokens. CI (`.github/workflows/ci.yml`) builds and tests every
+  pull request; the build itself fails on QML that goes around the design system.

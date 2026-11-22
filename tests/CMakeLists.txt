@@ -16,8 +16,13 @@ target_link_libraries(tst_editor PRIVATE junction_core Qt6::Test Qt6::Gui Qt6::Q
 add_test(NAME tst_editor COMMAND tst_editor)
 set_tests_properties(tst_editor PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 
-# The app's QML uses the design tokens, never raw colors, font sizes or durations.
-qt_add_executable(tst_design_tokens tst_design_tokens.cpp)
-target_compile_definitions(tst_design_tokens PRIVATE JUNCTION_APP_QML_DIR="${CMAKE_SOURCE_DIR}/src/app/qml")
-target_link_libraries(tst_design_tokens PRIVATE Qt6::Test)
-add_test(NAME tst_design_tokens COMMAND tst_design_tokens)
+# The design check's rules (src/design/check): what goes around the design system is rejected.
+qt_add_executable(tst_design_check tst_design_check.cpp)
+target_link_libraries(tst_design_check PRIVATE junction_design_check Qt6::Test)
+add_test(NAME tst_design_check COMMAND tst_design_check)
+
+# The design values the C++ side copies (src/core/DesignValues.h) match the tokens.
+qt_add_executable(tst_design_values tst_design_values.cpp)
+target_link_libraries(tst_design_values PRIVATE junction_core junction_design junction_designplugin Qt6::Test Qt6::Qml Qt6::Gui)
+add_test(NAME tst_design_values COMMAND tst_design_values)
+set_tests_properties(tst_design_values PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)

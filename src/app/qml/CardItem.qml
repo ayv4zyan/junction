@@ -41,7 +41,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: Sizes.radius
-        color: card.nodeColor ? Qt.tint(Colors.cardFill, Qt.alpha(card.accent, 0.12)) : Colors.cardFill
+        color: card.nodeColor ? Qt.tint(Colors.cardFill, Qt.alpha(card.accent, Colors.cardTint)) : Colors.cardFill
         border.color: card.selected ? Colors.selection : card.accent
         border.width: card.selected ? 2 : 1.5
     }

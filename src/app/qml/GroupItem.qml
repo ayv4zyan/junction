@@ -37,7 +37,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: Sizes.radius
-        color: Qt.alpha(group.accent, 0.08)
+        color: Qt.alpha(group.accent, Colors.groupTint)
         border.color: group.selected ? Colors.selection : group.accent
         border.width: group.selected ? 2 : 1.5
     }

@@ -30,4 +30,5 @@ qt_add_qml_module(junction_design
 target_include_directories(junction_design PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(junction_design PRIVATE Qt6::Gui Qt6::Quick Qt6::QuickControls2)
 
+add_subdirectory(check)
 add_subdirectory(gallery)

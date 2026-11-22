@@ -102,7 +102,7 @@ Item {
             }
             visible: field.problem !== ""
             text: field.problem
-            delay: 0
+            delay: 0   // design-exception: why a name can't be used shows at once, while typing
             timeout: -1
             closePolicy: Popup.NoAutoClose
         }

@@ -1,6 +1,7 @@
 #include "Editor.h"
 
 #include "CanvasPainter.h"
+#include "DesignValues.h"
 #include "Geometry.h"
 #include "TransactionCommand.h"
 
@@ -17,7 +18,6 @@ namespace {
 constexpr QSizeF CardSize(240, 80);
 constexpr QSizeF GroupSize(480, 320);
 constexpr QSizeF MinimumSize(80, 40);
-constexpr qreal GroupLabelSpace = 32;   // GroupItem's label bar above a Group: 28px high, 4px up
 
 Item translated(Item item, QPointF delta)
 {
@@ -276,7 +276,7 @@ QRectF Editor::selectionBounds() const
     QRectF bounds;
     for (const QString &id : m_selection) {
         if (const Node *n = m_document.node(id)) {
-            const qreal labelSpace = n->kind == NodeKind::Group ? GroupLabelSpace : 0;
+            const qreal labelSpace = n->kind == NodeKind::Group ? DesignValues::GroupLabelSpace : 0;
             bounds = bounds.united(n->rect.adjusted(0, -labelSpace, 0, 0));
         } else if (const Connection *c = m_document.connection(id)) {
             const Node *from = m_document.node(c->fromNode);

@@ -32,6 +32,14 @@ qt_add_qml_module(junction
         CanvasLayers.h CanvasLayers.cpp
 )
 
+# Every build first checks that the app's QML uses the design system (src/design/check);
+# code that goes around it fails the build.
+add_custom_target(junction_design_check_app ALL
+    COMMAND design-check ${CMAKE_CURRENT_SOURCE_DIR}/qml
+    COMMENT "Checking that the app's QML uses the design system"
+    VERBATIM)
+add_dependencies(junction junction_design_check_app)
+
 # The look comes from JunctionDesign (src/design): its tokens, controls style and components.
 target_link_libraries(junction PRIVATE junction_core junction_design junction_designplugin
     Qt6::Network Qt6::Quick Qt6::QuickControls2)

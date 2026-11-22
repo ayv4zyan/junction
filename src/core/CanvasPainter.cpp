@@ -1,4 +1,5 @@
 #include "CanvasPainter.h"
+#include "DesignValues.h"
 
 #include <QAbstractTextDocumentLayout>
 #include <QFontMetricsF>
@@ -9,13 +10,9 @@
 
 namespace {
 
-constexpr qreal CardPadding = 12;
-constexpr qreal GroupTint = 0.08;      // how strongly a Group tints the Canvas (GroupItem.qml too)
+using namespace DesignValues;   // LabelFontSize, CardFontSize, CardPadding, LabelPadding*, *Tint
 constexpr qreal ArrowLength = 12;
 constexpr qreal LineWidth = 2;
-constexpr int LabelFontSize = 13;      // LabelEditor.qml uses the same sizes
-constexpr qreal LabelPaddingX = 6;
-constexpr qreal LabelPaddingY = 3;
 
 // The application font (Geist, see JunctionDesign::installFonts) at a pixel size, matching the
 // sizes used in QML.
@@ -43,7 +40,7 @@ void drawMarkdown(QPainter &painter, const QString &markdown, const QRectF &rect
     // Two spaces before a newline mark a hard break in Markdown.
     document.setMarkdown(QString(markdown).replace('\n', QStringLiteral("  \n")));
     document.setTextWidth(rect.width());
-    document.setDefaultFont(font(15));
+    document.setDefaultFont(font(CardFontSize));
 
     QAbstractTextDocumentLayout::PaintContext context;
     context.palette.setColor(QPalette::Text, color);
@@ -169,7 +166,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
         fill.setAlphaF(GroupTint);
         painter.setBrush(fill);
         painter.drawRoundedRect(node.rect, palette.radius, palette.radius);
-        painter.setFont(font(15, QFont::Bold));
+        painter.setFont(font(CardFontSize, QFont::Bold));
         painter.setPen(palette.text);
         painter.drawText(node.rect.topLeft() + QPointF(4, -8), node.label);
         return;
@@ -179,7 +176,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
     painter.drawRoundedRect(node.rect, palette.radius, palette.radius);
     if (!node.color.isEmpty()) {   // colored cards get a light tint of their color
         QColor tint = accent;
-        tint.setAlphaF(0.12);
+        tint.setAlphaF(CardTint);
         painter.setBrush(tint);
         painter.drawRoundedRect(node.rect, palette.radius, palette.radius);
     }
@@ -189,7 +186,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
         drawMarkdown(painter, node.text, content, palette.text);
     } else {
         painter.setPen(palette.mutedText);
-        painter.setFont(font(15));
+        painter.setFont(font(CardFontSize));
         painter.drawText(content, Qt::AlignCenter | Qt::TextWordWrap,
                          QStringLiteral("Unsupported: %1").arg(node.raw["type"].toString()));
     }

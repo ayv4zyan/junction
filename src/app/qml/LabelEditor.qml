@@ -17,8 +17,9 @@ Rectangle {
     readonly property point center: editor.selectedConnection.labelPosition ?? Qt.point(0, 0)
 
     visible: connectionId !== ""
-    width: Math.max(input.contentWidth, placeholder.implicitWidth) + 12
-    height: input.contentHeight + 6
+    // The painted Label's padding (DesignValues::LabelPadding*, copies of these tokens).
+    width: Math.max(input.contentWidth, placeholder.implicitWidth) + 2 * Space.sm
+    height: input.contentHeight + 2 * Space.xs
     x: center.x - width / 2
     y: center.y - height / 2
     radius: Sizes.radius

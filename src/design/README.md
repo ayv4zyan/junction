@@ -22,9 +22,8 @@ every state, in both themes.
 
 1. **Tokens, never typed-in values.** Screens take colors from `Colors`, spacing from `Space`,
    heights and icon sizes from `Sizes`, text sizes from `Fonts`, timing from `Motion`; the values
-   themselves live only here. `tst_design_tokens` (run by `ctest`) fails on raw colors, font sizes
-   and durations in the app's QML. The exceptions are hairlines (1px, 1.5px), offsets of a few
-   pixels around an outline, and sizes in canvas units divided by the zoom.
+   themselves live only here. Hairlines (1px, 1.5px), offsets of a few pixels around an outline,
+   and sizes in canvas units divided by the zoom are fine as numbers.
 2. **Square.** Every corner is `Sizes.radius` (0): panels, buttons, rows, swatches, Cards,
    exports. Something is round only when it marks a *point*, not a surface: Handles and Waypoints.
 3. **Compact, on a 4px grid.** Controls and rows are 28px (`Sizes.control`), toolbars 40px.
@@ -41,6 +40,21 @@ every state, in both themes.
    in and take 2/3 of the time (`Motion.out()`). Nothing the pointer moves directly (dragging,
    panning, zooming) is ever animated.
 
+## How it is enforced
+
+- **The build checks the app.** `design-check` (in `check/`) runs over `src/app/qml` before the app
+  builds, and fails the build on code that goes around the design system: colors (hex, `Qt.rgba`,
+  named), font sizes, `pointSize`, font families, durations and delays, `Easing` curves, rounded
+  corners, and importing a specific Controls style or `QtQuick.Templates`. Its rules are tested in
+  `tst_design_check`. A line that really must differ says why:
+  `delay: 0   // design-exception: shows at once, while typing`.
+- **The C++ side's copies** of design values (`src/core/DesignValues.h`, for painting and export)
+  are compared with the tokens by `tst_design_values`.
+- **CI** (`.github/workflows/ci.yml`) builds and tests every pull request, so all of this applies
+  even when nothing was run locally.
+- **The boundary:** `junction-gallery` links this module alone, so it stops building if the module
+  ever depends on the app.
+
 ## What's here
 
 | Kind | Files |
@@ -49,6 +63,7 @@ every state, in both themes.
 | Controls style | `ApplicationWindow` `Label` `Button` `ToolButton` `TextField` `CheckBox` `Menu` `MenuItem` `MenuSeparator` `ToolTip` `Dialog` `ScrollBar` `ToolBar` (anything else falls back to Fusion) |
 | Components | `Floating` (the floating surface), `Toast` (message + optional action), `Swatch` (a color to pick), `Separator`, `AskDialog` (`confirm` / `text`), `MenuEntry` (menu item with a shortcut hint, optionally red), `TextMenu` (cut/copy/paste for any text field), `FocusRing` |
 | Typeface | `fonts/` (Geist, SIL Open Font License), installed by `JunctionDesign::installFonts()` |
+| Check | `check/`: `design-check`, run by the app's build (see above) |
 
 Screen pieces (sidebar rows, the selection toolbar, Cards) are built *from* these, but live in the
 app.

@@ -14,7 +14,7 @@ Rectangle {
     readonly property Editor editor: canvas.editor
     readonly property string connectionId: canvas.labelingId
     // The label stays where the Connection's middle is, even when its cards move (undo).
-    readonly property point center: editor.selectedConnection.labelPosition ?? Qt.point(0, 0)
+    readonly property point center: editor.selectedConnection.labelPosition
 
     visible: connectionId !== ""
     // The painted Label's padding (DesignValues::LabelPadding*, copies of these tokens).
@@ -38,7 +38,7 @@ Rectangle {
     function finish() {
         const id = connectionId
         canvas.endLabelEditing()
-        editor.setConnectionLabel(id, input.text)
+        editor.setLabel(id, input.text)
     }
 
     // Selecting something else, or the Connection going away (undo), ends editing, also while

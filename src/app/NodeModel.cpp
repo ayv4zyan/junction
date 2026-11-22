@@ -70,14 +70,9 @@ QVariant NodeModel::data(const QModelIndex &index, int role) const
     case YRole: return n->rect.y();
     case WidthRole: return n->rect.width();
     case HeightRole: return n->rect.height();
-    case TextRole:
-        switch (n->kind) {
-        case NodeKind::Text: return n->text;
-        case NodeKind::Group: return n->label;
-        case NodeKind::Unsupported: return n->unsupportedText();
-        }
-        break;
-    case MarkdownRole: return n->markdown();
+    case TextRole: return n->text;
+    case LabelRole: return n->label;
+    case DisplayTextRole: return n->kind == NodeKind::Unsupported ? n->unsupportedText() : n->markdown();
     case ColorRole: return n->color;
     }
     return {};
@@ -89,7 +84,7 @@ QHash<int, QByteArray> NodeModel::roleNames() const
         {IdRole, "nodeId"},     {KindRole, "kind"},
         {XRole, "nodeX"},       {YRole, "nodeY"},
         {WidthRole, "nodeWidth"}, {HeightRole, "nodeHeight"},
-        {TextRole, "text"},     {ColorRole, "nodeColor"},
-        {MarkdownRole, "markdown"},
+        {TextRole, "text"},     {LabelRole, "label"},
+        {DisplayTextRole, "displayText"}, {ColorRole, "nodeColor"},
     };
 }

@@ -13,9 +13,8 @@ Item {
     required property CanvasView canvas
     readonly property Editor editor: canvas.editor
     readonly property var connection: editor.selectedConnection   // see Editor::selectedConnection()
-    readonly property bool active: connection.id !== undefined
-    // The label's box, or an empty one (also for a moment while the selection changes).
-    readonly property rect labelBox: connection.labelRect ?? Qt.rect(0, 0, 0, 0)
+    readonly property bool active: connection.valid
+    readonly property rect labelBox: connection.labelRect   // empty without a label
     property bool draggingWaypoint: false
 
     // The dots come from ListModels that are updated in place. Rebuilding a Repeater's model
@@ -46,7 +45,7 @@ Item {
     // -1. Only that span's dot hands its drag to the whole label; a long label can cover the
     // dots of neighbouring spans too, and those are just hidden.
     readonly property int labelSpan: {
-        const points = connection.midpoints ?? []
+        const points = connection.midpoints
         const centre = connection.labelPosition
         let best = -1
         let bestDistance = Infinity

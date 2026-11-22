@@ -214,7 +214,7 @@ Item {
 
     Connections {
         target: view.editor
-        function onDocumentLoaded() {
+        function onCanvasOpened() {
             view.editText("")
             if (view.labelingId) {   // the Connection belonged to the Canvas shown before
                 view.endLabelEditing()

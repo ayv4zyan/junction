@@ -15,8 +15,8 @@ Item {
     required property real nodeY
     required property real nodeWidth
     required property real nodeHeight
-    required property string text
-    required property string markdown   // the text as displayed (see Node::markdown)
+    required property string text          // the Markdown, as typed
+    required property string displayText   // what the card shows (see NodeModel)
     required property string nodeColor
 
     readonly property Editor editor: canvas.editor
@@ -34,7 +34,7 @@ Item {
     height: nodeHeight
 
     function finishEditing() {
-        editor.setText(nodeId, textEdit.text)
+        editor.setCardText(nodeId, textEdit.text)
         canvas.endTextEditing(nodeId)
     }
 
@@ -89,7 +89,7 @@ Item {
             width: scroller.width
             height: Math.max(implicitHeight, scroller.height)
             visible: !card.editing
-            text: card.kind === "text" ? card.markdown : card.text
+            text: card.displayText
             textFormat: card.kind === "text" ? Text.MarkdownText : Text.PlainText
             color: card.kind === "text" ? Colors.text : Colors.mutedText
             horizontalAlignment: card.kind === "text" ? Text.AlignLeft : Text.AlignHCenter

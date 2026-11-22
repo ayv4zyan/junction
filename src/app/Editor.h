@@ -23,6 +23,62 @@
 #include <optional>
 #include <variant>
 
+// What the right-click menus need to know about the selection.
+struct SelectionSummary
+{
+    Q_GADGET
+    QML_VALUE_TYPE(selectionSummary)
+    Q_PROPERTY(int cards MEMBER cards)
+    Q_PROPERTY(int editableCards MEMBER editableCards)
+    Q_PROPERTY(int groups MEMBER groups)
+    Q_PROPERTY(int connections MEMBER connections)
+    Q_PROPERTY(int labeledConnections MEMBER labeledConnections)
+    Q_PROPERTY(QStringList labelTargets MEMBER labelTargets)
+    Q_PROPERTY(QString sharedLabel MEMBER sharedLabel)
+
+public:
+    int cards = 0;
+    int editableCards = 0;        // Text Cards; an Unsupported Card can't be edited
+    int groups = 0;
+    int connections = 0;
+    int labeledConnections = 0;
+    QStringList labelTargets;     // the selected items that have a Label: Groups and Connections
+    QString sharedLabel;          // the Label they all have, or "" when they differ
+};
+
+// Everything the overlay and the toolbar need to edit the one selected Connection.
+struct ConnectionDetails
+{
+    Q_GADGET
+    QML_VALUE_TYPE(connectionDetails)
+    Q_PROPERTY(bool valid MEMBER valid)
+    Q_PROPERTY(QString id MEMBER id)
+    Q_PROPERTY(QString style MEMBER style)
+    Q_PROPERTY(bool fromArrow MEMBER fromArrow)
+    Q_PROPERTY(bool toArrow MEMBER toArrow)
+    Q_PROPERTY(QString label MEMBER label)
+    Q_PROPERTY(QList<QPointF> waypoints MEMBER waypoints)
+    Q_PROPERTY(QList<QPointF> midpoints MEMBER midpoints)
+    Q_PROPERTY(QPointF start MEMBER start)
+    Q_PROPERTY(QPointF end MEMBER end)
+    Q_PROPERTY(QPointF labelPosition MEMBER labelPosition)
+    Q_PROPERTY(QRectF labelRect MEMBER labelRect)
+
+public:
+    bool valid = false;           // false unless exactly one Connection (with both ends) is selected
+    QString id;
+    QString style;                // "straight", "curved" or "elbow"
+    bool fromArrow = false;
+    bool toArrow = false;
+    QString label;
+    QList<QPointF> waypoints;
+    QList<QPointF> midpoints;     // one per span between its ends and Waypoints
+    QPointF start;
+    QPointF end;
+    QPointF labelPosition;
+    QRectF labelRect;             // empty without a label
+};
+
 class Editor : public QObject
 {
     Q_OBJECT
@@ -33,15 +89,15 @@ class Editor : public QObject
     Q_PROPERTY(NodeModel *cards READ cards CONSTANT)
     Q_PROPERTY(NodeModel *groups READ groups CONSTANT)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
-    Q_PROPERTY(QVariantMap selectedConnection READ selectedConnection NOTIFY selectionDetailsChanged)
-    Q_PROPERTY(QString selectionColor READ selectionColor NOTIFY selectionDetailsChanged)
-    Q_PROPERTY(QVariantMap selectionInfo READ selectionInfo NOTIFY selectionDetailsChanged)
-    Q_PROPERTY(QRectF selectionBounds READ selectionBounds NOTIFY selectionDetailsChanged)
+    Q_PROPERTY(ConnectionDetails selectedConnection READ selectedConnection NOTIFY selectedItemsChanged)
+    Q_PROPERTY(QString selectionColor READ selectionColor NOTIFY selectedItemsChanged)
+    Q_PROPERTY(SelectionSummary selectionSummary READ selectionSummary NOTIFY selectedItemsChanged)
+    Q_PROPERTY(QRectF selectionBounds READ selectionBounds NOTIFY selectedItemsChanged)
     Q_PROPERTY(bool dragging READ isDragging NOTIFY draggingChanged)   // moving, resizing, or a Waypoint
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
-    Q_PROPERTY(QString loadError READ loadError NOTIFY documentLoaded)   // why the Canvas can't be shown
+    Q_PROPERTY(QString loadError READ loadError NOTIFY canvasOpened)   // why the Canvas can't be shown
     Q_PROPERTY(bool snapToGrid READ snapToGrid WRITE setSnapToGrid NOTIFY snapToGridChanged)
 
 public:
@@ -63,11 +119,9 @@ public:
     NodeModel *cards() { return &m_cards; }
     NodeModel *groups() { return &m_groups; }
     QStringList selection() const { return m_selection; }
-    QVariantMap selectedConnection() const;
+    ConnectionDetails selectedConnection() const;
     QString selectionColor() const;   // color of the selected items, "" if mixed or default
-    // What the right-click menus need to know about the selection: how many Cards, Groups and
-    // Connections it holds, which of them have a Label, and the Label they share (if any).
-    QVariantMap selectionInfo() const;
+    SelectionSummary selectionSummary() const;
     // The world rectangle around everything selected (empty when nothing is); the floating
     // selection toolbar sits against it.
     QRectF selectionBounds() const;
@@ -89,7 +143,7 @@ public:
     // Creating and editing
     Q_INVOKABLE QString createCard(QPointF center);
     Q_INVOKABLE QString createGroup(QPointF center);   // around the selection, if any
-    Q_INVOKABLE void setText(const QString &id, const QString &text);   // Card text or Group label
+    Q_INVOKABLE void setCardText(const QString &id, const QString &text);
     Q_INVOKABLE void setColor(const QString &color);
     Q_INVOKABLE void deleteSelection();
     Q_INVOKABLE void nudge(QPointF steps);   // arrow keys: moves the selection by whole grid steps
@@ -124,7 +178,7 @@ public:
     Q_INVOKABLE void removeWaypoint(const QString &connectionId, int index);
     Q_INVOKABLE void setConnectionStyle(const QString &style);
     Q_INVOKABLE void setArrows(bool fromArrow, bool toArrow);
-    Q_INVOKABLE void setConnectionLabel(const QString &connectionId, const QString &label);
+    Q_INVOKABLE void setLabel(const QString &id, const QString &label);   // of a Group or a Connection
     Q_INVOKABLE void setLabels(const QString &label);   // of every selected Group and Connection
     Q_INVOKABLE void removeConnectionLabels();          // of every selected Connection
 
@@ -151,12 +205,12 @@ public:
 
 signals:
     void selectionChanged();
-    void selectionDetailsChanged();   // the selection, or something about the selected items
+    void selectedItemsChanged();   // the selection, or something about the selected items
     void historyChanged();
     void filePathChanged();
     void snapToGridChanged();
     void previewChanged();
-    void documentLoaded();
+    void canvasOpened();   // another Canvas is shown; the Document was replaced
     void draggingChanged();
     void errorOccurred(const QString &message);
 
@@ -199,7 +253,8 @@ private:
     void endDrag(const QString &text);
     void showDraggedWaypointAt(QPointF point);
 
-    QVector<Connection> selectedConnections() const;
+    template <typename EditNode, typename EditConnection>
+    Transaction editedSelection(EditNode editNode, EditConnection editConnection) const;
     void insertFragment(const QJsonObject &fragment, QPointF offset);
 
     void loadCurrent();

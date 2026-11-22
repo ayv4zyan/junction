@@ -27,6 +27,9 @@ Item translated(Item item, QPointF delta)
     return item;
 }
 
+// For editedSelection(): leaves the selected nodes as they are.
+void keepNode(Node &) {}
+
 // The Change that applies `edit` to a copy of `item`.
 template <typename T, typename Edit>
 Change edited(const T &item, Edit edit)
@@ -34,14 +37,6 @@ Change edited(const T &item, Edit edit)
     T changed = item;
     edit(changed);
     return {item, changed};
-}
-
-QVariantList toVariantList(const QVector<QPointF> &points)
-{
-    QVariantList list;
-    for (const QPointF &p : points)
-        list.append(p);
-    return list;
 }
 
 } // namespace
@@ -57,7 +52,7 @@ Editor::Editor(const QString &libraryFolder, QObject *parent)
     connect(&m_library, &Library::canvasRemoved, &m_canvas, &OpenCanvas::fileRemoved);
     connect(&m_library, &Library::errorOccurred, this, &Editor::errorOccurred);
 
-    connect(&m_canvas, &OpenCanvas::opened, this, &Editor::documentLoaded);
+    connect(&m_canvas, &OpenCanvas::opened, this, &Editor::canvasOpened);
     connect(&m_canvas, &OpenCanvas::filePathChanged, this, &Editor::filePathChanged);
     connect(&m_canvas, &OpenCanvas::historyChanged, this, &Editor::historyChanged);
     connect(&m_canvas, &OpenCanvas::errorOccurred, this, &Editor::errorOccurred);
@@ -110,7 +105,7 @@ void Editor::setSelection(const QStringList &ids)
         return;
     m_selection = ids;
     emit selectionChanged();
-    emit selectionDetailsChanged();
+    emit selectedItemsChanged();
 }
 
 // Drops ids of items that no longer exist (deleted, undone) from the selection.
@@ -122,7 +117,7 @@ void Editor::pruneSelection()
             kept.append(id);
     }
     setSelection(kept);
-    emit selectionDetailsChanged();
+    emit selectedItemsChanged();
 }
 
 void Editor::select(const QString &id, bool toggle)
@@ -165,37 +160,25 @@ void Editor::clearSelection()
     setSelection({});
 }
 
-QVector<Connection> Editor::selectedConnections() const
+ConnectionDetails Editor::selectedConnection() const
 {
-    QVector<Connection> result;
-    for (const QString &id : m_selection) {
-        if (const Connection *c = document().connection(id))
-            result.append(*c);
-    }
-    return result;
-}
-
-// Everything the overlay and toolbar need to edit the one selected Connection.
-QVariantMap Editor::selectedConnection() const
-{
-    if (m_selection.size() != 1)
-        return {};
-    const Connection *c = document().connection(m_selection.first());
+    const Connection *c = m_selection.size() == 1 ? document().connection(m_selection.first()) : nullptr;
     const auto route = c ? document().route(*c) : std::nullopt;
     if (!route)
         return {};
     return {
-        {"id", c->id},
-        {"style", pathStyleToString(c->style)},
-        {"fromArrow", c->fromArrow},
-        {"toArrow", c->toArrow},
-        {"label", c->label},
-        {"waypoints", toVariantList(c->waypoints)},
-        {"midpoints", toVariantList(route->midpoints)},
-        {"start", route->start},
-        {"end", route->end},
-        {"labelPosition", route->labelPosition},
-        {"labelRect", CanvasPainter::labelRect(*route, c->label)},
+        .valid = true,
+        .id = c->id,
+        .style = pathStyleToString(c->style),
+        .fromArrow = c->fromArrow,
+        .toArrow = c->toArrow,
+        .label = c->label,
+        .waypoints = c->waypoints,
+        .midpoints = route->midpoints,
+        .start = route->start,
+        .end = route->end,
+        .labelPosition = route->labelPosition,
+        .labelRect = CanvasPainter::labelRect(*route, c->label),
     };
 }
 
@@ -212,40 +195,32 @@ QString Editor::selectionColor() const
     return colors.size() == 1 ? colors.first() : QString();
 }
 
-QVariantMap Editor::selectionInfo() const
+SelectionSummary Editor::selectionSummary() const
 {
-    int cards = 0, editableCards = 0, groups = 0, connections = 0, labeledConnections = 0;
-    QStringList labelTargets;   // the selected items that have a Label: Groups and Connections
+    SelectionSummary summary;
     QStringList labels;
     for (const QString &id : m_selection) {
         if (const Node *n = document().node(id)) {
             if (n->kind == NodeKind::Group) {
-                ++groups;
-                labelTargets.append(id);
+                ++summary.groups;
+                summary.labelTargets.append(id);
                 labels.append(n->label);
             } else {
-                ++cards;
-                if (n->kind == NodeKind::Text)   // an Unsupported Card can't be edited
-                    ++editableCards;
+                ++summary.cards;
+                if (n->kind == NodeKind::Text)
+                    ++summary.editableCards;
             }
         } else if (const Connection *c = document().connection(id)) {
-            ++connections;
-            labelTargets.append(id);
+            ++summary.connections;
+            summary.labelTargets.append(id);
             labels.append(c->label);
             if (!c->label.isEmpty())
-                ++labeledConnections;
+                ++summary.labeledConnections;
         }
     }
     labels.removeDuplicates();
-    return {
-        {"cards", cards},
-        {"editableCards", editableCards},
-        {"groups", groups},
-        {"connections", connections},
-        {"labeledConnections", labeledConnections},
-        {"labelTargets", labelTargets},
-        {"sharedLabel", labels.size() == 1 ? labels.first() : QString()},
-    };
+    summary.sharedLabel = labels.size() == 1 ? labels.first() : QString();
+    return summary;
 }
 
 QRectF Editor::selectionBounds() const
@@ -311,23 +286,32 @@ QString Editor::createGroup(QPointF center)
     return group.id;
 }
 
-void Editor::setText(const QString &id, const QString &text)
+void Editor::setCardText(const QString &id, const QString &text)
 {
     const Node *existing = document().node(id);
-    if (existing)
-        commit({edited(*existing, [&](Node &n) { (n.kind == NodeKind::Group ? n.label : n.text) = text; })}, tr("Edit text"));
+    if (existing && existing->kind == NodeKind::Text)
+        commit({edited(*existing, [&](Node &n) { n.text = text; })}, tr("Edit text"));
 }
 
-void Editor::setColor(const QString &color)
+// The Changes that apply `editNode` to every selected node and `editConnection` to every
+// selected Connection. Items they leave as they were are dropped when committed.
+template <typename EditNode, typename EditConnection>
+Transaction Editor::editedSelection(EditNode editNode, EditConnection editConnection) const
 {
     Transaction t;
     for (const QString &id : m_selection) {
         if (const Node *n = document().node(id))
-            t.append(edited(*n, [&](Node &changed) { changed.color = color; }));
+            t.append(edited(*n, editNode));
         else if (const Connection *c = document().connection(id))
-            t.append(edited(*c, [&](Connection &changed) { changed.color = color; }));
+            t.append(edited(*c, editConnection));
     }
-    commit(t, tr("Change color"));
+    return t;
+}
+
+void Editor::setColor(const QString &color)
+{
+    commit(editedSelection([&](Node &n) { n.color = color; }, [&](Connection &c) { c.color = color; }),
+           tr("Change color"));
 }
 
 void Editor::deleteSelection()
@@ -629,51 +613,43 @@ void Editor::removeWaypoint(const QString &connectionId, int index)
 
 void Editor::setConnectionStyle(const QString &style)
 {
-    Transaction t;
-    for (const Connection &c : selectedConnections())
-        t.append(edited(c, [&](Connection &changed) { changed.style = pathStyleFromString(style, c.style); }));
-    commit(t, tr("Change path style"));
+    commit(editedSelection(keepNode, [&](Connection &c) { c.style = pathStyleFromString(style, c.style); }),
+           tr("Change path style"));
 }
 
 void Editor::setArrows(bool fromArrow, bool toArrow)
 {
-    Transaction t;
-    for (const Connection &c : selectedConnections()) {
-        t.append(edited(c, [&](Connection &changed) {
-            changed.fromArrow = fromArrow;
-            changed.toArrow = toArrow;
-        }));
-    }
-    commit(t, tr("Change arrows"));
+    commit(editedSelection(keepNode, [&](Connection &c) {
+               c.fromArrow = fromArrow;
+               c.toArrow = toArrow;
+           }),
+           tr("Change arrows"));
 }
 
-void Editor::setConnectionLabel(const QString &connectionId, const QString &label)
+// Only Groups and Connections have a Label. A Label of only spaces would be an empty box, so
+// spaces around it are dropped.
+void Editor::setLabel(const QString &id, const QString &label)
 {
-    const Connection *existing = document().connection(connectionId);
-    const QString trimmed = label.trimmed();   // a label of only spaces would be an empty box
-    if (existing)
-        commit({edited(*existing, [&](Connection &c) { c.label = trimmed; })}, tr("Edit label"));
+    const QString trimmed = label.trimmed();
+    if (const Node *n = document().node(id); n && n->kind == NodeKind::Group)
+        commit({edited(*n, [&](Node &group) { group.label = trimmed; })}, tr("Edit label"));
+    else if (const Connection *c = document().connection(id))
+        commit({edited(*c, [&](Connection &changed) { changed.label = trimmed; })}, tr("Edit label"));
 }
 
-void Editor::setLabels(const QString &text)
+void Editor::setLabels(const QString &label)
 {
-    const QString label = text.trimmed();   // like setConnectionLabel: only spaces means no label
-    Transaction t;
-    for (const QString &id : m_selection) {
-        if (const Node *n = document().node(id); n && n->kind == NodeKind::Group)
-            t.append(edited(*n, [&](Node &changed) { changed.label = label; }));
-        else if (const Connection *c = document().connection(id))
-            t.append(edited(*c, [&](Connection &changed) { changed.label = label; }));
-    }
-    commit(t, tr("Edit label"));
+    const QString trimmed = label.trimmed();   // as in setLabel()
+    auto setGroupLabel = [&](Node &n) {
+        if (n.kind == NodeKind::Group)
+            n.label = trimmed;
+    };
+    commit(editedSelection(setGroupLabel, [&](Connection &c) { c.label = trimmed; }), tr("Edit label"));
 }
 
 void Editor::removeConnectionLabels()
 {
-    Transaction t;
-    for (const Connection &c : selectedConnections())
-        t.append(edited(c, [](Connection &changed) { changed.label.clear(); }));
-    commit(t, tr("Remove label"));
+    commit(editedSelection(keepNode, [](Connection &c) { c.label.clear(); }), tr("Remove label"));
 }
 
 // ---- Clipboard ----
@@ -693,7 +669,7 @@ void Editor::insertFragment(const QJsonObject &fragment, QPointF offset)
 void Editor::cut()
 {
     const QSet<QString> ids = document().nodesWithContents(m_selection);
-    if (ids.isEmpty() && selectedConnections().isEmpty())
+    if (ids.isEmpty() && selectionSummary().connections == 0)
         return;
     copy();
     Transaction t;

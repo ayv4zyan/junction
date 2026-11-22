@@ -15,7 +15,7 @@ Floating {
     required property Editor editor
     required property CanvasView canvas
     readonly property var connection: editor.selectedConnection
-    readonly property bool isConnection: connection.id !== undefined
+    readonly property bool isConnection: connection.valid
     readonly property bool shown: editor.selection.length > 0 && !editor.dragging && !canvas.manipulating
 
     // The selection on screen, in the canvas's coordinates.

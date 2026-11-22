@@ -20,7 +20,7 @@
 #include <optional>
 
 // What part of a Canvas was on screen: the world point at the center of the view, and the zoom.
-struct CanvasView
+struct Viewport
 {
     QPointF center;
     qreal zoom = 1;
@@ -29,7 +29,7 @@ struct CanvasView
 struct CanvasEntry
 {
     QString name;
-    std::optional<CanvasView> view;   // empty until the user pans or zooms it
+    std::optional<Viewport> view;   // empty until the user pans or zooms it
 };
 
 struct ProjectEntry
@@ -93,8 +93,8 @@ public:
     QString moveCanvas(const QString &project, const QString &canvas, const QString &toProject, int toIndex);
 
     void setExpanded(const QString &project, bool expanded);
-    std::optional<CanvasView> view(const QString &project, const QString &canvas) const;
-    void setView(const QString &project, const QString &canvas, const CanvasView &view);
+    std::optional<Viewport> view(const QString &project, const QString &canvas) const;
+    void setView(const QString &project, const QString &canvas, const Viewport &view);
 
     static QString nameProblem(const QString &name);   // characters and length only
     static QString uniqueName(const QString &base, const QStringList &taken);

@@ -20,18 +20,18 @@ bool sameName(const QString &a, const QString &b)
     return a.compare(b, Qt::CaseInsensitive) == 0;
 }
 
-QJsonObject viewToJson(const CanvasView &view)
+QJsonObject viewToJson(const Viewport &view)
 {
     return {{"x", view.center.x()}, {"y", view.center.y()}, {"zoom", view.zoom}};
 }
 
-std::optional<CanvasView> viewFromJson(const QJsonValue &value)
+std::optional<Viewport> viewFromJson(const QJsonValue &value)
 {
     const QJsonObject json = value.toObject();
     const qreal zoom = json["zoom"].toDouble();
     if (zoom <= 0)
         return std::nullopt;
-    return CanvasView{QPointF(json["x"].toDouble(), json["y"].toDouble()), zoom};
+    return Viewport{QPointF(json["x"].toDouble(), json["y"].toDouble()), zoom};
 }
 
 QVector<ProjectEntry> projectsFromJson(const QJsonArray &array)
@@ -676,7 +676,7 @@ void Library::setExpanded(const QString &projectName, bool expanded)
     emit expandedChanged(projectName);
 }
 
-std::optional<CanvasView> Library::view(const QString &projectName, const QString &canvas) const
+std::optional<Viewport> Library::view(const QString &projectName, const QString &canvas) const
 {
     const int i = canvasIndex(projectName, canvas);
     if (i < 0)
@@ -686,7 +686,7 @@ std::optional<CanvasView> Library::view(const QString &projectName, const QStrin
 
 // Not written to disk right away: it changes on every pan step. The index is saved with the
 // next change, and when the Library is closed.
-void Library::setView(const QString &projectName, const QString &canvas, const CanvasView &view)
+void Library::setView(const QString &projectName, const QString &canvas, const Viewport &view)
 {
     const int i = canvasIndex(projectName, canvas);
     if (i >= 0)

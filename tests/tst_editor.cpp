@@ -86,7 +86,7 @@ private slots:
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString("Backend"));
         QCOMPARE(m_editor->document().node(ids[3])->label, QString("Backend"));
         QCOMPARE(m_editor->document().node(ids[0])->text, QString());
-        QCOMPARE(m_editor->selectionInfo()["sharedLabel"].toString(), QString("Backend"));
+        QCOMPARE(m_editor->selectionSummary().sharedLabel, QString("Backend"));
 
         m_editor->undo();   // one step for all of them
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
@@ -103,22 +103,22 @@ private slots:
 
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
         QCOMPARE(m_editor->document().node(ids[3])->label, QString("calls"));   // Groups keep theirs
-        QCOMPARE(m_editor->selectionInfo()["labeledConnections"].toInt(), 0);
+        QCOMPARE(m_editor->selectionSummary().labeledConnections, 0);
     }
 
-    void selectionInfoCounts()
+    void selectionSummaryCounts()
     {
         const QStringList ids = makeGroupedPair();
         m_editor->select(ids[0]);
         m_editor->select(ids[2], true);
         m_editor->select(ids[3], true);
-        const QVariantMap info = m_editor->selectionInfo();
-        QCOMPARE(info["cards"].toInt(), 1);
-        QCOMPARE(info["editableCards"].toInt(), 1);
-        QCOMPARE(info["groups"].toInt(), 1);
-        QCOMPARE(info["connections"].toInt(), 1);
-        QCOMPARE(info["labelTargets"].toStringList(), (QStringList{ids[2], ids[3]}));
-        QCOMPARE(info["sharedLabel"].toString(), QString());   // "" and "Group" differ
+        const SelectionSummary summary = m_editor->selectionSummary();
+        QCOMPARE(summary.cards, 1);
+        QCOMPARE(summary.editableCards, 1);
+        QCOMPARE(summary.groups, 1);
+        QCOMPARE(summary.connections, 1);
+        QCOMPARE(summary.labelTargets, (QStringList{ids[2], ids[3]}));
+        QCOMPARE(summary.sharedLabel, QString());   // "" and "Group" differ
     }
 
     // What the floating selection toolbar is placed against, in world coordinates.
@@ -173,7 +173,7 @@ private slots:
         m_editor->select(ids[3]);
         QCOMPARE(m_editor->selectionBounds().top(), group.top() - 32);
 
-        m_editor->setConnectionLabel(ids[2], "verifies");
+        m_editor->setLabel(ids[2], "verifies");
         m_editor->select(ids[2]);
         QVERIFY(m_editor->selectionBounds().top() < -5);   // the line runs at y = 0
     }

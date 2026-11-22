@@ -15,7 +15,7 @@ Item {
     required property real nodeY
     required property real nodeWidth
     required property real nodeHeight
-    required property string text
+    required property string label
     required property string nodeColor
 
     readonly property Editor editor: canvas.editor
@@ -29,7 +29,7 @@ Item {
     height: nodeHeight
 
     function finishEditing() {
-        editor.setText(nodeId, labelInput.text)
+        editor.setLabel(nodeId, labelInput.text)
         canvas.endTextEditing(nodeId)
     }
 
@@ -53,7 +53,7 @@ Item {
             id: labelText
             anchors.centerIn: parent
             visible: !group.editing
-            text: group.text || qsTr("Group")
+            text: group.label || qsTr("Group")
             color: group.selected ? Colors.onAccent : Colors.text
             font.pixelSize: Fonts.canvas
             renderType: Text.CurveRendering   // sharp at every zoom level, like Card text
@@ -70,7 +70,7 @@ Item {
             font.bold: true
             onVisibleChanged: {
                 if (visible) {
-                    text = group.text
+                    text = group.label
                     forceActiveFocus()
                     selectAll()
                 }

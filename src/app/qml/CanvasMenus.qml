@@ -16,8 +16,8 @@ Item {
     function openFor(id, waypointIndex) {
         if (!editor.selection.includes(id))
             editor.select(id)
-        const info = editor.selectionInfo
-        if (info.cards + info.groups === 0) {
+        const summary = editor.selectionSummary
+        if (summary.cards + summary.groups === 0) {
             connectionMenu.waypoint = waypointIndex ?? -1
             connectionMenu.popup()
         } else {
@@ -27,20 +27,20 @@ Item {
 
     // One Label is edited in place, like double-clicking it; several get the dialog.
     function editLabels() {
-        const info = editor.selectionInfo
-        const targets = info.labelTargets
+        const summary = editor.selectionSummary
+        const targets = summary.labelTargets
         if (targets.length > 1)
-            ask.text({ title: qsTr("Edit %1 labels").arg(targets.length), text: info.sharedLabel,
+            ask.text({ title: qsTr("Edit %1 labels").arg(targets.length), text: summary.sharedLabel,
                        placeholder: qsTr("Label"), action: qsTr("Save"),
                        onAccepted: (text) => editor.setLabels(text) })
-        else if (info.connections === 1)
+        else if (summary.connections === 1)
             view.editLabel(targets[0])
         else
             view.editText(targets[0])
     }
 
     function labelsText() {
-        const count = editor.selectionInfo.labelTargets.length
+        const count = editor.selectionSummary.labelTargets.length
         return count > 1 ? qsTr("Edit %1 labels…").arg(count) : qsTr("Edit label")
     }
 
@@ -64,12 +64,12 @@ Item {
         id: selectionMenu
         MenuEntry {
             text: qsTr("Edit text")
-            enabled: menus.editor.selection.length === 1 && menus.editor.selectionInfo.editableCards === 1
+            enabled: menus.editor.selection.length === 1 && menus.editor.selectionSummary.editableCards === 1
             onTriggered: menus.view.editText(menus.editor.selection[0])
         }
         MenuEntry {
             text: menus.labelsText()
-            enabled: menus.editor.selectionInfo.labelTargets.length > 0
+            enabled: menus.editor.selectionSummary.labelTargets.length > 0
             onTriggered: menus.editLabels()
         }
         MenuSeparator {}
@@ -98,7 +98,7 @@ Item {
         MenuEntry { text: menus.labelsText(); onTriggered: menus.editLabels() }
         MenuEntry {
             text: qsTr("Remove label")
-            enabled: menus.editor.selectionInfo.labeledConnections > 0
+            enabled: menus.editor.selectionSummary.labeledConnections > 0
             onTriggered: menus.editor.removeConnectionLabels()
         }
         MenuSeparator {}

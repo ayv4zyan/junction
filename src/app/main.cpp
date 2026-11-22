@@ -1,4 +1,6 @@
 #include "Editor.h"
+#include "Exporter.h"
+#include "HitTest.h"
 #include "LibraryRows.h"
 #include "SingleInstance.h"
 #include "JunctionDesign.h"
@@ -47,6 +49,8 @@ int main(int argc, char *argv[])
     Library library(libraryFolder);
     LibraryRows libraryRows(&library);
     Editor editor(&library, QGuiApplication::clipboard());
+    HitTest hitTest(&editor.document());
+    Exporter exporter(&editor.document());
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
@@ -54,6 +58,8 @@ int main(int argc, char *argv[])
         {"library", QVariant::fromValue(&library)},
         {"libraryRows", QVariant::fromValue(&libraryRows)},
         {"editor", QVariant::fromValue(&editor)},
+        {"hitTest", QVariant::fromValue(&hitTest)},
+        {"exporter", QVariant::fromValue(&exporter)},
     });
     engine.loadFromModule("Junction", "Main");
 

@@ -20,8 +20,8 @@ MouseArea {
     property rect selectionRect   // the rectangle being dragged, in this item's coordinates
     property bool overConnection: false
     property point last
-    property point rubberStart
-    property var rubberBase: []   // what stays selected besides the rectangle's catch (Shift/Ctrl)
+    property point selectionDragStart
+    property var selectionBeforeDrag: []   // what stays selected besides the rectangle's catch (Shift/Ctrl)
 
     onPressed: (mouse) => {
         canvasView.forceActiveFocus()
@@ -30,7 +30,7 @@ MouseArea {
             mode = CanvasBackground.Panning
             return
         }
-        const hit = canvasView.editor.connectionAt(canvasView.toWorld(last), canvasView.connectionTolerance)
+        const hit = canvasView.hitTest.connectionAt(canvasView.toWorld(last), canvasView.connectionTolerance)
         if (mouse.button === Qt.RightButton) {
             if (hit) {
                 canvasView.openMenuFor(hit)
@@ -50,23 +50,23 @@ MouseArea {
             canvasView.editor.clearSelection()
         mode = CanvasBackground.Selecting
         selectionRect = Qt.rect(last.x, last.y, 0, 0)
-        rubberStart = last
-        rubberBase = canvasView.editor.selection
+        selectionDragStart = last
+        selectionBeforeDrag = canvasView.editor.selection
     }
 
     onPositionChanged: (mouse) => {
         if (!pressed) {
-            overConnection = canvasView.editor.connectionAt(canvasView.toWorld(Qt.point(mouse.x, mouse.y)), canvasView.connectionTolerance) !== ""
+            overConnection = canvasView.hitTest.connectionAt(canvasView.toWorld(Qt.point(mouse.x, mouse.y)), canvasView.connectionTolerance) !== ""
         } else if (mode === CanvasBackground.Panning) {
             canvasView.panBy(mouse.x - last.x, mouse.y - last.y)
             last = Qt.point(mouse.x, mouse.y)
         } else if (mode === CanvasBackground.Selecting) {
-            selectionRect = Qt.rect(Math.min(rubberStart.x, mouse.x), Math.min(rubberStart.y, mouse.y),
-                                    Math.abs(mouse.x - rubberStart.x), Math.abs(mouse.y - rubberStart.y))
+            selectionRect = Qt.rect(Math.min(selectionDragStart.x, mouse.x), Math.min(selectionDragStart.y, mouse.y),
+                                    Math.abs(mouse.x - selectionDragStart.x), Math.abs(mouse.y - selectionDragStart.y))
             // The selection follows the rectangle as it is dragged, not only on release.
             const a = canvasView.toWorld(Qt.point(selectionRect.x, selectionRect.y))
             canvasView.editor.selectInRect(Qt.rect(a.x, a.y, selectionRect.width / canvasView.zoom,
-                                                   selectionRect.height / canvasView.zoom), rubberBase)
+                                                   selectionRect.height / canvasView.zoom), selectionBeforeDrag)
         }
     }
 
@@ -76,7 +76,7 @@ MouseArea {
         if (mouse.button !== Qt.LeftButton)
             return
         const world = canvasView.toWorld(Qt.point(mouse.x, mouse.y))
-        const hit = canvasView.editor.connectionAt(world, canvasView.connectionTolerance)
+        const hit = canvasView.hitTest.connectionAt(world, canvasView.connectionTolerance)
         if (hit)
             canvasView.editLabel(hit)
         else

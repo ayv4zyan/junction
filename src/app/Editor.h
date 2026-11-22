@@ -152,9 +152,6 @@ public:
     Q_INVOKABLE void endWaypointDrag();
 
     // Connections
-    Q_INVOKABLE QString cardAt(QPointF point, qreal margin = 0) const;
-    Q_INVOKABLE CanvasEnums::Side handleAt(const QString &nodeId, QPointF point, qreal radius) const;   // Floating when there is none
-    Q_INVOKABLE QString connectionAt(QPointF point, qreal tolerance) const;
     // Where the floating selection toolbar goes (see Geometry::floatingPosition), in view coordinates.
     Q_INVOKABLE QPointF floatingPosition(const QRectF &selection, const QSizeF &size, const QRectF &view, qreal gap) const
     {
@@ -166,8 +163,8 @@ public:
     Q_INVOKABLE void removeWaypoint(const QString &connectionId, int index);
     Q_INVOKABLE void setConnectionStyle(CanvasEnums::PathStyle style);
     Q_INVOKABLE void setArrows(bool fromArrow, bool toArrow);
-    Q_INVOKABLE void setLabel(const QString &id, const QString &label);   // of a Group or a Connection
-    Q_INVOKABLE void setLabels(const QString &label);   // of every selected Group and Connection
+    // Of the Groups and Connections among `ids` (the others have no Label), in one undo step.
+    Q_INVOKABLE void setLabels(const QStringList &ids, const QString &label);
     Q_INVOKABLE void removeConnectionLabels();          // of every selected Connection
 
     // Clipboard and history
@@ -180,9 +177,6 @@ public:
 
     // Files. Every Canvas is saved automatically, shortly after each change.
     Q_INVOKABLE void save();
-    // Both return the file written, or an empty URL when that failed (errorOccurred says why).
-    Q_INVOKABLE QUrl exportCanvasFile(const QUrl &url);   // a copy of the .canvas file
-    Q_INVOKABLE QUrl exportImage(const QUrl &url, const QVariantMap &palette);
     Q_INVOKABLE QRectF contentBounds() const;
 
 signals:
@@ -222,7 +216,7 @@ private:
     bool commit(const Transaction &transaction, const QString &text);
     QString addAndSelect(const Transaction &transaction, const QString &text, const QString &selected);
     void setSelection(const QStringList &ids);
-    void followDocument();
+    void syncSelectionWithDocument();
     // `point` on the grid when snapping (inverted while Alt is held), otherwise as it is.
     QPointF snapped(QPointF point, bool invert = false) const { return m_snapToGrid != invert ? Geometry::snap(point) : point; }
     qreal snapped(qreal value, bool invert) const { return m_snapToGrid != invert ? Geometry::snap(value) : value; }
@@ -244,7 +238,6 @@ private:
     Transaction editedItems(const QStringList &ids, EditNode editNode, EditConnection editConnection) const;
     template <typename EditConnection>
     Transaction editedSelectedConnections(EditConnection editConnection) const;
-    void setLabelsOf(const QStringList &ids, const QString &label);
     void insertFragment(const QJsonObject &fragment, QPointF offset);
 
     void loadCurrent();

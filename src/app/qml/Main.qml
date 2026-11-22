@@ -13,6 +13,8 @@ ApplicationWindow {
     id: window
 
     required property Editor editor
+    required property HitTest hitTest     // what is where on the open Canvas
+    required property Exporter exporter   // writes it out as a file or an image
     // Created by main.cpp: the Library, its rows as the sidebar shows them, and the open Canvas.
     required property Library library
     required property LibraryRows libraryRows
@@ -86,6 +88,11 @@ ApplicationWindow {
 
     Connections {
         target: window.library
+        function onErrorOccurred(message) { toast.show(message, { error: true }) }
+    }
+
+    Connections {
+        target: window.exporter
         function onErrorOccurred(message) { toast.show(message, { error: true }) }
     }
 
@@ -195,6 +202,7 @@ ApplicationWindow {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             editor: window.editor
+            hitTest: window.hitTest
             library: window.library
             ask: askDialog
             enabled: window.editor.editable
@@ -313,6 +321,7 @@ ApplicationWindow {
 
     ExportDialog {
         id: exportDialog
+        exporter: window.exporter
         editor: window.editor
         canvasName: window.library.currentCanvas
         onExported: (file) => {

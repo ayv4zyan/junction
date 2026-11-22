@@ -85,7 +85,7 @@ private slots:
         m_editor->select(ids[0]);              // a Card: has no Label, stays as it is
         m_editor->select(ids[2], true);        // the Connection
         m_editor->select(ids[3], true);        // the Group
-        m_editor->setLabels("Backend");
+        m_editor->setLabels(m_editor->selection(), "Backend");
 
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString("Backend"));
         QCOMPARE(m_editor->document().node(ids[3])->label(), QString("Backend"));
@@ -102,7 +102,7 @@ private slots:
         const QStringList ids = makeGroupedPair();
         m_editor->select(ids[2]);
         m_editor->select(ids[3], true);
-        m_editor->setLabels("calls");
+        m_editor->setLabels(m_editor->selection(), "calls");
         m_editor->removeConnectionLabels();
 
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
@@ -161,10 +161,10 @@ private slots:
         const QStringList ids = makeGroupedPair();
         m_editor->select(ids[2]);
         m_editor->select(ids[3], true);
-        m_editor->setLabels("  calls  ");
+        m_editor->setLabels(m_editor->selection(), "  calls  ");
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString("calls"));
         QCOMPARE(m_editor->document().node(ids[3])->label(), QString("calls"));
-        m_editor->setLabels("   ");
+        m_editor->setLabels(m_editor->selection(), "   ");
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
     }
 
@@ -177,7 +177,7 @@ private slots:
         m_editor->select(ids[3]);
         QCOMPARE(m_editor->selectionBounds().top(), group.top() - 32);
 
-        m_editor->setLabel(ids[2], "verifies");
+        m_editor->setLabels({ids[2]}, "verifies");
         m_editor->select(ids[2]);
         QVERIFY(m_editor->selectionBounds().top() < -5);   // the line runs at y = 0
     }

@@ -6,7 +6,7 @@ import JunctionDesign
 
 // Edits a Connection's label in place. It sits in canvas (world) coordinates, so it zooms
 // with the canvas, and looks like the painted label it stands in for (CanvasPainter's font and
-// padding); ConnectionLayer leaves that label out meanwhile (labelEditedOn).
+// padding); ConnectionLayer leaves that label out meanwhile (editedLabelConnection).
 // Opened by CanvasView.editLabel(). Enter, Esc or clicking away keeps the text.
 Rectangle {
     id: box
@@ -30,7 +30,7 @@ Rectangle {
     function finish(text) {
         const id = connectionId
         canvasView.endLabelEditing()
-        editor.setLabel(id, text)
+        editor.setLabels([id], text)
     }
 
     // Selecting something else, or the Connection going away (undo), ends editing, also while

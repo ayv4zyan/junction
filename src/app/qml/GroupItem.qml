@@ -11,7 +11,7 @@ NodeItem {
     required property string nodeLabel
 
     function finishEditing(text) {
-        editor.setLabel(nodeId, text)
+        editor.setLabels([nodeId], text)
         canvasView.endTextEditing(nodeId)
     }
 

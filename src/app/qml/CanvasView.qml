@@ -14,6 +14,7 @@ import JunctionDesign
 Item {
     id: canvasView
     required property Editor editor
+    required property HitTest hitTest
     required property Library library   // remembers where each Canvas was viewed
     required property AskDialog ask     // the window's questions
 
@@ -154,10 +155,10 @@ Item {
     // just outside its border, on the outer half of a Handle, still counts) other than
     // `except`, and the Handle under the point. {node: ""} where there is none.
     function attachmentAt(world, except) {
-        const node = editor.cardAt(world, handleRadius)
+        const node = hitTest.cardAt(world, handleRadius)
         if (!node || node === except)
             return { node: "", side: CanvasEnums.Side.Floating }
-        return { node: node, side: editor.handleAt(node, world, handleRadius) }
+        return { node: node, side: hitTest.handleAt(node, world, handleRadius) }
     }
 
     // After Esc (cancelConnection) the rest of the drag does nothing: connectFrom is "".
@@ -179,7 +180,7 @@ Item {
             return
 
         const world = toWorld(screenPoint)
-        if (editor.cardAt(world, handleRadius) === from)
+        if (hitTest.cardAt(world, handleRadius) === from)
             return   // dropped back on its own Card
         const at = attachmentAt(world, from)
         if (at.node)
@@ -294,7 +295,7 @@ Item {
     ConnectionLayer {
         anchors.fill: parent
         editor: canvasView.editor
-        labelEditedOn: canvasView.editingLabelId
+        editedLabelConnection: canvasView.editingLabelId
         connectFrom: canvasView.connectFrom
         connectPointer: interaction.connectPointer
         dropTarget: canvasView.dropTarget

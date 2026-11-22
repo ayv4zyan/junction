@@ -20,7 +20,7 @@ void CanvasLayer::setColors(const QVariantMap &colors)
 void GridLayer::paint(QPainter *painter)
 {
     if (palette())
-        CanvasPainter::drawGrid(*painter, view(), size(), *palette());
+        CanvasPainter::drawGrid(*painter, worldToScreen(), size(), *palette());
 }
 
 ConnectionLayer::ConnectionLayer(QQuickItem *parent)
@@ -60,12 +60,12 @@ void ConnectionLayer::paint(QPainter *painter)
     const Palette &palette = *this->palette();
     const Document &document = m_editor->document();
     painter->setRenderHint(QPainter::Antialiasing);
-    painter->setTransform(view());
+    painter->setTransform(worldToScreen());
 
     for (const Connection &c : document.connections()) {
         if (const auto route = document.route(c)) {
             CanvasPainter::drawConnection(*painter, *route, c, palette, m_editor->selection().contains(c.id),
-                                          c.id != m_labelEditedOn,
+                                          c.id != m_editedLabelConnection,
                                           CanvasPainter::colorUnder(route->labelPosition, document.nodes(), palette));
         }
     }

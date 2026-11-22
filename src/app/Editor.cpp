@@ -69,9 +69,9 @@ Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
     // Anything that changes in the Document may move the selected Connection's handles.
     const Document *document = &m_canvas.document();
     for (auto signal : {&Document::nodeChanged, &Document::nodeRemoved, &Document::nodeAdded})
-        connect(document, signal, this, &Editor::followDocument);
-    connect(document, &Document::connectionsChanged, this, &Editor::followDocument);
-    connect(document, &Document::reset, this, &Editor::followDocument);
+        connect(document, signal, this, &Editor::syncSelectionWithDocument);
+    connect(document, &Document::connectionsChanged, this, &Editor::syncSelectionWithDocument);
+    connect(document, &Document::reset, this, &Editor::syncSelectionWithDocument);
     connect(m_library, &Library::loaded, this, &Editor::loadCurrent);   // also when nothing could be opened
 }
 
@@ -125,7 +125,7 @@ void Editor::setSelection(const QStringList &ids)
 
 // The Document changed: the selection drops the ids of items that are gone (deleted, undone),
 // and says the selected items themselves may have changed.
-void Editor::followDocument()
+void Editor::syncSelectionWithDocument()
 {
     QStringList kept;
     for (const QString &id : m_selection) {
@@ -544,37 +544,6 @@ void Editor::endWaypointDrag()
 
 // ---- Connections ----
 
-// The topmost Card under the point. `margin` widens each card so that a point on the outer
-// half of a Handle still counts. Groups are never targets: dropping inside a Group means
-// "new card here".
-QString Editor::cardAt(QPointF point, qreal margin) const
-{
-    const QVector<Node> &nodes = document().nodes();
-    for (auto it = nodes.crbegin(); it != nodes.crend(); ++it) {
-        if (it->isCard() && it->rect.adjusted(-margin, -margin, margin, margin).contains(point))
-            return it->id;
-    }
-    return {};
-}
-
-Side Editor::handleAt(const QString &nodeId, QPointF point, qreal radius) const
-{
-    const Node *n = document().node(nodeId);
-    return n ? Geometry::handleAt(n->rect, point, radius) : Side::Floating;
-}
-
-QString Editor::connectionAt(QPointF point, qreal tolerance) const
-{
-    const QVector<Connection> &connections = document().connections();
-    for (auto it = connections.crbegin(); it != connections.crend(); ++it) {
-        const auto route = document().route(*it);
-        // The label counts too: it can stick out far from the line.
-        if (route && (Geometry::hits(*route, point, tolerance) || CanvasPainter::labelRect(*route, it->label).contains(point)))
-            return it->id;
-    }
-    return {};
-}
-
 void Editor::connectNodes(const QString &from, const QString &to, Side toSide)
 {
     if (from == to || !document().node(from) || !document().node(to))
@@ -632,19 +601,9 @@ void Editor::setArrows(bool fromArrow, bool toArrow)
            tr("Change arrows"));
 }
 
-void Editor::setLabel(const QString &id, const QString &label)
-{
-    setLabelsOf({id}, label);
-}
-
-void Editor::setLabels(const QString &label)
-{
-    setLabelsOf(m_selection, label);
-}
-
 // Only Groups and Connections have a Label. A Label of only spaces would be an empty box, so
 // spaces around it are dropped.
-void Editor::setLabelsOf(const QStringList &ids, const QString &label)
+void Editor::setLabels(const QStringList &ids, const QString &label)
 {
     const QString trimmed = label.trimmed();
     auto setGroupLabel = [&](Node &n) {
@@ -729,36 +688,6 @@ void Editor::loadCurrent()
 void Editor::save()
 {
     m_canvas.save();
-}
-
-QUrl Editor::exportCanvasFile(const QUrl &url)
-{
-    QString path = url.toLocalFile();
-    if (!path.endsWith(".canvas"))
-        path += ".canvas";
-    QString error;
-    if (!document().save(path, &error)) {
-        emit errorOccurred(tr("Could not save %1: %2").arg(path, error));
-        return {};
-    }
-    return QUrl::fromLocalFile(path);
-}
-
-QUrl Editor::exportImage(const QUrl &url, const QVariantMap &palette)
-{
-    // Exports the selection, or the whole Canvas when nothing is selected.
-    const std::optional<Palette> colors = Palette::fromVariantMap(palette);
-    if (!colors) {
-        emit errorOccurred(tr("The colors to export with are incomplete."));
-        return {};
-    }
-    QString error;
-    if (!CanvasPainter::exportImage(document(), document().nodesWithContents(m_selection), url.toLocalFile(),
-                                     *colors, &error)) {
-        emit errorOccurred(error);
-        return {};
-    }
-    return url;
 }
 
 QRectF Editor::contentBounds() const

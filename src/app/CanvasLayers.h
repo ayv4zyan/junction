@@ -25,7 +25,7 @@ signals:
     void viewChanged();
 
 protected:
-    QTransform view() const { return QTransform(m_zoom, 0, 0, m_zoom, m_pan.x(), m_pan.y()); }
+    QTransform worldToScreen() const { return QTransform(m_zoom, 0, 0, m_zoom, m_pan.x(), m_pan.y()); }
     const std::optional<Palette> &palette() const { return m_palette; }   // nothing until colors are set
 
 private:
@@ -50,7 +50,7 @@ class ConnectionLayer : public CanvasLayer
     QML_ELEMENT
     Q_PROPERTY(Editor *editor READ editor WRITE setEditor NOTIFY editorChanged)
     // The Connection whose label is being edited: its label is not drawn, LabelEditor shows it.
-    Q_PROPERTY(QString labelEditedOn MEMBER m_labelEditedOn NOTIFY interactionChanged)
+    Q_PROPERTY(QString editedLabelConnection MEMBER m_editedLabelConnection NOTIFY interactionChanged)
     // The new Connection being dragged out of a Handle of the Card `connectFrom` (none while
     // that is ""). It ends on `dropTarget` (at `dropSide`) when the pointer is over a Card,
     // otherwise at `connectPointer` (world coordinates).
@@ -71,7 +71,7 @@ signals:
 
 private:
     Editor *m_editor = nullptr;
-    QString m_labelEditedOn;
+    QString m_editedLabelConnection;
     QString m_connectFrom;
     QPointF m_connectPointer;
     QString m_dropTarget;

@@ -4,11 +4,13 @@ import QtQuick.Dialogs
 import Junction
 import JunctionDesign
 
-// Asks where to export the open Canvas (or the selection) to: a copy of its .canvas file, or a
-// PNG or SVG image. Says `exported` with the file written; the Editor reports failures.
+// Asks where to export the open Canvas to: a copy of its .canvas file, or a PNG or SVG image of
+// the selection (everything when nothing is selected). Says `exported` with the file written;
+// the Exporter reports failures.
 FileDialog {
     id: dialog
-    required property Editor editor
+    required property Exporter exporter
+    required property Editor editor   // for the selection, which is what an image shows
     required property string canvasName   // suggested as the file name
 
     signal exported(url file)
@@ -24,8 +26,8 @@ FileDialog {
 
     fileMode: FileDialog.SaveFile
     onAccepted: {
-        const written = defaultSuffix === "canvas" ? editor.exportCanvasFile(selectedFile)
-                                                   : editor.exportImage(selectedFile, Colors.forPainter)
+        const written = defaultSuffix === "canvas" ? exporter.exportCanvasFile(selectedFile)
+                                                   : exporter.exportImage(selectedFile, Colors.forPainter, editor.selection)
         if (written.toString() !== "")
             exported(written)
     }

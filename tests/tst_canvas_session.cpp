@@ -1,4 +1,4 @@
-#include "OpenCanvas.h"
+#include "CanvasSession.h"
 
 #include <QFile>
 #include <QJsonArray>
@@ -7,7 +7,7 @@
 #include <QTest>
 
 // The open Canvas: loading, saving, and one undo history per file.
-class TestOpenCanvas : public QObject
+class TestCanvasSession : public QObject
 {
     Q_OBJECT
 
@@ -35,7 +35,7 @@ private slots:
     void unreadableFileIsNeverWritten()
     {
         const QString path = writeFile("broken.canvas", "{ not json");
-        OpenCanvas canvas;
+        CanvasSession canvas;
         canvas.open(path);
         QVERIFY(!canvas.notEditableReason().isEmpty());
         canvas.push(addCard("a"), "Add");
@@ -50,7 +50,7 @@ private slots:
     {
         const QString path = writeFile("a.canvas", "{}");
         {
-            OpenCanvas canvas;
+            CanvasSession canvas;
             canvas.open(path);
             canvas.push(addCard("a"), "Add");
         }   // the pending save happens on destruction
@@ -64,7 +64,7 @@ private slots:
     {
         const QString a = writeFile("a.canvas", "{}");
         const QString b = writeFile("b.canvas", "{}");
-        OpenCanvas canvas;
+        CanvasSession canvas;
         canvas.open(a);
         canvas.push(addCard("x"), "Add");
         canvas.open(b);
@@ -78,7 +78,7 @@ private slots:
     void historyFollowsARenamedFile()
     {
         const QString a = writeFile("a.canvas", "{}");
-        OpenCanvas canvas;
+        CanvasSession canvas;
         canvas.open(a);
         canvas.push(addCard("x"), "Add");
         canvas.save();
@@ -92,7 +92,7 @@ private slots:
     void removedFileIsNotWrittenAgain()
     {
         const QString a = writeFile("a.canvas", "{}");
-        OpenCanvas canvas;
+        CanvasSession canvas;
         canvas.open(a);
         canvas.push(addCard("x"), "Add");
         QVERIFY(QFile::remove(a));
@@ -102,5 +102,5 @@ private slots:
     }
 };
 
-QTEST_GUILESS_MAIN(TestOpenCanvas)
-#include "tst_open_canvas.moc"
+QTEST_GUILESS_MAIN(TestCanvasSession)
+#include "tst_canvas_session.moc"

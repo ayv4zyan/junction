@@ -13,7 +13,7 @@ ApplicationWindow {
     id: window
 
     required property Editor editor
-    required property OpenCanvas openCanvas   // the Editor's: its file, history and whether it can be edited
+    required property CanvasSession canvasSession   // the Editor's: its file, history and whether it can be edited
     required property HitTest hitTest     // what is where on the open Canvas
     required property Exporter exporter   // writes it out as a file or an image
     // Created by main.cpp: the Library, its rows as the sidebar shows them, and the open Canvas.
@@ -24,7 +24,7 @@ ApplicationWindow {
     readonly property bool typing: activeFocusItem !== null && activeFocusItem.visible
                                    && activeFocusItem.cursorPosition !== undefined
     // ...and while the Canvas can't be shown (its file can't be read).
-    readonly property bool canEdit: !typing && window.openCanvas.editable
+    readonly property bool canEdit: !typing && window.canvasSession.editable
 
     // Colors, font and the controls' look come from the JunctionDesign style (main.cpp).
     width: 1280
@@ -86,7 +86,7 @@ ApplicationWindow {
     function showError(message) { toast.show(message, { error: true }) }
 
     Component.onCompleted: {
-        for (const source of [openCanvas, library, exporter])
+        for (const source of [canvasSession, library, exporter])
             source.errorOccurred.connect(showError)
         library.load()   // the Editor then opens what was open last time
     }
@@ -175,7 +175,7 @@ ApplicationWindow {
             z: 1
             library: window.library
             editor: window.editor
-            openCanvas: window.openCanvas
+            canvasSession: window.canvasSession
             canvasView: canvasView
             sidebarOpen: settings.sidebarOpen
             snapToGrid: editorSettings.snapToGrid
@@ -199,7 +199,7 @@ ApplicationWindow {
             hitTest: window.hitTest
             library: window.library
             ask: askDialog
-            enabled: window.openCanvas.editable
+            enabled: window.canvasSession.editable
         }
 
         SelectionBar {
@@ -210,7 +210,7 @@ ApplicationWindow {
         LoadErrorPanel {
             anchors.centerIn: canvasView
             width: Math.min(460, canvasView.width - 2 * Space.xl)
-            message: window.openCanvas.notEditableReason
+            message: window.canvasSession.notEditableReason
             folder: window.library.folder
         }
 

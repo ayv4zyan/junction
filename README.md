@@ -75,7 +75,7 @@ starting it again brings the window forward.
 ## Code layout
 
 - `src/core` — no QML: the model (`CanvasItems`, `Document`), every edit as a `Change`
-  inside a `Transaction` (undo, and later network sync), the `OpenCanvas` (its file, undo
+  inside a `Transaction` (undo, and later network sync), the `CanvasSession` (its file, undo
   history and autosave), `Fragment` (copy and paste), `Geometry` (how Connections run, and the
   grid), and the `Library` of Projects and Canvases on disk.
 - `src/render` — `CanvasPainter`: drawing a Canvas with QPainter for the live layers and for

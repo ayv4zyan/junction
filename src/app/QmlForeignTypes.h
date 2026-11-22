@@ -4,7 +4,7 @@
 
 #include "CanvasItems.h"
 #include "Library.h"
-#include "OpenCanvas.h"
+#include "CanvasSession.h"
 
 #include <QQmlEngine>
 
@@ -16,11 +16,11 @@ struct LibraryForeign
     QML_UNCREATABLE("Created by main.cpp")
 };
 
-struct OpenCanvasForeign
+struct CanvasSessionForeign
 {
     Q_GADGET
-    QML_FOREIGN(OpenCanvas)
-    QML_NAMED_ELEMENT(OpenCanvas)
+    QML_FOREIGN(CanvasSession)
+    QML_NAMED_ELEMENT(CanvasSession)
     QML_UNCREATABLE("Created by the Editor")
 };
 

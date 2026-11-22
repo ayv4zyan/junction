@@ -327,7 +327,7 @@ bool Library::open(const QString &projectName, const QString &canvas)
         setExpanded(projectName, true);
         return true;
     }
-    emit aboutToChangeFiles();
+    emit openCanvasMustBeSaved();
     setCurrent(projectName, canvas);
     ProjectEntry *p = project(projectName);
     const bool expand = !p->expanded;   // so the open Canvas can be seen in the sidebar
@@ -402,7 +402,7 @@ QString Library::addCanvas(ProjectEntry *p, int at, const CanvasEntry &entry)
 
 QString Library::createProject()
 {
-    emit aboutToChangeFiles();
+    emit openCanvasMustBeSaved();
     const QString name = addProject(m_projects.size());
     if (name.isEmpty())
         return {};
@@ -417,7 +417,7 @@ QString Library::createCanvas(const QString &projectName)
     ProjectEntry *p = project(projectName);
     if (!p)
         return {};
-    emit aboutToChangeFiles();
+    emit openCanvasMustBeSaved();
     const QString name = uniqueName(UntitledName, canvasNames(projectName));
     if (!createEmptyCanvasFile(canvasPath(projectName, name)))
         return {};
@@ -431,7 +431,7 @@ QString Library::duplicateCanvas(const QString &projectName, const QString &canv
     const auto at = findCanvas(projectName, canvas);
     if (!at)
         return {};
-    emit aboutToChangeFiles();   // the open Canvas is saved first, so the copy has its latest state
+    emit openCanvasMustBeSaved();   // the open Canvas is saved first, so the copy has its latest state
     const QString name = uniqueName(tr("%1 copy").arg(canvas), canvasNames(projectName));
     if (!QFile::copy(canvasPath(projectName, canvas), canvasPath(projectName, name))) {
         emit errorOccurred(tr("Could not copy “%1”.").arg(canvas));
@@ -460,7 +460,7 @@ QString Library::duplicateProject(const QString &projectName)
     const int i = projectIndex(projectName);
     if (i < 0)
         return {};
-    emit aboutToChangeFiles();
+    emit openCanvasMustBeSaved();
     const QString name = uniqueName(tr("%1 copy").arg(projectName), projectNames());
     ProjectEntry copy = m_projects[i];
     copy.name = name;
@@ -486,7 +486,7 @@ QString Library::importCanvas(const QString &filePath, const QString &projectNam
         return {};
     }
 
-    emit aboutToChangeFiles();
+    emit openCanvasMustBeSaved();
     QString base = QFileInfo(filePath).completeBaseName().trimmed();
     if (!nameProblem(base).isEmpty())
         base = tr("Imported canvas");
@@ -516,7 +516,7 @@ bool Library::renameChecked(const QString &problem, const QString &from, const Q
         emit errorOccurred(problem);
         return false;
     }
-    emit aboutToChangeFiles();
+    emit openCanvasMustBeSaved();
     return renameFile(from, to, failure);
 }
 
@@ -612,7 +612,7 @@ bool Library::deleteCanvas(const QString &projectName, const QString &canvas)
         emit errorOccurred(tr("A project needs at least one canvas. To remove this one, delete the project."));
         return false;
     }
-    emit aboutToChangeFiles();
+    emit openCanvasMustBeSaved();
     const QString path = canvasPath(projectName, canvas);
     if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
         emit errorOccurred(tr("Could not move “%1” to the trash.").arg(canvas));
@@ -632,7 +632,7 @@ bool Library::deleteProject(const QString &projectName)
     const int i = projectIndex(projectName);
     if (i < 0)
         return false;
-    emit aboutToChangeFiles();
+    emit openCanvasMustBeSaved();
     if (m_projects.size() == 1)
         return replaceLastProject();
     if (!trashProject(i))
@@ -725,7 +725,7 @@ QString Library::moveCanvasToProject(ProjectEntry &source, int from, ProjectEntr
                                .arg(canvas, source.name));
         return {};
     }
-    emit aboutToChangeFiles();
+    emit openCanvasMustBeSaved();
     const QString name = uniqueName(canvas, canvasNames(target.name));
     const QString oldPath = canvasPath(source.name, canvas);
     const QString newPath = canvasPath(target.name, name);

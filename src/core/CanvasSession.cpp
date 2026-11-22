@@ -1,26 +1,26 @@
-#include "OpenCanvas.h"
+#include "CanvasSession.h"
 
 #include "TransactionCommand.h"
 
 #include <QFileInfo>
 #include <QUndoStack>
 
-OpenCanvas::OpenCanvas(QObject *parent)
+CanvasSession::CanvasSession(QObject *parent)
     : QObject(parent)
 {
-    connect(&m_history, &QUndoGroup::canUndoChanged, this, &OpenCanvas::historyChanged);
-    connect(&m_history, &QUndoGroup::canRedoChanged, this, &OpenCanvas::historyChanged);
+    connect(&m_history, &QUndoGroup::canUndoChanged, this, &CanvasSession::historyChanged);
+    connect(&m_history, &QUndoGroup::canRedoChanged, this, &CanvasSession::historyChanged);
     m_saveTimer.setSingleShot(true);
     m_saveTimer.setInterval(500);
-    connect(&m_saveTimer, &QTimer::timeout, this, &OpenCanvas::save);
+    connect(&m_saveTimer, &QTimer::timeout, this, &CanvasSession::save);
 }
 
-OpenCanvas::~OpenCanvas()
+CanvasSession::~CanvasSession()
 {
     savePending();
 }
 
-void OpenCanvas::open(const QString &path)
+void CanvasSession::open(const QString &path)
 {
     savePending();
     QString error;
@@ -35,7 +35,7 @@ void OpenCanvas::open(const QString &path)
     emit opened();
 }
 
-void OpenCanvas::openNothing(const QString &reason)
+void CanvasSession::openNothing(const QString &reason)
 {
     savePending();
     m_document.clear();
@@ -46,7 +46,7 @@ void OpenCanvas::openNothing(const QString &reason)
 }
 
 // The file's undo history from earlier in this session, unless the file changed since then.
-void OpenCanvas::activateHistory(const QString &path)
+void CanvasSession::activateHistory(const QString &path)
 {
     QUndoStack *&stack = m_stacks[path];
     const QDateTime modified = QFileInfo(path).lastModified();
@@ -60,7 +60,7 @@ void OpenCanvas::activateHistory(const QString &path)
     m_history.setActiveStack(stack);
 }
 
-bool OpenCanvas::push(const Transaction &transaction, const QString &text)
+bool CanvasSession::push(const Transaction &transaction, const QString &text)
 {
     Transaction real;
     for (const Change &change : transaction) {
@@ -74,7 +74,7 @@ bool OpenCanvas::push(const Transaction &transaction, const QString &text)
     return true;
 }
 
-void OpenCanvas::undo()
+void CanvasSession::undo()
 {
     if (!m_history.canUndo())
         return;
@@ -82,7 +82,7 @@ void OpenCanvas::undo()
     m_saveTimer.start();
 }
 
-void OpenCanvas::redo()
+void CanvasSession::redo()
 {
     if (!m_history.canRedo())
         return;
@@ -90,13 +90,13 @@ void OpenCanvas::redo()
     m_saveTimer.start();
 }
 
-void OpenCanvas::showUncommitted(const QVector<CanvasItem> &items)
+void CanvasSession::showUncommitted(const QVector<CanvasItem> &items)
 {
     for (const CanvasItem &item : items)
         m_document.put(item);
 }
 
-void OpenCanvas::save()
+void CanvasSession::save()
 {
     m_saveTimer.stop();
     if (!isEditable())
@@ -109,13 +109,13 @@ void OpenCanvas::save()
     m_lastWritten[m_filePath] = QFileInfo(m_filePath).lastModified();
 }
 
-void OpenCanvas::savePending()
+void CanvasSession::savePending()
 {
     if (m_saveTimer.isActive())
         save();
 }
 
-void OpenCanvas::fileMoved(const QString &oldPath, const QString &newPath)
+void CanvasSession::fileMoved(const QString &oldPath, const QString &newPath)
 {
     if (QUndoStack *stack = m_stacks.take(oldPath))
         m_stacks[newPath] = stack;
@@ -125,7 +125,7 @@ void OpenCanvas::fileMoved(const QString &oldPath, const QString &newPath)
         setFilePath(newPath);
 }
 
-void OpenCanvas::fileRemoved(const QString &path)
+void CanvasSession::fileRemoved(const QString &path)
 {
     delete m_stacks.take(path);   // also leaves m_history
     m_lastWritten.remove(path);
@@ -139,7 +139,7 @@ void OpenCanvas::fileRemoved(const QString &path)
     }
 }
 
-void OpenCanvas::setNotEditableBecause(const std::optional<QString> &reason)
+void CanvasSession::setNotEditableBecause(const std::optional<QString> &reason)
 {
     if (reason == m_notEditableBecause)
         return;
@@ -147,7 +147,7 @@ void OpenCanvas::setNotEditableBecause(const std::optional<QString> &reason)
     emit editableChanged();
 }
 
-void OpenCanvas::setFilePath(const QString &path)
+void CanvasSession::setFilePath(const QString &path)
 {
     if (path == m_filePath)
         return;

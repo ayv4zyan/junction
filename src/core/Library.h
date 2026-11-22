@@ -98,11 +98,13 @@ public:
     static QString uniqueName(const QString &base, const QStringList &taken);
 
 signals:
-    // In one change they come in this order: aboutToChangeFiles, then canvasMoved / canvasRemoved,
+    // In one change they come in this order: openCanvasMustBeSaved, then canvasMoved / canvasRemoved,
     // then projectsChanged, then currentChanged. The Editor relies on it: by the time it hears
     // currentChanged, the open file has already followed a rename.
     void loaded();          // load() is done; currentPath() is empty if the folder can't be written
-    void aboutToChangeFiles();   // files are about to change or another Canvas to open: save now
+    // About to change files or open another Canvas: whoever holds unsaved changes to the open
+    // Canvas (or a drag in progress) must save them now.
+    void openCanvasMustBeSaved();
     void projectsChanged(); // Projects or Canvases were added, removed, renamed or reordered
     void createdEmpty(const QString &project, const QString &canvas);   // a new empty one; `canvas` is "" for a Project
     void expandedChanged(const QString &project);

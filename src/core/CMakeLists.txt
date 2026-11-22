@@ -3,7 +3,7 @@
 add_library(junction_core STATIC
     CanvasItems.h CanvasItems.cpp
     Document.h Document.cpp
-    OpenCanvas.h OpenCanvas.cpp
+    CanvasSession.h CanvasSession.cpp
     Fragment.h Fragment.cpp
     LibraryIndex.h LibraryIndex.cpp
     Library.h Library.cpp

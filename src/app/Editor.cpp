@@ -54,15 +54,15 @@ Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
 {
     // The open Canvas follows the Library. Before the Library changes files or opens another
     // Canvas, the open one is saved, without a drag still in progress.
-    connect(m_library, &Library::aboutToChangeFiles, this, [this] {
+    connect(m_library, &Library::openCanvasMustBeSaved, this, [this] {
         cancelDrag();
         m_canvas.savePending();
     });
     connect(m_library, &Library::currentChanged, this, &Editor::loadCurrent);
-    connect(m_library, &Library::canvasMoved, &m_canvas, &OpenCanvas::fileMoved);
-    connect(m_library, &Library::canvasRemoved, &m_canvas, &OpenCanvas::fileRemoved);
+    connect(m_library, &Library::canvasMoved, &m_canvas, &CanvasSession::fileMoved);
+    connect(m_library, &Library::canvasRemoved, &m_canvas, &CanvasSession::fileRemoved);
 
-    connect(&m_canvas, &OpenCanvas::opened, this, &Editor::canvasOpened);
+    connect(&m_canvas, &CanvasSession::opened, this, &Editor::canvasOpened);
 
     // Anything that changes in the Document may move the selected Connection's handles.
     connect(&m_canvas.document(), &Document::changed, this, &Editor::syncSelectionWithDocument);
@@ -676,7 +676,7 @@ void Editor::loadCurrent()
 {
     const QString path = m_library->currentPath();
     if (path == m_canvas.filePath() && !path.isEmpty())
-        return;   // the open file was only renamed or moved; OpenCanvas::fileMoved() has followed it
+        return;   // the open file was only renamed or moved; CanvasSession::fileMoved() has followed it
     cancelDrag();
     setSelection({});
     if (path.isEmpty())

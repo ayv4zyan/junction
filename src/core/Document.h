@@ -65,7 +65,7 @@ public:
     void apply(const Change &change);
     void apply(const Transaction &transaction);
     // Inserts the item, or replaces the one with the same id. Without an undo step: for showing
-    // a drag in progress (OpenCanvas::showUncommitted); everything else goes through apply().
+    // a drag in progress (CanvasSession::showUncommitted); everything else goes through apply().
     void put(const CanvasItem &item);
 
     QJsonObject toJson() const;

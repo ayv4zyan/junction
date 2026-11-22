@@ -1,6 +1,7 @@
 #pragma once
 
-// The Canvas being edited: its Document, the file it is saved to, and its undo history.
+// The session of the Canvas being edited: its Document, the file it is saved to, and its undo
+// history.
 //
 // Every change is a Transaction pushed here; it goes on the undo stack and the file is saved
 // shortly afterwards. Each file keeps its undo history while the app runs, so switching to
@@ -19,9 +20,9 @@
 
 class QUndoStack;
 
-// QML reads these properties directly (main.cpp hands it over as `openCanvas`); changes go
+// QML reads these properties directly (main.cpp hands it over as `canvasSession`); changes go
 // through the Editor.
-class OpenCanvas : public QObject
+class CanvasSession : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
@@ -31,8 +32,8 @@ class OpenCanvas : public QObject
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
 
 public:
-    explicit OpenCanvas(QObject *parent = nullptr);
-    ~OpenCanvas() override;   // saves what is still waiting to be saved
+    explicit CanvasSession(QObject *parent = nullptr);
+    ~CanvasSession() override;   // saves what is still waiting to be saved
 
     const Document &document() const { return m_document; }
     QString filePath() const { return m_filePath; }

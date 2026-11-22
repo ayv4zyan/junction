@@ -13,7 +13,7 @@
 #include "Geometry.h"
 #include "Library.h"
 #include "NodeModel.h"
-#include "OpenCanvas.h"
+#include "CanvasSession.h"
 
 #include <QClipboard>
 #include <QObject>
@@ -100,7 +100,7 @@ public:
     Editor(Library *library, QClipboard *clipboard, QObject *parent = nullptr);
 
     const Document &document() const { return m_canvas.document(); }
-    OpenCanvas *openCanvas() { return &m_canvas; }   // its file, history and whether it can be edited
+    CanvasSession *canvasSession() { return &m_canvas; }   // its file, history and whether it can be edited
     NodeModel *cards() { return &m_cards; }
     NodeModel *groups() { return &m_groups; }
     QStringList selection() const { return m_selection; }
@@ -223,7 +223,7 @@ private:
 
     Library *m_library;
     QClipboard *m_clipboard;
-    OpenCanvas m_canvas;
+    CanvasSession m_canvas;
     NodeModel m_cards{&m_canvas.document(), NodeModel::Cards};
     NodeModel m_groups{&m_canvas.document(), NodeModel::Groups};
     QStringList m_selection;

@@ -46,7 +46,7 @@ private slots:
         m_library = std::make_unique<Library>(m_folder->filePath("Library"));
         m_editor = new Editor(m_library.get(), QGuiApplication::clipboard());
         m_library->load();
-        QVERIFY(m_editor->openCanvas()->notEditableReason().isEmpty());
+        QVERIFY(m_editor->canvasSession()->notEditableReason().isEmpty());
     }
 
     void cleanup()
@@ -221,7 +221,7 @@ private slots:
         QVERIFY(!m_editor->isDragging());
         m_editor->endMove();
         QVERIFY(m_editor->document().nodes().isEmpty());
-        QVERIFY(!m_editor->openCanvas()->canUndo());
+        QVERIFY(!m_editor->canvasSession()->canUndo());
 
         m_library->open(m_library->currentProject(), QFileInfo(first).completeBaseName());
         QCOMPARE(m_editor->document().node(a)->rect.left(), -120.0);   // where it was before the drag

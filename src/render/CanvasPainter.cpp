@@ -2,16 +2,19 @@
 #include "DesignValues.h"
 
 #include <QAbstractTextDocumentLayout>
+#include <QCoreApplication>
 #include <QFontMetricsF>
 #include <QImage>
 #include <QPainter>
 #include <QSvgGenerator>
 #include <QTextDocument>
+#include <functional>
 
 namespace {
 
 using namespace DesignValues;   // LabelFontSize, CardFontSize, CardPadding, LabelPadding*, *Tint
 constexpr qreal ArrowLength = 12;
+constexpr qreal ExportMargin = 40;        // empty space around what is exported
 constexpr qreal LineWidth = 2;
 
 // The application font (Geist, see JunctionDesign::installFonts) at a pixel size, matching the
@@ -36,9 +39,7 @@ void drawArrowhead(QPainter &painter, QPointF tip, QPointF direction, const QCol
 void drawMarkdown(QPainter &painter, const QString &markdown, const QRectF &rect, const QColor &color)
 {
     QTextDocument document;
-    // Like Obsidian, every newline is a line break (in plain Markdown it would be a space).
-    // Two spaces before a newline mark a hard break in Markdown.
-    document.setMarkdown(QString(markdown).replace('\n', QStringLiteral("  \n")));
+    document.setMarkdown(markdown);
     document.setTextWidth(rect.width());
     document.setDefaultFont(font(CardFontSize));
 
@@ -51,6 +52,65 @@ void drawMarkdown(QPainter &painter, const QString &markdown, const QRectF &rect
     painter.setClipRect(context.clip);
     document.documentLayout()->draw(&painter, context);
     painter.restore();
+}
+
+// What an export shows: the nodes named in `onlyIds` (all of them when it is empty), the
+// Connections between two of those, and the area around them with a margin.
+struct ExportedPart
+{
+    QVector<Node> groups;
+    QVector<Node> cards;
+    QVector<std::pair<Connection, Geometry::Route>> connections;
+    QRectF bounds;   // empty when there is nothing to export
+};
+
+ExportedPart exportedPart(const Document &document, const QSet<QString> &onlyIds)
+{
+    auto included = [&](const QString &id) { return onlyIds.isEmpty() || onlyIds.contains(id); };
+    ExportedPart part;
+    for (const Node &n : document.nodes()) {
+        if (!included(n.id))
+            continue;
+        (n.kind() == NodeKind::Group ? part.groups : part.cards).append(n);
+        part.bounds = part.bounds.united(n.rect);
+    }
+    if (part.bounds.isEmpty())
+        return part;
+    for (const Connection &c : document.connections()) {
+        const auto route = document.route(c);
+        if (route && included(c.fromNode) && included(c.toNode)) {
+            part.connections.append({c, *route});
+            part.bounds = part.bounds.united(route->path.boundingRect());
+        }
+    }
+    // room around it, and above for the Group label bars
+    part.bounds.adjust(-ExportMargin, -ExportMargin - GroupLabelSpace, ExportMargin, ExportMargin);
+    return part;
+}
+
+bool writeSvg(const QString &path, const QRectF &bounds, const std::function<void(QPainter &)> &paint)
+{
+    QSvgGenerator svg;
+    svg.setFileName(path);
+    svg.setSize(bounds.size().toSize());
+    svg.setViewBox(bounds);
+    QPainter painter;
+    if (!painter.begin(&svg))   // fails when the file can't be opened for writing
+        return false;
+    paint(painter);
+    return painter.end();       // the rest of the file is written here
+}
+
+bool writePng(const QString &path, const QRectF &bounds, const std::function<void(QPainter &)> &paint)
+{
+    constexpr qreal scale = 2;   // sharp on high-DPI screens and in documents
+    QImage image((bounds.size() * scale).toSize(), QImage::Format_ARGB32_Premultiplied);
+    QPainter painter(&image);
+    painter.scale(scale, scale);
+    painter.translate(-bounds.topLeft());
+    paint(painter);
+    painter.end();
+    return image.save(path);
 }
 
 } // namespace
@@ -66,12 +126,13 @@ QColor Palette::resolve(const QString &color, const QColor &fallback) const
     return fallback;
 }
 
-Palette Palette::fromVariantMap(const QVariantMap &map)
+std::optional<Palette> Palette::fromVariantMap(const QVariantMap &map)
 {
     Palette p;
+    bool complete = map.contains("radius") && map.value("presets").toList().size() == 6;
     auto read = [&](const char *key, QColor &target) {
-        if (map.contains(key))
-            target = map[key].value<QColor>();
+        target = map.value(key).value<QColor>();
+        complete = complete && target.isValid();
     };
     read("background", p.background);
     read("grid", p.grid);
@@ -81,10 +142,13 @@ Palette Palette::fromVariantMap(const QVariantMap &map)
     read("mutedText", p.mutedText);
     read("line", p.line);
     read("selection", p.selection);
-    if (map.contains("radius"))
-        p.radius = map["radius"].toReal();
-    for (const QVariant &preset : map["presets"].toList())
+    p.radius = map.value("radius").toReal();
+    for (const QVariant &preset : map.value("presets").toList()) {
         p.presets.append(preset.value<QColor>());
+        complete = complete && p.presets.last().isValid();
+    }
+    if (!complete)
+        return std::nullopt;
     return p;
 }
 
@@ -111,7 +175,7 @@ QColor colorUnder(QPointF point, const QVector<Node> &nodes, const Palette &pale
 {
     QColor color = palette.background;
     for (const Node &n : nodes) {
-        if (n.kind != NodeKind::Group || !n.rect.contains(point))
+        if (n.kind() != NodeKind::Group || !n.rect.contains(point))
             continue;
         // Each Group is painted over what is below it at GroupTint opacity.
         const QColor tint = palette.resolve(n.color, palette.cardBorder);
@@ -161,14 +225,25 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
     const QColor accent = palette.resolve(node.color, palette.cardBorder);
     painter.setPen(QPen(accent, 1.5));
 
-    if (node.kind == NodeKind::Group) {
+    if (node.kind() == NodeKind::Group) {
         QColor fill = accent;
         fill.setAlphaF(GroupTint);
         painter.setBrush(fill);
         painter.drawRoundedRect(node.rect, palette.radius, palette.radius);
-        painter.setFont(font(CardFontSize, QFont::Bold));
+
+        // The label on its bar above the Group, as GroupItem shows it.
+        const QFont labelFont = font(CardFontSize, QFont::Bold);
+        const QString label = node.displayText();
+        const qreal width = QFontMetricsF(labelFont).horizontalAdvance(label) + 2 * CardPadding;
+        const QRectF bar(node.rect.left(), node.rect.top() - GroupLabelSpace, width, GroupLabelHeight);
+        QColor barFill = accent;
+        barFill.setAlphaF(GroupLabelTint);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(barFill);
+        painter.drawRoundedRect(bar, palette.radius, palette.radius);
+        painter.setFont(labelFont);
         painter.setPen(palette.text);
-        painter.drawText(node.rect.topLeft() + QPointF(4, -8), node.label);
+        painter.drawText(bar, Qt::AlignCenter, label);
         return;
     }
 
@@ -182,79 +257,39 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
     }
 
     const QRectF content = node.rect.adjusted(CardPadding, CardPadding, -CardPadding, -CardPadding);
-    if (node.kind == NodeKind::Text) {
-        drawMarkdown(painter, node.text, content, palette.text);
+    if (node.kind() == NodeKind::Text) {
+        drawMarkdown(painter, node.displayText(), content, palette.text);
     } else {
         painter.setPen(palette.mutedText);
         painter.setFont(font(CardFontSize));
-        painter.drawText(content, Qt::AlignCenter | Qt::TextWordWrap,
-                         QStringLiteral("Unsupported: %1").arg(node.raw["type"].toString()));
+        painter.drawText(content, Qt::AlignCenter | Qt::TextWordWrap, node.displayText());
     }
 }
 
-bool exportCanvas(const Document &document, const QStringList &onlyIds, const QString &path,
+bool exportImage(const Document &document, const QSet<QString> &onlyIds, const QString &path,
                   const Palette &palette, QString *error)
 {
-    auto included = [&](const QString &id) { return onlyIds.isEmpty() || onlyIds.contains(id); };
-
-    QVector<Node> groups, cards;
-    QRectF bounds;
-    for (const Node &n : document.nodes()) {
-        if (!included(n.id))
-            continue;
-        (n.kind == NodeKind::Group ? groups : cards).append(n);
-        bounds = bounds.united(n.rect);
-    }
-    if (bounds.isEmpty()) {
-        *error = QStringLiteral("Nothing to export.");
+    const ExportedPart part = exportedPart(document, onlyIds);
+    if (part.bounds.isEmpty()) {
+        *error = QCoreApplication::translate("CanvasPainter", "Nothing to export.");
         return false;
     }
-
-    QVector<std::pair<Connection, Geometry::Route>> connections;
-    for (const Connection &c : document.connections()) {
-        const Node *from = document.node(c.fromNode);
-        const Node *to = document.node(c.toNode);
-        if (from && to && included(from->id) && included(to->id)) {
-            connections.append({c, Geometry::route(from->rect, to->rect, c)});
-            bounds = bounds.united(connections.last().second.path.boundingRect());
-        }
-    }
-    bounds.adjust(-40, -60, 40, 40);   // extra room on top for Group labels
-
-    auto paint = [&](QPainter &painter) {
+    const auto paint = [&](QPainter &painter) {
         painter.setRenderHint(QPainter::Antialiasing);
-        painter.fillRect(bounds, palette.background);
-        for (const Node &n : groups)
+        painter.fillRect(part.bounds, palette.background);
+        for (const Node &n : part.groups)
             drawNode(painter, n, palette);
-        for (const auto &[connection, route] : connections)
+        for (const auto &[connection, route] : part.connections)
             drawConnection(painter, route, connection, palette, false, true,
-                           colorUnder(route.labelPosition, groups, palette));
-        for (const Node &n : cards)
+                           colorUnder(route.labelPosition, part.groups, palette));
+        for (const Node &n : part.cards)
             drawNode(painter, n, palette);
     };
-
-    if (path.endsWith(".svg", Qt::CaseInsensitive)) {
-        QSvgGenerator svg;
-        svg.setFileName(path);
-        svg.setSize(bounds.size().toSize());
-        svg.setViewBox(bounds);
-        QPainter painter(&svg);
-        paint(painter);
-        return true;
-    }
-
-    constexpr qreal scale = 2;   // sharp on high-DPI screens and in documents
-    QImage image((bounds.size() * scale).toSize(), QImage::Format_ARGB32_Premultiplied);
-    QPainter painter(&image);
-    painter.scale(scale, scale);
-    painter.translate(-bounds.topLeft());
-    paint(painter);
-    painter.end();
-    if (!image.save(path)) {
-        *error = QStringLiteral("Could not write %1").arg(path);
-        return false;
-    }
-    return true;
+    const bool written = path.endsWith(".svg", Qt::CaseInsensitive) ? writeSvg(path, part.bounds, paint)
+                                                                    : writePng(path, part.bounds, paint);
+    if (!written)
+        *error = QCoreApplication::translate("CanvasPainter", "Could not write %1").arg(path);
+    return written;
 }
 
 } // namespace CanvasPainter

@@ -17,6 +17,7 @@ T.ToolButton {
     spacing: Space.sm
     icon.width: Sizes.icon
     icon.height: Sizes.icon
+    icon.color: Colors.text   // the default; an icon's own color wins
     opacity: enabled ? 1 : Colors.disabledOpacity
 
     contentItem: IconLabel {
@@ -24,7 +25,6 @@ T.ToolButton {
         mirrored: control.mirrored
         display: control.display
         icon: control.icon
-        defaultIconColor: Colors.text
         text: control.text
         font: control.font
         color: Colors.text

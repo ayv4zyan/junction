@@ -6,15 +6,16 @@ import JunctionDesign
 
 // Edits a Connection's label in place. It sits in canvas (world) coordinates, so it zooms
 // with the canvas, and looks like the painted label it stands in for (CanvasPainter's font and
-// padding); ConnectionLayer leaves that label out meanwhile (hiddenLabel).
+// padding); ConnectionLayer leaves that label out meanwhile (editedLabelConnection).
 // Opened by CanvasView.editLabel(). Enter, Esc or clicking away keeps the text.
 Rectangle {
     id: box
-    required property var canvas
-    readonly property Editor editor: canvas.editor
-    readonly property string connectionId: canvas.labelingId
+    // The CanvasView this is part of. Typed Item: Qt 6.9 rejects a type naming the view that creates it.
+    required property Item canvasView
+    required property Editor editor
+    readonly property string connectionId: canvasView.editingLabelId
     // The label stays where the Connection's middle is, even when its cards move (undo).
-    readonly property point center: editor.selectedConnection.labelPosition ?? Qt.point(0, 0)
+    readonly property point center: editor.selection.connection?.labelPosition ?? Qt.point(0, 0)
 
     visible: connectionId !== ""
     // The painted Label's padding (DesignValues::LabelPadding*, copies of these tokens).
@@ -25,31 +26,23 @@ Rectangle {
     radius: Sizes.radius
     color: Colors.background
     border.color: Colors.selection
-    border.width: 1.5 / canvas.zoom   // as thin as the Dots at every zoom level
+    border.width: 1.5 / canvasView.zoom   // as thin as the Dots at every zoom level
 
-    onVisibleChanged: {
-        if (visible) {
-            input.text = editor.selectedConnection.label
-            input.forceActiveFocus()
-            input.selectAll()
-        }
-    }
-
-    function finish() {
+    function finish(text) {
         const id = connectionId
-        canvas.labelingId = ""
-        editor.setConnectionLabel(id, input.text)
+        canvasView.endLabelEditing()
+        editor.setLabels([id], text)
     }
 
     // Selecting something else, or the Connection going away (undo), ends editing, also while
     // the text menu is open (then losing focus doesn't end it, see the TextInput).
     Connections {
-        target: box.editor
-        function onSelectionChanged() {
-            if (box.visible && box.editor.selectedConnection.id !== box.connectionId) {
-                textMenu.close()
-                box.finish()
-                box.canvas.forceActiveFocus()
+        target: box.editor.selection
+        function onIdsChanged() {
+            if (box.visible && box.editor.selection.connection?.id !== box.connectionId) {
+                textSession.closeMenu()
+                box.finish(input.text)
+                box.canvasView.forceActiveFocus()
             }
         }
     }
@@ -70,23 +63,18 @@ Rectangle {
         color: Colors.text
         selectionColor: Colors.accentFill
         selectedTextColor: Colors.onAccent
-        onAccepted: box.canvas.forceActiveFocus()
-        onActiveFocusChanged: if (!activeFocus && box.visible && !textMenu.visible) box.finish()
-        Keys.onEscapePressed: box.canvas.forceActiveFocus()
+        onAccepted: box.canvasView.forceActiveFocus()
+        Keys.onEscapePressed: box.canvasView.forceActiveFocus()
         HoverHandler { cursorShape: Qt.IBeamCursor }   // a plain TextInput sets none
     }
 
-    // A right-click opens the text menu. Above the TextInput, which would take the
-    // right-click itself; left clicks still go through to it.
-    MouseArea {
+    // Above the TextInput, which would take the right-click for the text menu itself.
+    TextEditSession {
+        id: textSession
         anchors.fill: parent
-        acceptedButtons: Qt.RightButton
-        onPressed: textMenu.popup()
-    }
-
-    TextMenu {
-        id: textMenu
-        editor: input
+        field: input
+        startText: box.editor.selection.connection?.label ?? ""
+        onFinished: (text) => box.finish(text)
     }
 
     Text {

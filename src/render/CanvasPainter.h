@@ -8,26 +8,29 @@
 
 #include <QColor>
 #include <QVariantMap>
+#include <optional>
 
 class QPainter;
 
-// Colors and the corner radius come from the design tokens (src/design: Colors.forPainter) as
-// a QVariantMap, so the painted layers and exports match the rest of the UI.
+// Colors and the corner radius come only from the design tokens (src/design: Colors.forPainter)
+// as a QVariantMap, so the painted layers and exports match the rest of the UI. There are no
+// defaults here on purpose: a second copy of the colors would drift from the tokens.
 struct Palette
 {
-    QColor background{"#1e1e1e"};
-    QColor grid{"#3a3a3a"};
-    QColor cardFill{"#262626"};
-    QColor cardBorder{"#555555"};
-    QColor text{"#dcddde"};
-    QColor mutedText{"#8a8a8a"};
-    QColor line{"#8a8a8a"};
-    QColor selection{"#7f6df2"};
+    QColor background;
+    QColor grid;
+    QColor cardFill;
+    QColor cardBorder;
+    QColor text;
+    QColor mutedText;
+    QColor line;
+    QColor selection;
     QVector<QColor> presets;   // JSON Canvas colors "1".."6"
     qreal radius = 0;          // corners of Cards, Groups and Connection labels
 
     QColor resolve(const QString &color, const QColor &fallback) const;
-    static Palette fromVariantMap(const QVariantMap &map);
+    // Nothing when a color is missing or invalid (tst_design_values checks Colors.forPainter).
+    static std::optional<Palette> fromVariantMap(const QVariantMap &map);
 };
 
 namespace CanvasPainter {
@@ -53,7 +56,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette);
 QRectF labelRect(const Geometry::Route &route, const QString &label);
 
 // Writes PNG or SVG depending on the file extension. Empty `onlyIds` means the whole Canvas.
-bool exportCanvas(const Document &document, const QStringList &onlyIds, const QString &path,
+bool exportImage(const Document &document, const QSet<QString> &onlyIds, const QString &path,
                   const Palette &palette, QString *error);
 
 } // namespace CanvasPainter

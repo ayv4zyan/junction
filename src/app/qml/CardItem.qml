@@ -3,47 +3,31 @@ import QtQuick
 import QtQuick.Controls
 import Junction
 import JunctionDesign
-import "CanvasColors.js" as CanvasColors
 
 // One Card: Markdown text, Handles on hover, drag to move, double-click to edit.
-Item {
+NodeItem {
     id: card
-    required property var canvas
-    required property string nodeId
-    required property string kind
-    required property real nodeX
-    required property real nodeY
-    required property real nodeWidth
-    required property real nodeHeight
-    required property string text
-    required property string nodeColor
+    required property int nodeKind   // a CanvasEnums.NodeKind
+    required property string nodeText          // the Markdown, as typed
+    required property string nodeDisplayText   // what the card shows (see NodeModel)
 
-    readonly property Editor editor: canvas.editor
-    readonly property bool selected: editor.selection.includes(nodeId)
-    readonly property bool editing: canvas.editingId === nodeId
-    readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
-    property int hoveredHandles: 0
-    readonly property bool showHandles: !editing && (body.containsMouse || resizeEdges.hovered || hoveredHandles > 0
-                                                     || canvas.connectFrom === nodeId
-                                                     || canvas.dropTarget === nodeId)
+    readonly property bool isText: nodeKind === CanvasEnums.NodeKind.Text   // otherwise Unsupported: shown, never edited
+    // Handles show while the pointer is on the card or close to it (on a Handle, or on the
+    // outer half of a resize strip), and while a Connection is dragged from or onto it.
+    readonly property bool showHandles: !editing && (hover.hovered || canvasView.connectFrom === nodeId
+                                                     || canvasView.dropTarget === nodeId)
 
-    x: nodeX
-    y: nodeY
-    width: nodeWidth
-    height: nodeHeight
-
-    function finishEditing() {
-        editor.setText(nodeId, textEdit.text)
-        if (canvas.editingId === nodeId)
-            canvas.editingId = ""
+    function finishEditing(text) {
+        editor.setCardText(nodeId, text)
+        canvasView.endEditingInPlace(nodeId)
     }
 
     Rectangle {
         anchors.fill: parent
         radius: Sizes.radius
         color: card.nodeColor ? Qt.tint(Colors.cardFill, Qt.alpha(card.accent, Colors.cardTint)) : Colors.cardFill
-        border.color: card.selected ? Colors.selection : card.accent
-        border.width: card.selected ? 2 : 1.5
+        border.color: card.borderColor
+        border.width: card.borderWidth
     }
 
     // While editing, a click in the card's padding keeps the cursor in the text, and a
@@ -57,13 +41,16 @@ Item {
         onPressed: (mouse) => {
             textEdit.forceActiveFocus()
             if (mouse.button === Qt.RightButton)
-                textMenu.popup()
+                textSession.openMenu()
         }
     }
 
-    TextMenu {
-        id: textMenu
-        editor: textEdit
+    TextEditSession {
+        id: textSession
+        field: textEdit
+        startText: card.nodeText
+        selectAll: false
+        onFinished: (text) => card.finishEditing(text)
     }
 
     // Cards have a fixed size, so text that doesn't fit scrolls: with the mouse wheel over the
@@ -89,13 +76,11 @@ Item {
             width: scroller.width
             height: Math.max(implicitHeight, scroller.height)
             visible: !card.editing
-            // Like Obsidian, every newline is a line break (in plain Markdown it would be a space).
-            // Two spaces before a newline mark a hard break in Markdown.
-            text: card.kind === "text" ? card.text.replace(/\n/g, "  \n") : card.text
-            textFormat: card.kind === "text" ? Text.MarkdownText : Text.PlainText
-            color: card.kind === "text" ? Colors.text : Colors.mutedText
-            horizontalAlignment: card.kind === "text" ? Text.AlignLeft : Text.AlignHCenter
-            verticalAlignment: card.kind === "text" ? Text.AlignTop : Text.AlignVCenter
+            text: card.nodeDisplayText
+            textFormat: card.isText ? Text.MarkdownText : Text.PlainText
+            color: card.isText ? Colors.text : Colors.mutedText
+            horizontalAlignment: card.isText ? Text.AlignLeft : Text.AlignHCenter
+            verticalAlignment: card.isText ? Text.AlignTop : Text.AlignVCenter
             wrapMode: Text.Wrap
             font.pixelSize: Fonts.canvas
             // Cards are scaled with the canvas: drawn as curves, the text stays sharp at every zoom.
@@ -114,22 +99,13 @@ Item {
             selectedTextColor: Colors.onAccent
             font.pixelSize: Fonts.canvas
             renderType: Text.CurveRendering
-            // Shown when editing starts; only a visible item can take keyboard focus.
-            onVisibleChanged: {
-                if (visible) {
-                    text = card.text
-                    forceActiveFocus()
-                    cursorPosition = length
-                }
-            }
             onCursorRectangleChanged: {
                 if (cursorRectangle.y < scroller.contentY)
                     scroller.contentY = cursorRectangle.y
                 else if (cursorRectangle.y + cursorRectangle.height > scroller.contentY + scroller.height)
                     scroller.contentY = cursorRectangle.y + cursorRectangle.height - scroller.height
             }
-            onActiveFocusChanged: if (!activeFocus && card.editing && !textMenu.visible) card.finishEditing()
-            Keys.onEscapePressed: card.canvas.forceActiveFocus()
+            Keys.onEscapePressed: card.canvasView.forceActiveFocus()
         }
 
         // the text got shorter (edited, or switched back from editing): don't stay scrolled past it
@@ -154,81 +130,62 @@ Item {
         // On Wayland, Qt reports mouse wheels as a "touchpad" device, so accept every device.
         acceptedDevices: PointerDevice.AllDevices
         target: null
-        onWheel: (event) => scroller.scrollBy(-card.canvas.wheelDelta(event).y / card.canvas.zoom)   // the card is scaled by the zoom
+        onWheel: (event) => scroller.scrollBy(-card.canvasView.wheelDelta(event).y / card.canvasView.zoom)   // the card is scaled by the zoom
     }
 
-    DragArea {
+    HoverHandler {
+        id: hover
+        margin: card.canvasView.handleRadius
+    }
+
+    SelectMoveArea {
         id: body
-        canvas: card.canvas
+        canvasView: card.canvasView
+        editor: card.editor
+        nodeId: card.nodeId
         anchors.fill: parent
         visible: !card.editing   // hidden, not disabled, so the text's I-beam shows while editing
         hoverEnabled: true
-        property bool moving: false
-
-        // Press: Shift/Ctrl toggles; otherwise an unselected item becomes the selection.
-        // Drag: moves the whole selection. Click: narrows the selection to this item.
-        onGrabbed: (mouse) => {
-            if (card.canvas.isToggle(mouse.modifiers))
-                card.editor.select(card.nodeId, true)
-            else if (!card.selected)
-                card.editor.select(card.nodeId)
-        }
-        onDragStarted: {
-            moving = card.selected
-            if (moving)
-                card.editor.beginMove(card.nodeId)
-        }
-        onDragged: (delta, invertSnap) => { if (moving) card.editor.updateMove(delta, invertSnap) }
-        onDragFinished: {
-            if (moving)
-                card.editor.endMove()
-            moving = false
-        }
-        onTapped: (modifiers) => {
-            if (!card.canvas.isToggle(modifiers))
-                card.editor.select(card.nodeId)
-        }
-        onDoubleClicked: { if (card.kind === "text") card.canvas.editingId = card.nodeId }
-        onMenuRequested: card.canvas.openMenuFor(card.nodeId)
+        onDoubleClicked: { if (card.isText) card.canvasView.editInPlace(card.nodeId) }
     }
 
     // Resizing by dragging a side or corner. Declared before the Handles so that a Handle in
     // the middle of a side wins over the side's resize strip.
     ResizeEdges {
         id: resizeEdges
-        canvas: card.canvas
+        canvasView: card.canvasView
+        editor: card.editor
         nodeId: card.nodeId
     }
 
     // Handles: drag from one to create a Connection.
     Repeater {
-        model: ["top", "right", "bottom", "left"]
-        delegate: Dot {
+        // Where each Handle sits, as a fraction of the card's size: top, right, bottom, left.
+        model: [Qt.point(0.5, 0), Qt.point(1, 0.5), Qt.point(0.5, 1), Qt.point(0, 0.5)]
+        delegate: PointMarker {
             id: handle
-            required property string modelData
-            canvas: card.canvas
+            required property point modelData
+            canvasView: card.canvasView
             visible: card.showHandles
             filled: handleMouse.containsMouse
-            center: Qt.point(modelData === "left" ? 0 : modelData === "right" ? card.width : card.width / 2,
-                             modelData === "top" ? 0 : modelData === "bottom" ? card.height : card.height / 2)
+            center: Qt.point(modelData.x * card.width, modelData.y * card.height)
 
             MouseArea {
                 id: handleMouse
                 anchors.fill: parent
-                anchors.margins: card ? -4 / card.canvas.zoom : 0   // card is null while being destroyed
+                anchors.margins: card ? -card.canvasView.markerMargin : 0   // card is null while being destroyed
                 hoverEnabled: true
                 cursorShape: Qt.CrossCursor
-                onContainsMouseChanged: card.hoveredHandles += containsMouse ? 1 : -1
                 onPressed: (mouse) => {
-                    if (card.canvas.spaceHeld) {   // Space+drag pans
+                    if (card.canvasView.spaceHeld) {   // Space+drag pans
                         mouse.accepted = false
                         return
                     }
-                    card.canvas.startConnection(card.nodeId, mapToItem(card.canvas, mouse.x, mouse.y))
+                    card.canvasView.startConnection(card.nodeId, mapToItem(card.canvasView, mouse.x, mouse.y))
                 }
-                onPositionChanged: (mouse) => { if (pressed) card.canvas.moveConnection(mapToItem(card.canvas, mouse.x, mouse.y)) }
-                onReleased: (mouse) => card.canvas.finishConnection(mapToItem(card.canvas, mouse.x, mouse.y))
-                onCanceled: card.canvas.cancelConnection()
+                onPositionChanged: (mouse) => { if (pressed) card.canvasView.moveConnection(mapToItem(card.canvasView, mouse.x, mouse.y)) }
+                onReleased: (mouse) => card.canvasView.finishConnection(mapToItem(card.canvasView, mouse.x, mouse.y))
+                onCanceled: card.canvasView.cancelConnection()
             }
         }
     }

@@ -1,7 +1,9 @@
 #include "Document.h"
 #include "TransactionCommand.h"
 
+#include <QFile>
 #include <QJsonArray>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QUndoStack>
 
@@ -14,7 +16,7 @@ class TestDocument : public QObject
         Node n;
         n.id = id;
         n.rect = rect;
-        n.text = text;
+        n.content = TextContent{text};
         return n;
     }
 
@@ -23,15 +25,15 @@ private slots:
     {
         Document doc;
         const Node a = card("a", {0, 0, 100, 50}, "hello");
-        doc.apply(Change{std::nullopt, a});
+        doc.apply(Change::added(a));
         QCOMPARE(doc.nodes().size(), 1);
 
         Node moved = a;
         moved.rect.moveTo(40, 40);
-        doc.apply(Change{a, moved});
+        doc.apply(Change::updated(a, moved));
         QCOMPARE(doc.node("a")->rect.topLeft(), QPointF(40, 40));
 
-        doc.apply(Change{moved, std::nullopt});
+        doc.apply(Change::removed(moved));
         QVERIFY(doc.nodes().isEmpty());
     }
 
@@ -46,12 +48,12 @@ private slots:
         c.fromNode = "a";
         c.toNode = "b";
 
-        undo.push(new TransactionCommand(&doc, {{std::nullopt, a}, {std::nullopt, b}, {std::nullopt, c}}, "add"));
+        undo.push(new TransactionCommand(&doc, {Change::added(a), Change::added(b), Change::added(c)}, "add"));
         QCOMPARE(doc.nodes().size(), 2);
         QCOMPARE(doc.connections().size(), 1);
 
         // Deleting a card takes its Connection with it, in one step.
-        undo.push(new TransactionCommand(&doc, {{c, std::nullopt}, {a, std::nullopt}}, "delete"));
+        undo.push(new TransactionCommand(&doc, {Change::removed(c), Change::removed(a)}, "delete"));
         QCOMPARE(doc.nodes().size(), 1);
         QVERIFY(doc.connections().isEmpty());
 
@@ -71,8 +73,7 @@ private slots:
         Document doc;
         Node group;
         group.id = "g";
-        group.kind = NodeKind::Group;
-        group.label = "Backend";
+        group.content = GroupContent{"Backend"};
         group.rect = {-20, -20, 400, 200};
         group.color = "4";
         Connection c;
@@ -83,10 +84,10 @@ private slots:
         c.label = "calls";
         c.style = PathStyle::Straight;
         c.waypoints = {{100, 300}};
-        doc.apply(Transaction{{std::nullopt, group},
-                              {std::nullopt, card("a", {0, 0, 100, 60}, "# API")},
-                              {std::nullopt, card("b", {300, 0, 100, 60}, "DB")},
-                              {std::nullopt, c}});
+        doc.apply(Transaction{Change::added(group),
+                              Change::added(card("a", {0, 0, 100, 60}, "# API")),
+                              Change::added(card("b", {300, 0, 100, 60}, "DB")),
+                              Change::added(c)});
 
         Document copy;
         copy.fromJson(doc.toJson());
@@ -100,7 +101,7 @@ private slots:
                                {"subpath", "#Goals"}, {"x", 10}, {"y", 20}, {"width", 300}, {"height", 200}};
         Document doc;
         doc.fromJson({{"nodes", QJsonArray{file}}});
-        QCOMPARE(doc.node("f")->kind, NodeKind::Unsupported);
+        QCOMPARE(doc.node("f")->kind(), NodeKind::Unsupported);
         QCOMPARE(doc.toJson()["nodes"].toArray().first().toObject(), file);
     }
 
@@ -109,10 +110,64 @@ private slots:
         // Written by Obsidian: no "pathStyle", so its sides are not kept.
         const Connection fromObsidian = Connection::fromJson(
             {{"id", "e"}, {"fromNode", "a"}, {"fromSide", "right"}, {"toNode", "b"}, {"toSide", "left"}});
-        QCOMPARE(fromObsidian.fromSide, Side::None);
-        QCOMPARE(fromObsidian.toSide, Side::None);
+        QCOMPARE(fromObsidian.fromSide, Side::Floating);
+        QCOMPARE(fromObsidian.toSide, Side::Floating);
         QVERIFY(fromObsidian.toArrow);
         QCOMPARE(fromObsidian.style, PathStyle::Curved);
+    }
+
+    // Valid JSON that is not an object is not a canvas: loading fails and the file is not
+    // treated as an empty canvas (which the next save would write over it).
+    void loadRejectsNonObjectJson()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath("list.canvas");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("[1, 2, 3]");
+        file.close();
+
+        Document doc;
+        doc.apply(Change::added(card("kept", {0, 0, 10, 10})));
+        QString error;
+        QVERIFY(!doc.load(path, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(doc.node("kept"));
+    }
+
+    void missingAndDuplicateIdsAreReplaced()
+    {
+        const QJsonObject a{{"id", "a"}, {"type", "text"}};
+        const QJsonObject noId{{"type", "text"}};
+        Document doc;
+        doc.fromJson({{"nodes", QJsonArray{a, a, noId}}});
+        QSet<QString> ids;
+        for (const Node &n : doc.nodes())
+            ids.insert(n.id);
+        QCOMPARE(ids.size(), 3);
+        QVERIFY(ids.contains("a"));
+        QVERIFY(!ids.contains(QString()));
+    }
+
+    // A node without a usable size (missing, zero, negative) gets the smallest one, so it can be
+    // seen, grabbed and resized.
+    void nodesWithoutAUsableSizeGetTheSmallest()
+    {
+        const Node missing = Node::fromJson({{"id", "a"}, {"type", "text"}, {"x", 10}, {"y", 20}});
+        QCOMPARE(missing.rect, QRectF(QPointF(10, 20), Node::MinimumSize));
+        const Node negative = Node::fromJson({{"id", "b"}, {"type", "text"}, {"width", -5}, {"height", 300}});
+        QCOMPARE(negative.rect.size(), QSizeF(Node::MinimumSize.width(), 300));
+    }
+
+    // A Connection to a node the file doesn't have is kept, not silently dropped on save.
+    void danglingConnectionsAreWrittenBack()
+    {
+        const QJsonObject edge{{"id", "e"}, {"fromNode", "a"}, {"toNode", "missing"}};
+        Document doc;
+        doc.fromJson({{"nodes", QJsonArray{QJsonObject{{"id", "a"}, {"type", "text"}}}}, {"edges", QJsonArray{edge}}});
+        const QJsonArray edges = doc.toJson()["edges"].toArray();
+        QCOMPARE(edges.size(), 1);
+        QCOMPARE(edges[0]["toNode"].toString(), QString("missing"));
     }
 };
 

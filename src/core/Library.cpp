@@ -1,514 +1,430 @@
 #include "Library.h"
 
-#include <QDir>
-#include <QFile>
+#include "Document.h"
+#include "LibraryNames.h"
+
 #include <QFileInfo>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QSaveFile>
 
 namespace {
 
-const QString IndexFile = QStringLiteral(".junction");
-const QString Extension = QStringLiteral(".canvas");
-const QString NewName = QStringLiteral("Untitled");
-constexpr auto SortOrder = QDir::Name | QDir::IgnoreCase | QDir::LocaleAware;
+const QString UntitledName = QStringLiteral("Untitled");   // what a new Project or Canvas is called
 
-bool sameName(const QString &a, const QString &b)
+// What is really on disk wins over what the index lists: the listed entries that exist keep
+// their order, and names on disk that weren't listed follow, made with `newEntry`.
+template <typename Entry, typename NewEntry>
+QVector<Entry> reconciled(const QVector<Entry> &listed, const QStringList &onDisk, NewEntry newEntry)
 {
-    return a.compare(b, Qt::CaseInsensitive) == 0;
+    QVector<Entry> result;
+    QStringList names;
+    for (const Entry &entry : listed) {
+        if (onDisk.contains(entry.name) && !names.contains(entry.name)) {
+            result.append(entry);
+            names.append(entry.name);
+        }
+    }
+    for (const QString &name : onDisk) {
+        if (!names.contains(name))
+            result.append(newEntry(name));
+    }
+    return result;
 }
 
-QJsonObject viewToJson(const CanvasView &view)
+// Where an item at `from` lands when dropped at `toIndex`, a position in the list of `count`
+// items as it is before the item is taken out.
+int movedPosition(int from, int toIndex, int count)
 {
-    return {{"x", view.center.x()}, {"y", view.center.y()}, {"zoom", view.zoom}};
-}
-
-std::optional<CanvasView> viewFromJson(const QJsonValue &value)
-{
-    const QJsonObject json = value.toObject();
-    const qreal zoom = json["zoom"].toDouble();
-    if (zoom <= 0)
-        return std::nullopt;
-    return CanvasView{QPointF(json["x"].toDouble(), json["y"].toDouble()), zoom};
+    const int to = toIndex > from ? toIndex - 1 : toIndex;
+    return qBound(0, to, count - 1);
 }
 
 } // namespace
 
 Library::Library(const QString &root, QObject *parent)
-    : QObject(parent), m_root(root)
+    : QObject(parent), m_folder(root)
 {
+    m_viewSaveTimer.setSingleShot(true);
+    m_viewSaveTimer.setInterval(1000);
+    connect(&m_viewSaveTimer, &QTimer::timeout, this, &Library::saveIndex);
 }
 
+// Saves the index one last time. Nobody is listening for errorOccurred any more, so a failure
+// goes to the log.
 Library::~Library()
 {
-    if (!m_projects.isEmpty())
-        saveIndex();
+    if (!m_index.projects.isEmpty() && !m_folder.writeIndex(m_index))
+        qWarning("Junction: the library index could not be saved");
 }
 
 // ---- Loading and saving ----
 
 void Library::load()
 {
-    QDir().mkpath(m_root);
-
-    // What the index remembers: order, views, expanded state, the open Canvas.
-    QFile indexFile(QDir(m_root).filePath(IndexFile));
-    QJsonObject index;
-    if (indexFile.open(QIODevice::ReadOnly))
-        index = QJsonDocument::fromJson(indexFile.readAll()).object();
-
-    QVector<ProjectEntry> listed;
-    for (const QJsonValue &value : index["projects"].toArray()) {
-        const QJsonObject json = value.toObject();
-        ProjectEntry project{json["name"].toString(), {}, json["expanded"].toBool(true), json["last"].toString()};
-        for (const QJsonValue &canvas : json["canvases"].toArray())
-            project.canvases.append({canvas["name"].toString(), viewFromJson(canvas["view"])});
-        listed.append(project);
+    if (const std::optional<LibraryIndex> index = loadProjects()) {
+        openWhatWasOpenLastTime(index->currentProject, index->currentCanvas);
+        saveIndexAndNotify();
     }
+    emit loaded();
+}
 
-    // What is really on disk wins: listed items keep their order, unlisted ones go last.
-    const QStringList folders = QDir(m_root).entryList(QDir::Dirs | QDir::NoDotAndDotDot, SortOrder);
-    QVector<ProjectEntry> found;
-    for (const ProjectEntry &p : listed) {
-        if (folders.contains(p.name) && std::none_of(found.begin(), found.end(), [&](auto &f) { return f.name == p.name; }))
-            found.append(p);
+// Reads the index and the folders into m_index.projects; what is really on disk wins. Returns the
+// index for what was open last time, or nothing when the folder can't be written
+// (errorOccurred has said so).
+std::optional<LibraryIndex> Library::loadProjects()
+{
+    if (!m_folder.create()) {
+        emit errorOccurred(tr("Could not create the library folder %1.").arg(m_folder.root()));
+        return std::nullopt;
     }
-    for (const QString &folder : folders) {
-        if (std::none_of(found.begin(), found.end(), [&](auto &f) { return f.name == folder; }))
-            found.append({folder, {}, true, {}});
-    }
-
-    m_projects.clear();
-    for (ProjectEntry p : found) {
-        QStringList files;
-        for (const QString &file : QDir(projectPath(p.name)).entryList({"*" + Extension}, QDir::Files, SortOrder))
-            files.append(file.chopped(Extension.size()));
-        QVector<CanvasEntry> canvases;
-        for (const CanvasEntry &c : p.canvases) {
-            if (files.contains(c.name) && std::none_of(canvases.begin(), canvases.end(), [&](auto &k) { return k.name == c.name; }))
-                canvases.append(c);
-        }
-        for (const QString &file : files) {
-            if (std::none_of(canvases.begin(), canvases.end(), [&](auto &k) { return k.name == file; }))
-                canvases.append({file, std::nullopt});
-        }
+    const LibraryIndex index = readIndex();
+    m_index.projects.clear();
+    const QStringList folders = m_folder.projectFolders();
+    const auto newProject = [](const QString &name) { return ProjectEntry{name, {}, true, {}}; };
+    const auto newCanvas = [](const QString &name) { return CanvasEntry{name, std::nullopt}; };
+    for (ProjectEntry p : reconciled(index.projects, folders, newProject)) {
+        p.canvases = reconciled(p.canvases, m_folder.canvasFiles(p.name), newCanvas);
         // A Project always has a Canvas to show; an empty folder gets a new one.
-        if (canvases.isEmpty()) {
-            if (!createEmptyCanvasFile(canvasPath(p.name, NewName)))
+        if (p.canvases.isEmpty()) {
+            if (!createEmptyCanvas(p.name, UntitledName))
                 continue;
-            canvases.append({NewName, std::nullopt});
+            p.canvases.append(newCanvas(UntitledName));
         }
-        p.canvases = canvases;
-        m_projects.append(p);
+        m_index.projects.append(p);
     }
-    if (m_projects.isEmpty() && addProject(0).isEmpty())
-        return;   // the folder can't be written; errorOccurred has said so
+    if (m_index.projects.isEmpty() && !addProject(0))
+        return std::nullopt;
+    return index;
+}
 
-    const QJsonObject current = index["current"].toObject();
-    const QString project = current["project"].toString();
-    const QString canvas = current["canvas"].toString();
-    if (canvasIndex(project, canvas) >= 0)
+// The index: order, views, expanded state, the open Canvas. When it can't be read (load() is
+// about to write a new one), the user is told that the order and views were reset.
+LibraryIndex Library::readIndex()
+{
+    if (std::optional<LibraryIndex> index = m_folder.readIndex())
+        return *index;
+    QString message = tr("The library index couldn't be read, so the order of projects and canvases was reset.");
+    if (const QString keptAs = m_folder.keepBrokenIndex(); !keptAs.isEmpty())
+        message += ' ' + tr("The old index was kept as %1.").arg(keptAs);
+    emit errorOccurred(message);
+    return {};
+}
+
+// The Canvas open last time; if it is gone, the first of its Project, or else the very first.
+void Library::openWhatWasOpenLastTime(const QString &project, const QString &canvas)
+{
+    if (m_index.canvasPosition(project, canvas))
         setCurrent(project, canvas);
-    else if (projectIndex(project) >= 0)
-        setCurrent(project, m_projects[projectIndex(project)].canvases.first().name);
+    else if (m_index.project(project))
+        setCurrent(project, m_index.lastOpenedCanvas(project));
     else
-        setCurrent(m_projects.first().name, m_projects.first().canvases.first().name);
-    finish();
+        setCurrent(m_index.projects.first().name, m_index.projects.first().firstCanvas());
 }
 
 void Library::saveIndex()
 {
-    QJsonArray projects;
-    for (const ProjectEntry &p : m_projects) {
-        QJsonArray canvases;
-        for (const CanvasEntry &c : p.canvases) {
-            QJsonObject canvas{{"name", c.name}};
-            if (c.view)
-                canvas["view"] = viewToJson(*c.view);
-            canvases.append(canvas);
-        }
-        projects.append(QJsonObject{{"name", p.name}, {"expanded", p.expanded}, {"last", p.lastCanvas}, {"canvases", canvases}});
-    }
-    const QJsonObject index{
-        {"projects", projects},
-        {"current", QJsonObject{{"project", m_currentProject}, {"canvas", m_currentCanvas}}},
-    };
-    QSaveFile file(QDir(m_root).filePath(IndexFile));
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(QJsonDocument(index).toJson(QJsonDocument::Indented));
-        file.commit();
-    }
+    if (!m_folder.writeIndex(m_index))
+        emit errorOccurred(tr("Could not save the library index in %1.").arg(m_folder.root()));
 }
 
-void Library::finish()
+void Library::saveIndexAndNotify()
 {
     saveIndex();
-    emit changed();
-    if (m_currentMoved) {
-        m_currentMoved = false;
-        emit currentChanged();
-    }
+    emit projectsChanged();
+    notifyIfCurrentPathChanged();
+}
+
+void Library::notifyIfCurrentPathChanged()
+{
+    if (currentPath() == m_lastAnnouncedPath)
+        return;
+    m_lastAnnouncedPath = currentPath();
+    emit currentChanged();
 }
 
 // ---- Looking things up ----
 
-int Library::projectIndex(const QString &project) const
-{
-    for (int i = 0; i < m_projects.size(); ++i) {
-        if (m_projects[i].name == project)
-            return i;
-    }
-    return -1;
-}
-
-int Library::canvasIndex(const QString &project, const QString &canvas) const
-{
-    const int p = projectIndex(project);
-    if (p < 0)
-        return -1;
-    const QVector<CanvasEntry> &canvases = m_projects[p].canvases;
-    for (int i = 0; i < canvases.size(); ++i) {
-        if (canvases[i].name == canvas)
-            return i;
-    }
-    return -1;
-}
-
-ProjectEntry *Library::project(const QString &name)
-{
-    const int i = projectIndex(name);
-    return i < 0 ? nullptr : &m_projects[i];
-}
-
-QString Library::projectPath(const QString &project) const
-{
-    return QDir(m_root).filePath(project);
-}
-
 QString Library::canvasPath(const QString &project, const QString &canvas) const
 {
-    if (project.isEmpty() || canvas.isEmpty())
-        return {};
-    return QDir(projectPath(project)).filePath(canvas + Extension);
+    return m_folder.canvasPath(project, canvas);
 }
 
-QStringList Library::projectNames() const
+int Library::canvasCount(const QString &project) const
 {
-    QStringList names;
-    for (const ProjectEntry &p : m_projects)
-        names.append(p.name);
-    return names;
-}
-
-QStringList Library::canvasNames(const QString &project) const
-{
-    QStringList names;
-    if (const int p = projectIndex(project); p >= 0) {
-        for (const CanvasEntry &c : m_projects[p].canvases)
-            names.append(c.name);
-    }
-    return names;
+    const ProjectEntry *p = m_index.project(project);
+    return p ? int(p->canvases.size()) : 0;
 }
 
 // ---- Names ----
 
-QString Library::nameProblem(const QString &name)
-{
-    if (name.isEmpty())
-        return tr("A name can't be empty.");
-    if (name.startsWith('.') || name.endsWith('.'))
-        return tr("A name can't start or end with a dot.");
-    for (const QChar c : name) {
-        if (c.category() == QChar::Other_Control || QStringLiteral("/\\:*?\"<>|").contains(c))
-            return tr("A name can't contain / \\ : * ? \" < > |");
-    }
-    if (name.size() > 100)
-        return tr("That name is too long.");
-    return {};
-}
-
 QString Library::projectNameProblem(const QString &name, const QString &except) const
 {
-    const QString trimmed = name.trimmed();
-    if (QString problem = nameProblem(trimmed); !problem.isEmpty())
-        return problem;
-    for (const ProjectEntry &p : m_projects) {
-        if (p.name != except && sameName(p.name, trimmed))
-            return tr("There is already a project named “%1”.").arg(p.name);
-    }
-    return {};
+    return LibraryNames::problemAmong(name.trimmed(), m_index.projectNames(), except,
+                                      tr("There is already a project named “%1”."));
 }
 
 QString Library::canvasNameProblem(const QString &project, const QString &name, const QString &except) const
 {
-    const QString trimmed = name.trimmed();
-    if (QString problem = nameProblem(trimmed); !problem.isEmpty())
-        return problem;
-    for (const QString &other : canvasNames(project)) {
-        if (other != except && sameName(other, trimmed))
-            return tr("“%1” already has a canvas named “%2”.").arg(project, other);
-    }
-    return {};
-}
-
-// "Untitled", "Untitled 2", "Untitled 3"...
-QString Library::uniqueName(const QString &base, const QStringList &taken)
-{
-    QString name = base;
-    for (int i = 2; std::any_of(taken.begin(), taken.end(), [&](const QString &t) { return sameName(t, name); }); ++i)
-        name = QStringLiteral("%1 %2").arg(base).arg(i);
-    return name;
+    return LibraryNames::problemAmong(name.trimmed(), m_index.canvasNames(project), except,
+                                      tr("“%1” already has a canvas named “%2”.").arg(project));
 }
 
 // ---- The open Canvas ----
 
 void Library::setCurrent(const QString &project, const QString &canvas)
 {
-    if (project == m_currentProject && canvas == m_currentCanvas)
+    if (project == m_index.currentProject && canvas == m_index.currentCanvas)
         return;
-    m_currentProject = project;
-    m_currentCanvas = canvas;
-    m_currentMoved = true;
-    if (ProjectEntry *p = this->project(project))
-        p->lastCanvas = canvas;
+    m_index.currentProject = project;
+    m_index.currentCanvas = canvas;
+    if (ProjectEntry *p = m_index.project(project))
+        p->lastOpened = canvas;
 }
 
-// Only the open Canvas changes here, not the list: no changed().
+// Only the open Canvas changes here, not the list: no projectsChanged().
+bool Library::openProject(const QString &projectName)
+{
+    return open(projectName, m_index.lastOpenedCanvas(projectName));
+}
+
 bool Library::open(const QString &projectName, const QString &canvas)
 {
-    if (canvasIndex(projectName, canvas) < 0)
+    if (!m_index.canvasPosition(projectName, canvas))
         return false;
-    if (projectName == m_currentProject && canvas == m_currentCanvas) {
+    if (projectName == m_index.currentProject && canvas == m_index.currentCanvas) {
         setExpanded(projectName, true);
         return true;
     }
-    emit aboutToChange();
+    emit openCanvasMustBeSaved();
     setCurrent(projectName, canvas);
-    ProjectEntry *p = project(projectName);
+    ProjectEntry *p = m_index.project(projectName);
     const bool expand = !p->expanded;   // so the open Canvas can be seen in the sidebar
     p->expanded = true;
     saveIndex();
     if (expand)
         emit expandedChanged(projectName);
-    m_currentMoved = false;
-    emit currentChanged();
+    notifyIfCurrentPathChanged();
     return true;
 }
 
-QString Library::lastCanvas(const QString &projectName) const
+void Library::openAdjacent(int step)
 {
-    const int p = projectIndex(projectName);
-    if (p < 0)
-        return {};
-    const ProjectEntry &project = m_projects[p];
-    return canvasIndex(projectName, project.lastCanvas) >= 0 ? project.lastCanvas : project.canvases.first().name;
+    const auto at = m_index.canvasPosition(m_index.currentProject, m_index.currentCanvas);
+    if (!at)
+        return;
+    const QVector<CanvasEntry> &canvases = m_index.projects[at->project].canvases;
+    const int next = at->canvas + step;
+    if (next >= 0 && next < canvases.size())
+        open(m_index.currentProject, canvases[next].name);
 }
 
 // ---- Creating ----
 
-bool Library::createEmptyCanvasFile(const QString &path)
+bool Library::createEmptyCanvas(const QString &project, const QString &canvas)
 {
-    QDir().mkpath(QFileInfo(path).absolutePath());
-    QSaveFile file(path);
-    const QJsonObject empty{{"nodes", QJsonArray()}, {"edges", QJsonArray()}};
-    if (file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(empty).toJson()) >= 0 && file.commit())
+    QString error;
+    if (m_folder.createEmptyCanvas(project, canvas, &error))
         return true;
-    emit errorOccurred(tr("Could not create %1: %2").arg(path, file.errorString()));
+    emit errorOccurred(tr("Could not create %1: %2").arg(canvasPath(project, canvas), error));
     return false;
 }
 
+// After a create or copy failed half way: the folder it left goes, or the user hears it is there.
+void Library::removeUnfinishedProject(const QString &project)
+{
+    if (!m_folder.removeProject(project))
+        emit errorOccurred(tr("The unfinished folder %1 could not be removed.").arg(m_folder.projectPath(project)));
+}
+
 // A new Project folder with one empty Canvas, inserted at `at`.
-QString Library::addProject(int at)
+std::optional<QString> Library::addProject(int at)
 {
-    const QString name = uniqueName(NewName, projectNames());
-    if (!QDir(m_root).mkpath(name)) {
-        emit errorOccurred(tr("Could not create the folder %1.").arg(projectPath(name)));
-        return {};
+    const QString name = LibraryNames::unique(UntitledName, m_index.projectNames());
+    if (!m_folder.createProject(name)) {
+        emit errorOccurred(tr("Could not create the folder %1.").arg(m_folder.projectPath(name)));
+        return std::nullopt;
     }
-    if (!createEmptyCanvasFile(canvasPath(name, NewName))) {
-        QDir(projectPath(name)).removeRecursively();
-        return {};
+    if (!createEmptyCanvas(name, UntitledName)) {
+        removeUnfinishedProject(name);
+        return std::nullopt;
     }
-    m_projects.insert(at, {name, {{NewName, std::nullopt}}, true, {}});
+    m_index.projects.insert(at, {name, {{UntitledName, std::nullopt}}, true, {}});
     return name;
 }
 
-QString Library::createProject()
+// The last step of every way of adding a Canvas: it goes into the Project at `at`, is shown,
+// and is opened.
+QString Library::addCanvas(ProjectEntry *p, int at, const CanvasEntry &entry)
 {
-    emit aboutToChange();
-    const QString name = addProject(m_projects.size());
-    if (name.isEmpty())
-        return {};
-    setCurrent(name, NewName);
-    finish();
-    return name;
-}
-
-QString Library::createCanvas(const QString &projectName)
-{
-    ProjectEntry *p = project(projectName);
-    if (!p)
-        return {};
-    emit aboutToChange();
-    const QString name = uniqueName(NewName, canvasNames(projectName));
-    if (!createEmptyCanvasFile(canvasPath(projectName, name)))
-        return {};
-    p->canvases.append({name, std::nullopt});
+    p->canvases.insert(at, entry);
     p->expanded = true;
-    setCurrent(projectName, name);
-    finish();
+    setCurrent(p->name, entry.name);
+    saveIndexAndNotify();
+    return entry.name;
+}
+
+std::optional<QString> Library::createProject()
+{
+    emit openCanvasMustBeSaved();
+    const std::optional<QString> name = addProject(m_index.projects.size());
+    if (!name)
+        return std::nullopt;
+    setCurrent(*name, UntitledName);
+    saveIndexAndNotify();
+    emit createdEmpty(*name, {});
     return name;
 }
 
-QString Library::duplicateCanvas(const QString &projectName, const QString &canvas)
+std::optional<QString> Library::createCanvas(const QString &projectName)
 {
-    const int i = canvasIndex(projectName, canvas);
-    if (i < 0)
-        return {};
-    emit aboutToChange();   // the open Canvas is saved first, so the copy has its latest state
-    const QString name = uniqueName(tr("%1 copy").arg(canvas), canvasNames(projectName));
-    if (!QFile::copy(canvasPath(projectName, canvas), canvasPath(projectName, name))) {
+    ProjectEntry *p = m_index.project(projectName);
+    if (!p)
+        return std::nullopt;
+    emit openCanvasMustBeSaved();
+    const QString name = LibraryNames::unique(UntitledName, m_index.canvasNames(projectName));
+    if (!createEmptyCanvas(projectName, name))
+        return std::nullopt;
+    addCanvas(p, p->canvases.size(), {name, std::nullopt});
+    emit createdEmpty(projectName, name);
+    return name;
+}
+
+std::optional<QString> Library::duplicateCanvas(const QString &projectName, const QString &canvas)
+{
+    const auto at = m_index.canvasPosition(projectName, canvas);
+    if (!at)
+        return std::nullopt;
+    emit openCanvasMustBeSaved();   // the open Canvas is saved first, so the copy has its latest state
+    const QString name = LibraryNames::unique(tr("%1 copy").arg(canvas), m_index.canvasNames(projectName));
+    if (!m_folder.copyIn(canvasPath(projectName, canvas), projectName, name)) {
         emit errorOccurred(tr("Could not copy “%1”.").arg(canvas));
-        return {};
+        return std::nullopt;
     }
-    ProjectEntry *p = project(projectName);
-    CanvasEntry copy = p->canvases[i];
+    ProjectEntry &p = m_index.projects[at->project];
+    CanvasEntry copy = p.canvases[at->canvas];
     copy.name = name;
-    p->canvases.insert(i + 1, copy);
-    setCurrent(projectName, name);
-    finish();
-    return name;
+    return addCanvas(&p, at->canvas + 1, copy);
 }
 
-QString Library::duplicateProject(const QString &projectName)
+std::optional<QString> Library::duplicateProject(const QString &projectName)
 {
-    const int i = projectIndex(projectName);
-    if (i < 0)
-        return {};
-    emit aboutToChange();
-    const QString name = uniqueName(tr("%1 copy").arg(projectName), projectNames());
-    ProjectEntry copy = m_projects[i];
+    const std::optional<int> i = m_index.projectPosition(projectName);
+    if (!i)
+        return std::nullopt;
+    emit openCanvasMustBeSaved();
+    const QString name = LibraryNames::unique(tr("%1 copy").arg(projectName), m_index.projectNames());
+    ProjectEntry copy = m_index.projects[*i];
     copy.name = name;
-    bool copied = QDir(m_root).mkpath(name);
-    for (const CanvasEntry &c : copy.canvases)
-        copied = copied && QFile::copy(canvasPath(projectName, c.name), canvasPath(name, c.name));
-    if (!copied) {
-        QDir(projectPath(name)).removeRecursively();
+    if (!m_folder.copyProject(projectName, name, m_index.canvasNames(projectName))) {
+        removeUnfinishedProject(name);
         emit errorOccurred(tr("Could not copy “%1”.").arg(projectName));
-        return {};
+        return std::nullopt;
     }
-    m_projects.insert(i + 1, copy);
-    setCurrent(name, copy.canvases.first().name);
-    finish();
+    m_index.projects.insert(*i + 1, copy);
+    setCurrent(name, copy.firstCanvas());
+    saveIndexAndNotify();
     return name;
 }
 
-QString Library::importCanvas(const QString &filePath, const QString &projectName)
+std::optional<QString> Library::importCanvas(const QString &filePath, const QString &projectName)
 {
-    ProjectEntry *p = project(projectName);
+    ProjectEntry *p = m_index.project(projectName);
     if (!p)
-        return {};
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        emit errorOccurred(tr("Could not open %1: %2").arg(filePath, file.errorString()));
-        return {};
-    }
-    QJsonParseError parseError;
-    const QJsonDocument json = QJsonDocument::fromJson(file.readAll(), &parseError);
-    if (parseError.error != QJsonParseError::NoError || !json.isObject()) {
-        emit errorOccurred(tr("%1 is not a canvas file.").arg(QFileInfo(filePath).fileName()));
-        return {};
+        return std::nullopt;
+    Document probe;   // only files that open as a Canvas are copied in
+    if (QString error; !probe.load(filePath, &error)) {
+        emit errorOccurred(tr("%1 can't be imported: %2").arg(QFileInfo(filePath).fileName(), error));
+        return std::nullopt;
     }
 
-    emit aboutToChange();
+    emit openCanvasMustBeSaved();
     QString base = QFileInfo(filePath).completeBaseName().trimmed();
-    if (!nameProblem(base).isEmpty())
+    if (!LibraryNames::problem(base).isEmpty())
         base = tr("Imported canvas");
-    const QString name = uniqueName(base, canvasNames(projectName));
-    if (!QFile::copy(filePath, canvasPath(projectName, name))) {
+    const QString name = LibraryNames::unique(base, m_index.canvasNames(projectName));
+    if (!m_folder.copyIn(filePath, projectName, name)) {
         emit errorOccurred(tr("Could not copy %1 into the project.").arg(filePath));
-        return {};
+        return std::nullopt;
     }
-    p->canvases.append({name, std::nullopt});
-    p->expanded = true;
-    setCurrent(projectName, name);
-    finish();
-    return name;
+    return addCanvas(p, p->canvases.size(), {name, std::nullopt});
+}
+
+void Library::importCanvases(const QList<QUrl> &files)
+{
+    for (const QUrl &file : files) {
+        if (file.isLocalFile())
+            importCanvas(file.toLocalFile(), m_index.currentProject);
+    }
 }
 
 // ---- Renaming ----
 
-// Like QDir::rename, but never replaces an existing file, and a change of case only
-// ("auth" -> "Auth") also works where the file system ignores case.
-bool Library::renamePath(const QString &from, const QString &to)
+// What renaming a Project and a Canvas share: a name with a `problem` is refused (and said so);
+// otherwise the open Canvas is saved and the folder or file renamed.
+bool Library::renameIfNameIsFree(const QString &problem, const QString &from, const QString &to, const QString &failure)
 {
-    if (sameName(from, to)) {
-        const QString temporary = from + QStringLiteral(".renaming");
-        if (!QDir().rename(from, temporary))
-            return false;
-        if (QDir().rename(temporary, to))
-            return true;
-        QDir().rename(temporary, from);
+    if (!problem.isEmpty()) {
+        emit errorOccurred(problem);
         return false;
     }
-    return !QFileInfo::exists(to) && QDir().rename(from, to);
+    emit openCanvasMustBeSaved();
+    return renameFile(from, to, failure);
+}
+
+// Moves the folder or file (see LibraryFolder::move()); on failure says `failure`, and where the
+// file ended up if it couldn't be put back.
+bool Library::renameFile(const QString &from, const QString &to, const QString &failure)
+{
+    QString stranded;
+    if (m_folder.move(from, to, &stranded))
+        return true;
+    if (stranded.isEmpty())
+        emit errorOccurred(failure);
+    else
+        emit errorOccurred(failure + ' ' + tr("It could not be renamed back either, and is now called %1.").arg(stranded));
+    return false;
 }
 
 bool Library::renameProject(const QString &projectName, const QString &newName)
 {
     const QString name = newName.trimmed();
-    ProjectEntry *p = project(projectName);
-    if (!p || name == projectName)
-        return p != nullptr;
-    if (QString problem = projectNameProblem(name, projectName); !problem.isEmpty()) {
-        emit errorOccurred(problem);
+    ProjectEntry *p = m_index.project(projectName);
+    if (!p)
         return false;
-    }
-    emit aboutToChange();
-    if (!renamePath(projectPath(projectName), projectPath(name))) {
-        emit errorOccurred(tr("Could not rename “%1” to “%2”.").arg(projectName, name));
+    if (name == projectName)
+        return true;   // nothing to do
+    if (!renameIfNameIsFree(projectNameProblem(name, projectName), m_folder.projectPath(projectName),
+                            m_folder.projectPath(name),
+                      tr("Could not rename “%1” to “%2”.").arg(projectName, name)))
         return false;
-    }
     p->name = name;
     for (const CanvasEntry &c : p->canvases)
         emit canvasMoved(canvasPath(projectName, c.name), canvasPath(name, c.name));
-    if (m_currentProject == projectName) {
-        m_currentProject = name;
-        m_currentMoved = true;
-    }
-    finish();
+    if (m_index.currentProject == projectName)
+        m_index.currentProject = name;
+    saveIndexAndNotify();
     return true;
 }
 
 bool Library::renameCanvas(const QString &projectName, const QString &canvas, const QString &newName)
 {
     const QString name = newName.trimmed();
-    const int i = canvasIndex(projectName, canvas);
-    if (i < 0 || name == canvas)
-        return i >= 0;
-    if (QString problem = canvasNameProblem(projectName, name, canvas); !problem.isEmpty()) {
-        emit errorOccurred(problem);
+    const auto at = m_index.canvasPosition(projectName, canvas);
+    if (!at)
         return false;
-    }
-    emit aboutToChange();
+    if (name == canvas)
+        return true;   // nothing to do
     const QString from = canvasPath(projectName, canvas);
     const QString to = canvasPath(projectName, name);
-    if (!renamePath(from, to)) {
-        emit errorOccurred(tr("Could not rename “%1” to “%2”.").arg(canvas, name));
+    if (!renameIfNameIsFree(canvasNameProblem(projectName, name, canvas), from, to,
+                      tr("Could not rename “%1” to “%2”.").arg(canvas, name)))
         return false;
-    }
-    ProjectEntry *p = project(projectName);
-    p->canvases[i].name = name;
-    if (p->lastCanvas == canvas)
-        p->lastCanvas = name;
+    ProjectEntry &p = m_index.projects[at->project];
+    p.canvases[at->canvas].name = name;
+    if (p.lastOpened == canvas)
+        p.lastOpened = name;
     emit canvasMoved(from, to);
-    if (m_currentProject == projectName && m_currentCanvas == canvas) {
-        m_currentCanvas = name;
-        m_currentMoved = true;
-    }
-    finish();
+    if (m_index.currentProject == projectName && m_index.currentCanvas == canvas)
+        m_index.currentCanvas = name;
+    saveIndexAndNotify();
     return true;
 }
 
@@ -516,55 +432,81 @@ bool Library::renameCanvas(const QString &projectName, const QString &canvas, co
 
 bool Library::deleteCanvas(const QString &projectName, const QString &canvas)
 {
-    const int i = canvasIndex(projectName, canvas);
-    if (i < 0)
+    const auto at = m_index.canvasPosition(projectName, canvas);
+    if (!at)
         return false;
-    ProjectEntry *p = project(projectName);
+    ProjectEntry *p = &m_index.projects[at->project];
+    const int i = at->canvas;
     if (p->canvases.size() == 1) {
         emit errorOccurred(tr("A project needs at least one canvas. To remove this one, delete the project."));
         return false;
     }
-    emit aboutToChange();
+    emit openCanvasMustBeSaved();
     const QString path = canvasPath(projectName, canvas);
-    if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
+    if (!m_folder.trash(path)) {
         emit errorOccurred(tr("Could not move “%1” to the trash.").arg(canvas));
         return false;
     }
     p->canvases.removeAt(i);
     emit canvasRemoved(path);
     // The open Canvas is replaced by the one that took its place, or the one before it.
-    if (m_currentProject == projectName && m_currentCanvas == canvas)
+    if (m_index.currentProject == projectName && m_index.currentCanvas == canvas)
         setCurrent(projectName, p->canvases[qMin(i, p->canvases.size() - 1)].name);
-    finish();
+    saveIndexAndNotify();
     return true;
 }
 
 bool Library::deleteProject(const QString &projectName)
 {
-    const int i = projectIndex(projectName);
-    if (i < 0)
+    const std::optional<int> i = m_index.projectPosition(projectName);
+    if (!i)
         return false;
-    emit aboutToChange();
-    const QString path = projectPath(projectName);
-    if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
-        emit errorOccurred(tr("Could not move “%1” to the trash.").arg(projectName));
+    emit openCanvasMustBeSaved();
+    if (m_index.projects.size() == 1)
+        return replaceLastProject();
+    if (!trashProject(*i))
+        return false;
+    if (m_index.currentProject == projectName) {   // the Project that took its place, or the one before
+        const ProjectEntry &next = m_index.projects[qMin(*i, m_index.projects.size() - 1)];
+        setCurrent(next.name, next.firstCanvas());
+    }
+    saveIndexAndNotify();
+    return true;
+}
+
+// There is always a Project, so the last one is replaced by a new empty one. That one is made
+// first, so that where the folder can't be written nothing is deleted. It gets a free name
+// ("Untitled 2"), and takes "Untitled" once the old one is gone, if it can.
+bool Library::replaceLastProject()
+{
+    const std::optional<QString> replacement = addProject(1);
+    if (!replacement)
+        return false;   // errorOccurred has said why
+    if (!trashProject(0)) {
+        removeUnfinishedProject(*replacement);
+        m_index.projects.removeLast();
         return false;
     }
-    const ProjectEntry removed = m_projects.takeAt(i);
-    for (const CanvasEntry &c : removed.canvases)
-        emit canvasRemoved(canvasPath(projectName, c.name));
-    if (m_projects.isEmpty() && addProject(0).isEmpty()) {
-        m_currentProject.clear();
-        m_currentCanvas.clear();
-        m_currentMoved = true;
-        finish();
-        return true;
+    ProjectEntry &project = m_index.projects.first();
+    QString stranded;   // a free name was taken, so not getting "Untitled" back isn't worth a message
+    if (project.name != UntitledName
+        && m_folder.move(m_folder.projectPath(project.name), m_folder.projectPath(UntitledName), &stranded))
+        project.name = UntitledName;
+    setCurrent(project.name, project.firstCanvas());
+    saveIndexAndNotify();
+    return true;
+}
+
+// Moves the Project's folder to the trash and takes it out of the list.
+bool Library::trashProject(int index)
+{
+    const QString name = m_index.projects[index].name;
+    if (!m_folder.trash(m_folder.projectPath(name))) {
+        emit errorOccurred(tr("Could not move “%1” to the trash.").arg(name));
+        return false;
     }
-    if (m_currentProject == projectName) {
-        const ProjectEntry &next = m_projects[qMin(i, m_projects.size() - 1)];
-        setCurrent(next.name, next.canvases.first().name);
-    }
-    finish();
+    for (const CanvasEntry &c : m_index.projects.takeAt(index).canvases)
+        emit canvasRemoved(canvasPath(name, c.name));
     return true;
 }
 
@@ -572,59 +514,63 @@ bool Library::deleteProject(const QString &projectName)
 
 void Library::moveProject(const QString &projectName, int toIndex)
 {
-    const int from = projectIndex(projectName);
-    if (from < 0)
+    const std::optional<int> from = m_index.projectPosition(projectName);
+    if (!from)
         return;
-    int to = toIndex > from ? toIndex - 1 : toIndex;
-    to = qBound(0, to, m_projects.size() - 1);
-    if (to == from)
+    const int to = movedPosition(*from, toIndex, m_index.projects.size());
+    if (to == *from)
         return;
-    m_projects.move(from, to);
-    finish();
+    m_index.projects.move(*from, to);
+    saveIndexAndNotify();
 }
 
-QString Library::moveCanvas(const QString &projectName, const QString &canvas, const QString &toProject, int toIndex)
+std::optional<QString> Library::moveCanvas(const QString &projectName, const QString &canvas, const QString &toProject, int toIndex)
 {
-    const int from = canvasIndex(projectName, canvas);
-    ProjectEntry *source = project(projectName);
-    ProjectEntry *target = project(toProject);
-    if (from < 0 || !target)
-        return {};
-
-    if (source == target) {   // only the order changes
-        int to = toIndex > from ? toIndex - 1 : toIndex;
-        to = qBound(0, to, source->canvases.size() - 1);
-        if (to != from) {
-            source->canvases.move(from, to);
-            finish();
-        }
+    const auto at = m_index.canvasPosition(projectName, canvas);
+    ProjectEntry *target = m_index.project(toProject);
+    if (!at || !target)
+        return std::nullopt;
+    if (toProject == projectName) {
+        reorderCanvas(m_index.projects[at->project], at->canvas, toIndex);
         return canvas;
     }
+    return moveCanvasToProject(m_index.projects[at->project], at->canvas, *target, toIndex);
+}
 
-    if (source->canvases.size() == 1) {
+void Library::reorderCanvas(ProjectEntry &project, int from, int toIndex)
+{
+    const int to = movedPosition(from, toIndex, project.canvases.size());
+    if (to == from)
+        return;
+    project.canvases.move(from, to);
+    saveIndexAndNotify();
+}
+
+// Renamed if its name is taken there ("Auth 2"). Returns its name afterwards, or "".
+std::optional<QString> Library::moveCanvasToProject(ProjectEntry &source, int from, ProjectEntry &target, int toIndex)
+{
+    const QString canvas = source.canvases[from].name;
+    if (source.canvases.size() == 1) {
         emit errorOccurred(tr("A project needs at least one canvas, so “%1” has to stay in “%2”.")
-                               .arg(canvas, projectName));
-        return {};
+                               .arg(canvas, source.name));
+        return std::nullopt;
     }
-    emit aboutToChange();
-    const QString name = uniqueName(canvas, canvasNames(toProject));
-    const QString oldPath = canvasPath(projectName, canvas);
-    const QString newPath = canvasPath(toProject, name);
-    if (!renamePath(oldPath, newPath)) {
-        emit errorOccurred(tr("Could not move “%1” to “%2”.").arg(canvas, toProject));
-        return {};
-    }
-    CanvasEntry entry = source->canvases.takeAt(from);
+    emit openCanvasMustBeSaved();
+    const QString name = LibraryNames::unique(canvas, m_index.canvasNames(target.name));
+    const QString oldPath = canvasPath(source.name, canvas);
+    const QString newPath = canvasPath(target.name, name);
+    if (!renameFile(oldPath, newPath, tr("Could not move “%1” to “%2”.").arg(canvas, target.name)))
+        return std::nullopt;
+    CanvasEntry entry = source.canvases.takeAt(from);
     entry.name = name;
-    target->canvases.insert(qBound(0, toIndex, target->canvases.size()), entry);
-    target->expanded = true;
+    target.canvases.insert(qBound(0, toIndex, target.canvases.size()), entry);
+    target.expanded = true;
+    if (source.lastOpened == canvas)
+        source.lastOpened.clear();   // lastOpenedCanvas() then falls back to its first Canvas
     emit canvasMoved(oldPath, newPath);
-    if (m_currentProject == projectName && m_currentCanvas == canvas) {
-        m_currentProject = toProject;
-        m_currentCanvas = name;
-        m_currentMoved = true;
-    }
-    finish();
+    if (m_index.currentProject == source.name && m_index.currentCanvas == canvas)
+        setCurrent(target.name, name);   // also the target's lastOpened
+    saveIndexAndNotify();
     return name;
 }
 
@@ -632,7 +578,7 @@ QString Library::moveCanvas(const QString &projectName, const QString &canvas, c
 
 void Library::setExpanded(const QString &projectName, bool expanded)
 {
-    ProjectEntry *p = project(projectName);
+    ProjectEntry *p = m_index.project(projectName);
     if (!p || p->expanded == expanded)
         return;
     p->expanded = expanded;
@@ -640,19 +586,30 @@ void Library::setExpanded(const QString &projectName, bool expanded)
     emit expandedChanged(projectName);
 }
 
-std::optional<CanvasView> Library::view(const QString &projectName, const QString &canvas) const
+std::optional<Viewport> Library::view(const QString &projectName, const QString &canvas) const
 {
-    const int i = canvasIndex(projectName, canvas);
-    if (i < 0)
+    const auto at = m_index.canvasPosition(projectName, canvas);
+    if (!at)
         return std::nullopt;
-    return m_projects[projectIndex(projectName)].canvases[i].view;
+    return m_index.projects[at->project].canvases[at->canvas].view;
 }
 
 // Not written to disk right away: it changes on every pan step. The index is saved with the
 // next change, and when the Library is closed.
-void Library::setView(const QString &projectName, const QString &canvas, const CanvasView &view)
+void Library::setView(const QString &projectName, const QString &canvas, const Viewport &view)
 {
-    const int i = canvasIndex(projectName, canvas);
-    if (i >= 0)
-        project(projectName)->canvases[i].view = view;
+    if (const auto at = m_index.canvasPosition(projectName, canvas))
+        m_index.projects[at->project].canvases[at->canvas].view = view;
+}
+
+QVariant Library::currentView() const
+{
+    const std::optional<Viewport> saved = view(m_index.currentProject, m_index.currentCanvas);
+    return saved ? QVariant::fromValue(*saved) : QVariant();
+}
+
+void Library::rememberCurrentView(QPointF center, qreal zoom)
+{
+    setView(m_index.currentProject, m_index.currentCanvas, {center, zoom});
+    m_viewSaveTimer.start();
 }

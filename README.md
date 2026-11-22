@@ -75,14 +75,20 @@ starting it again brings the window forward.
 ## Code layout
 
 - `src/core` — no QML: the model (`CanvasItems`, `Document`), every edit as a `Change`
-  inside a `Transaction` (undo, and later network sync), `Geometry` (how Connections run, and
-  where the floating selection toolbar goes),
-  `CanvasPainter` for drawing and export, and the `Library` of Projects and Canvases on disk.
+  inside a `Transaction` (undo, and later network sync), the `CanvasSession` (its file, undo
+  history and autosave), `Fragment` (copy and paste), `Geometry` (how Connections run, and the
+  grid), and the `Library` of Projects and Canvases (its folder on disk is `LibraryFolder`, its
+  name rules `LibraryNames`, its index file `LibraryIndex`).
+- `src/render` — `CanvasPainter`: drawing a Canvas with QPainter for the live layers and for
+  PNG/SVG export, with copies of the few design values it needs (`DesignValues.h`).
 - `src/design` — the design system (`JunctionDesign`): tokens, the Qt Quick Controls style, shared
   components and the Geist typeface, plus `junction-gallery`. Knows nothing about the app; see
   [its README](src/design/README.md) for the rules.
-- `src/app` — `Editor` (the object QML talks to), `NodeModel`, `LibraryModel` (the sidebar),
-  the painted grid/connection layers, and the QML screens, built from `src/design`.
-- `tests` — Qt Test unit tests for the core and the Editor, the design check's rules, and that the
+- `src/app` — `Editor` (what QML edits the open Canvas through) and its `Selection`, `HitTest` (what is where on it),
+  `Exporter` (writing it out as a file or an image), `NodeModel`, `LibraryRows` (the
+  sidebar's rows), the painted grid/connection layers, and the QML screens, built from `src/design`.
+  `main.cpp` creates these and hands them to QML.
+- `tests` — Qt Test unit tests for the core and the Editor, Qt Quick Tests for QML-only logic
+  (`tests/qml`), a start-up smoke test of the real app, the design check's rules, and that the
   C++ side's design values match the tokens. CI (`.github/workflows/ci.yml`) builds and tests every
   pull request; the build itself fails on QML that goes around the design system.

@@ -36,12 +36,8 @@ Route route(const QRectF &from, const QRectF &to, const Connection &c);
 
 bool hits(const Route &route, QPointF point, qreal tolerance);
 
-// The Handle of `rect` within `radius` of `point`, or Side::None.
+// The Handle of `rect` within `radius` of `point`; Floating when there is none.
 Side handleAt(const QRectF &rect, QPointF point, qreal radius);
-
-// Where a floating toolbar of `size` goes for a selection (both in view coordinates): centred
-// above it, `gap` away, kept inside `view`.
-QPointF floatingPosition(const QRectF &selection, const QSizeF &size, const QRectF &view, qreal gap);
 
 qreal snap(qreal value);
 QPointF snap(QPointF point);

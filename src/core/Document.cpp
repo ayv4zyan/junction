@@ -1,7 +1,5 @@
 #include "Document.h"
 
-#include "Geometry.h"
-
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -35,7 +33,7 @@ const Connection *Document::connection(const QString &id) const
     return it == m_connections.end() ? nullptr : &*it;
 }
 
-std::optional<Item> Document::item(const QString &id) const
+std::optional<CanvasItem> Document::item(const QString &id) const
 {
     if (const Node *n = node(id))
         return *n;
@@ -44,32 +42,39 @@ std::optional<Item> Document::item(const QString &id) const
     return std::nullopt;
 }
 
-QStringList Document::nodesInside(const Node &group) const
+QSet<QString> Document::nodesWithContents(const QStringList &ids) const
 {
-    QStringList ids;
-    for (const Node &n : m_nodes) {
-        if (n.id != group.id && group.rect.contains(n.rect))
-            ids.append(n.id);
-    }
-    return ids;
-}
-
-QVector<Connection> Document::connectionsOf(const QString &nodeId) const
-{
-    QVector<Connection> result;
-    for (const Connection &c : m_connections) {
-        if (c.fromNode == nodeId || c.toNode == nodeId)
-            result.append(c);
+    QSet<QString> result;
+    for (const QString &id : ids) {
+        const Node *selected = node(id);
+        if (!selected)
+            continue;
+        result.insert(id);
+        if (selected->kind() != NodeKind::Group)
+            continue;
+        for (const Node &n : m_nodes) {
+            if (selected->rect.contains(n.rect))
+                result.insert(n.id);
+        }
     }
     return result;
 }
 
+std::optional<Geometry::Route> Document::route(const Connection &connection) const
+{
+    const Node *from = node(connection.fromNode);
+    const Node *to = node(connection.toNode);
+    if (!from || !to)
+        return std::nullopt;
+    return Geometry::route(from->rect, to->rect, connection);
+}
+
 void Document::apply(const Change &change)
 {
-    if (change.after)
-        put(*change.after);
-    else if (change.before)
-        remove(*change.before);
+    if (change.after())
+        put(*change.after());
+    else
+        remove(*change.before());
 }
 
 void Document::apply(const Transaction &transaction)
@@ -78,34 +83,47 @@ void Document::apply(const Transaction &transaction)
         apply(change);
 }
 
-// Inserts the item, or replaces the one with the same id.
-void Document::put(const Item &item)
+void Document::putUncommitted(const CanvasItem &item)
 {
-    if (const Node *n = std::get_if<Node>(&item)) {
-        for (Node &existing : m_nodes) {
-            if (existing.id == n->id) {
-                existing = *n;
-                emit nodeChanged(n->id);
-                return;
-            }
-        }
-        m_nodes.append(*n);
-        emit nodeAdded(n->id);
-    } else {
-        const Connection &c = std::get<Connection>(item);
-        for (Connection &existing : m_connections) {
-            if (existing.id == c.id) {
-                existing = c;
-                emit connectionsChanged();
-                return;
-            }
-        }
-        m_connections.append(c);
-        emit connectionsChanged();
-    }
+    put(item);
 }
 
-void Document::remove(const Item &item)
+void Document::put(const CanvasItem &item)
+{
+    if (const Node *n = std::get_if<Node>(&item))
+        putNode(*n);
+    else
+        putConnection(std::get<Connection>(item));
+    emit changed();
+}
+
+void Document::putNode(const Node &node)
+{
+    for (Node &existing : m_nodes) {
+        if (existing.id == node.id) {
+            existing = node;
+            emit nodeChanged(node.id);
+            return;
+        }
+    }
+    m_nodes.append(node);
+    emit nodeAdded(node.id);
+}
+
+void Document::putConnection(const Connection &connection)
+{
+    for (Connection &existing : m_connections) {
+        if (existing.id == connection.id) {
+            existing = connection;
+            emit connectionsChanged();
+            return;
+        }
+    }
+    m_connections.append(connection);
+    emit connectionsChanged();
+}
+
+void Document::remove(const CanvasItem &item)
 {
     const QString id = itemId(item);
     if (std::holds_alternative<Node>(item)) {
@@ -115,6 +133,7 @@ void Document::remove(const Item &item)
         if (m_connections.removeIf([&](const Connection &c) { return c.id == id; }) > 0)
             emit connectionsChanged();
     }
+    emit changed();
 }
 
 QJsonObject Document::toJson() const
@@ -127,8 +146,10 @@ QJsonObject Document::toJson() const
     for (const Connection &c : m_connections) {
         const Node *from = node(c.fromNode);
         const Node *to = node(c.toNode);
-        if (!from || !to)
+        if (!from || !to) {   // points at a node the file doesn't have: written back unchanged
+            edges.append(c.toJson(c.fromSide, c.toSide));
             continue;
+        }
         const auto [fromSide, toSide] = Geometry::resolveSides(from->rect, to->rect, c);
         edges.append(c.toJson(fromSide, toSide));
     }
@@ -137,13 +158,27 @@ QJsonObject Document::toJson() const
 
 void Document::fromJson(const QJsonObject &json)
 {
+    QSet<QString> taken;
+    auto unique = [&](const QString &id) {
+        const QString result = id.isEmpty() || taken.contains(id) ? newId() : id;
+        taken.insert(result);
+        return result;
+    };
+
     m_nodes.clear();
     m_connections.clear();
-    for (const QJsonValue &value : json["nodes"].toArray())
-        m_nodes.append(Node::fromJson(value.toObject()));
-    for (const QJsonValue &value : json["edges"].toArray())
-        m_connections.append(Connection::fromJson(value.toObject()));
+    for (const QJsonValue &value : json["nodes"].toArray()) {
+        Node n = Node::fromJson(value.toObject());
+        n.id = unique(n.id);
+        m_nodes.append(n);
+    }
+    for (const QJsonValue &value : json["edges"].toArray()) {
+        Connection c = Connection::fromJson(value.toObject());
+        c.id = unique(c.id);
+        m_connections.append(c);
+    }
     emit reset();
+    emit changed();
 }
 
 void Document::clear()
@@ -164,6 +199,10 @@ bool Document::load(const QString &path, QString *error)
         *error = parseError.errorString();
         return false;
     }
+    if (!json.isObject()) {   // valid JSON, but not a canvas: saving over it would lose it
+        *error = tr("it is not a canvas file");
+        return false;
+    }
     fromJson(json.object());
     return true;
 }
@@ -175,8 +214,7 @@ bool Document::save(const QString &path, QString *error) const
         *error = file.errorString();
         return false;
     }
-    file.write(QJsonDocument(toJson()).toJson(QJsonDocument::Indented));
-    if (!file.commit()) {
+    if (file.write(QJsonDocument(toJson()).toJson(QJsonDocument::Indented)) < 0 || !file.commit()) {
         *error = file.errorString();
         return false;
     }

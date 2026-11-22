@@ -30,6 +30,9 @@ _Avoid_: unknown node, file card, link card
 A labeled rectangle; every Card lying inside its bounds belongs to it and moves with it.
 _Avoid_: frame, container, cluster
 
+**Node** (in code only):
+JSON Canvas's word for anything placed on a Canvas: a Card, an Unsupported Card or a Group. Used for the type that holds any of them, never to mean a Card.
+
 **Selection**:
 The Cards, Groups and Connections currently picked out on a Canvas; editing commands (delete, duplicate, copy, group, color) act on all of it at once.
 _Avoid_: highlighted items, active items

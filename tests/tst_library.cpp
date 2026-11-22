@@ -20,7 +20,7 @@ class TestLibrary : public QObject
     static QStringList canvases(const Library &library, int project)
     {
         QStringList names;
-        for (const CanvasEntry &c : library.projects()[project].canvases)
+        for (const CanvasEntry &c : library.index().projects[project].canvases)
             names.append(c.name);
         return names;
     }
@@ -28,7 +28,7 @@ class TestLibrary : public QObject
     static QStringList projects(const Library &library)
     {
         QStringList names;
-        for (const ProjectEntry &p : library.projects())
+        for (const ProjectEntry &p : library.index().projects)
             names.append(p.name);
         return names;
     }
@@ -66,6 +66,25 @@ private slots:
         QVERIFY(QFile::exists(library.currentPath()));
     }
 
+    // An index that can't be read is reported and kept aside, not silently replaced.
+    void brokenIndexIsKeptAndReported()
+    {
+        touch("Notes/Ideas.canvas");
+        QFile index(QDir(m_root).filePath(".junction"));
+        QVERIFY(index.open(QIODevice::WriteOnly));
+        index.write("{ broken");
+        index.close();
+
+        Library library(m_root);
+        QSignalSpy errors(&library, &Library::errorOccurred);
+        library.load();
+        QCOMPARE(errors.count(), 1);
+        QCOMPARE(projects(library), QStringList{"Notes"});
+        QFile kept(QDir(m_root).filePath(".junction.broken"));
+        QVERIFY(kept.open(QIODevice::ReadOnly));
+        QCOMPARE(kept.readAll(), QByteArray("{ broken"));
+    }
+
     void indexKeepsOrderViewsAndCurrent()
     {
         {
@@ -88,7 +107,7 @@ private slots:
         QCOMPARE(canvases(library, 1), (QStringList{"Untitled", "Zeta", "Untitled 2"}));
         QCOMPARE(library.currentProject(), "Web");
         QCOMPARE(library.currentCanvas(), "Zeta");
-        QVERIFY(library.projects()[1].expanded);   // opening a Canvas shows it in the sidebar
+        QVERIFY(library.index().projects[1].expanded);   // opening a Canvas shows it in the sidebar
         const auto view = library.view("Web", "Zeta");
         QVERIFY(view.has_value());
         QCOMPARE(view->center, QPointF(10, 20));
@@ -231,7 +250,7 @@ private slots:
 
         QSignalSpy moved(&library, &Library::canvasMoved);
         // The name is taken in B, so it becomes "Untitled 2"; it lands at the top.
-        QCOMPARE(library.moveCanvas("A", "Untitled", "B", 0), "Untitled 2");
+        QCOMPARE(library.moveCanvas("A", "Untitled", "B", 0), QString("Untitled 2"));
         QCOMPARE(canvases(library, 0), QStringList{"Untitled 2"});
         QCOMPARE(canvases(library, 1), (QStringList{"Untitled 2", "Untitled"}));
         QCOMPARE(moved.size(), 1);
@@ -242,8 +261,64 @@ private slots:
 
         // A's only Canvas has to stay.
         QSignalSpy errors(&library, &Library::errorOccurred);
-        QCOMPARE(library.moveCanvas("A", "Untitled 2", "B", 0), QString());
+        QCOMPARE(library.moveCanvas("A", "Untitled 2", "B", 0), std::nullopt);
         QCOMPARE(errors.size(), 1);
+    }
+
+    // A Project remembers the Canvas last open in it; one that moved away is no longer it.
+    void movingTheOpenCanvasUpdatesBothProjects()
+    {
+        Library library(m_root);
+        library.load();
+        library.createCanvas("Untitled");   // Untitled 2, open
+        library.createProject();            // Untitled 2 (Project)
+        library.open("Untitled", "Untitled 2");
+        QCOMPARE(library.moveCanvas("Untitled", "Untitled 2", "Untitled 2", 0), QString("Untitled 2"));
+        QCOMPARE(library.index().lastOpenedCanvas("Untitled 2"), QString("Untitled 2"));
+        QCOMPARE(library.index().lastOpenedCanvas("Untitled"), QString("Untitled"));
+        QCOMPARE(library.currentProject(), QString("Untitled 2"));
+    }
+
+    // A new empty Project or Canvas is announced, so the UI can have it named right away.
+    void creatingSaysWhatWasCreated()
+    {
+        Library library(m_root);
+        library.load();
+        QSignalSpy created(&library, &Library::createdEmpty);
+        library.createCanvas("Untitled");
+        library.createProject();
+        QCOMPARE(created.count(), 2);
+        QCOMPARE(created[0], (QVariantList{"Untitled", "Untitled 2"}));
+        QCOMPARE(created[1], (QVariantList{"Untitled 2", QString()}));
+    }
+
+    void openingWithoutACanvasOpensTheLastOneThereAndSteppingMovesAlong()
+    {
+        Library library(m_root);
+        library.load();
+        library.createCanvas("Untitled");   // Untitled 2, open
+        library.createProject();
+        QVERIFY(library.openProject("Untitled"));
+        QCOMPARE(library.currentCanvas(), QString("Untitled 2"));
+        library.openAdjacent(-1);
+        QCOMPARE(library.currentCanvas(), QString("Untitled"));
+        library.openAdjacent(-1);   // already the first: stays
+        QCOMPARE(library.currentCanvas(), QString("Untitled"));
+    }
+
+    // The order the Editor relies on (see Library.h): a renamed open Canvas is reported moved
+    // before it is reported current.
+    void renamingTheOpenCanvasSaysMovedBeforeCurrent()
+    {
+        Library library(m_root);
+        library.load();
+        QStringList heard;
+        connect(&library, &Library::openCanvasMustBeSaved, this, [&] { heard << "openCanvasMustBeSaved"; });
+        connect(&library, &Library::canvasMoved, this, [&] { heard << "canvasMoved"; });
+        connect(&library, &Library::projectsChanged, this, [&] { heard << "projectsChanged"; });
+        connect(&library, &Library::currentChanged, this, [&] { heard << "currentChanged"; });
+        QVERIFY(library.renameCanvas("Untitled", "Untitled", "Notes"));
+        QCOMPARE(heard, (QStringList{"openCanvasMustBeSaved", "canvasMoved", "projectsChanged", "currentChanged"}));
     }
 
     void reorderingCountsPositionsBeforeTheMove()
@@ -264,12 +339,12 @@ private slots:
         library.load();
         library.renameCanvas("Untitled", "Untitled", "Auth");
         library.createCanvas("Untitled");
-        QCOMPARE(library.duplicateCanvas("Untitled", "Auth"), "Auth copy");
+        QCOMPARE(library.duplicateCanvas("Untitled", "Auth"), QString("Auth copy"));
         QCOMPARE(canvases(library, 0), (QStringList{"Auth", "Auth copy", "Untitled"}));
-        QCOMPARE(library.duplicateCanvas("Untitled", "Auth"), "Auth copy 2");
+        QCOMPARE(library.duplicateCanvas("Untitled", "Auth"), QString("Auth copy 2"));
         QCOMPARE(library.currentCanvas(), "Auth copy 2");
 
-        QCOMPARE(library.duplicateProject("Untitled"), "Untitled copy");
+        QCOMPARE(library.duplicateProject("Untitled"), QString("Untitled copy"));
         QCOMPARE(projects(library), (QStringList{"Untitled", "Untitled copy"}));
         QCOMPARE(canvases(library, 1), canvases(library, 0));
         QVERIFY(QFile::exists(library.canvasPath("Untitled copy", "Auth copy 2")));
@@ -292,13 +367,13 @@ private slots:
 
         Library library(m_root);
         library.load();
-        QCOMPARE(library.importCanvas(outside, "Untitled"), "Shared board");
-        QCOMPARE(library.importCanvas(outside, "Untitled"), "Shared board 2");
+        QCOMPARE(library.importCanvas(outside, "Untitled"), QString("Shared board"));
+        QCOMPARE(library.importCanvas(outside, "Untitled"), QString("Shared board 2"));
         QCOMPARE(library.currentCanvas(), "Shared board 2");
         QVERIFY(QFile::exists(outside));   // a copy, not a move
 
         QSignalSpy errors(&library, &Library::errorOccurred);
-        QCOMPARE(library.importCanvas(broken, "Untitled"), QString());
+        QCOMPARE(library.importCanvas(broken, "Untitled"), std::nullopt);
         QCOMPARE(errors.size(), 1);
     }
 
@@ -309,14 +384,14 @@ private slots:
             library.load();
             library.createCanvas("Untitled");   // Untitled 2, opened
             library.createProject();            // the Project "Untitled 2", opened
-            QCOMPARE(library.lastCanvas("Untitled"), "Untitled 2");
+            QCOMPARE(library.index().lastOpenedCanvas("Untitled"), "Untitled 2");
             library.renameCanvas("Untitled", "Untitled 2", "Auth");
-            QCOMPARE(library.lastCanvas("Untitled"), "Auth");
+            QCOMPARE(library.index().lastOpenedCanvas("Untitled"), "Auth");
         }
         Library library(m_root);
         library.load();
-        QCOMPARE(library.lastCanvas("Untitled"), "Auth");
-        QCOMPARE(library.lastCanvas("Untitled 2"), "Untitled");
+        QCOMPARE(library.index().lastOpenedCanvas("Untitled"), "Auth");
+        QCOMPARE(library.index().lastOpenedCanvas("Untitled 2"), "Untitled");
     }
 
     void openingExpandsTheProjectWithoutChangingTheList()
@@ -325,12 +400,12 @@ private slots:
         library.load();
         library.createCanvas("Untitled");
         library.setExpanded("Untitled", false);
-        QSignalSpy changed(&library, &Library::changed);
+        QSignalSpy changed(&library, &Library::projectsChanged);
         QSignalSpy expanded(&library, &Library::expandedChanged);
         library.open("Untitled", "Untitled");
         QCOMPARE(changed.size(), 0);
         QCOMPARE(expanded.size(), 1);
-        QVERIFY(library.projects()[0].expanded);
+        QVERIFY(library.index().projects[0].expanded);
     }
 
     void openingSavesTheOldCanvasFirst()
@@ -339,7 +414,7 @@ private slots:
         library.load();
         library.createCanvas("Untitled");
         QStringList order;
-        connect(&library, &Library::aboutToChange, this, [&] { order << "aboutToChange:" + library.currentCanvas(); });
+        connect(&library, &Library::openCanvasMustBeSaved, this, [&] { order << "aboutToChange:" + library.currentCanvas(); });
         connect(&library, &Library::currentChanged, this, [&] { order << "current:" + library.currentCanvas(); });
         library.open("Untitled", "Untitled");
         QCOMPARE(order, (QStringList{"aboutToChange:Untitled 2", "current:Untitled"}));

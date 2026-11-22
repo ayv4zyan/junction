@@ -18,7 +18,7 @@ qt_add_qml_module(junction_design
         ApplicationWindow.qml Label.qml Button.qml ToolButton.qml TextField.qml CheckBox.qml
         Menu.qml MenuItem.qml MenuSeparator.qml ToolTip.qml Dialog.qml ScrollBar.qml ToolBar.qml
         # Components
-        Floating.qml FocusRing.qml Toast.qml Swatch.qml Separator.qml AskDialog.qml
+        Floating.qml RisingFloating.qml FocusRing.qml Toast.qml Swatch.qml Separator.qml AskDialog.qml
         MenuEntry.qml TextMenu.qml
     RESOURCES
         fonts/Geist-Regular.ttf fonts/Geist-SemiBold.ttf fonts/Geist-Bold.ttf

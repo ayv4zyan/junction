@@ -1,6 +1,6 @@
 #include "NodeModel.h"
 
-NodeModel::NodeModel(Document *document, Filter filter, QObject *parent)
+NodeModel::NodeModel(const Document *document, Filter filter, QObject *parent)
     : QAbstractListModel(parent), m_document(document), m_filter(filter)
 {
     connect(document, &Document::nodeAdded, this, [this](const QString &id) {
@@ -18,17 +18,23 @@ NodeModel::NodeModel(Document *document, Filter filter, QObject *parent)
         m_ids.removeAt(row);
         endRemoveRows();
     });
+    // A node whose kind changed (a Card that became a Group) moves to the other model.
     connect(document, &Document::nodeChanged, this, [this](const QString &id) {
         const int row = m_ids.indexOf(id);
-        if (row >= 0)
+        if (row >= 0 && accepts(id))
             emit dataChanged(index(row), index(row));
+        else if (row >= 0 || accepts(id))
+            resetFromDocument();
     });
-    connect(document, &Document::reset, this, [this] {
-        beginResetModel();
-        rebuild();
-        endResetModel();
-    });
-    rebuild();
+    connect(document, &Document::reset, this, &NodeModel::resetFromDocument);
+    collectIds();
+}
+
+void NodeModel::resetFromDocument()
+{
+    beginResetModel();
+    collectIds();
+    endResetModel();
 }
 
 bool NodeModel::accepts(const QString &id) const
@@ -37,7 +43,7 @@ bool NodeModel::accepts(const QString &id) const
     return n && n->isCard() == (m_filter == Cards);
 }
 
-void NodeModel::rebuild()
+void NodeModel::collectIds()
 {
     m_ids.clear();
     for (const Node &n : m_document->nodes()) {
@@ -59,24 +65,14 @@ QVariant NodeModel::data(const QModelIndex &index, int role) const
 
     switch (role) {
     case IdRole: return n->id;
-    case KindRole:
-        switch (n->kind) {
-        case NodeKind::Text: return QStringLiteral("text");
-        case NodeKind::Group: return QStringLiteral("group");
-        case NodeKind::Unsupported: return QStringLiteral("unsupported");
-        }
-        break;
+    case KindRole: return int(n->kind());   // QML compares it with CanvasEnums.NodeKind
     case XRole: return n->rect.x();
     case YRole: return n->rect.y();
     case WidthRole: return n->rect.width();
     case HeightRole: return n->rect.height();
-    case TextRole:
-        switch (n->kind) {
-        case NodeKind::Text: return n->text;
-        case NodeKind::Group: return n->label;
-        case NodeKind::Unsupported: return tr("Unsupported: %1").arg(n->raw["type"].toString());
-        }
-        break;
+    case TextRole: return n->text();
+    case LabelRole: return n->label();
+    case DisplayTextRole: return n->displayText();
     case ColorRole: return n->color;
     }
     return {};
@@ -85,9 +81,10 @@ QVariant NodeModel::data(const QModelIndex &index, int role) const
 QHash<int, QByteArray> NodeModel::roleNames() const
 {
     return {
-        {IdRole, "nodeId"},     {KindRole, "kind"},
+        {IdRole, "nodeId"},     {KindRole, "nodeKind"},
         {XRole, "nodeX"},       {YRole, "nodeY"},
         {WidthRole, "nodeWidth"}, {HeightRole, "nodeHeight"},
-        {TextRole, "text"},     {ColorRole, "nodeColor"},
+        {TextRole, "nodeText"}, {LabelRole, "nodeLabel"},
+        {DisplayTextRole, "nodeDisplayText"}, {ColorRole, "nodeColor"},
     };
 }

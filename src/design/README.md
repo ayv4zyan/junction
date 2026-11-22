@@ -48,7 +48,7 @@ every state, in both themes.
   corners, and importing a specific Controls style or `QtQuick.Templates`. Its rules are tested in
   `tst_design_check`. A line that really must differ says why:
   `delay: 0   // design-exception: shows at once, while typing`.
-- **The C++ side's copies** of design values (`src/core/DesignValues.h`, for painting and export)
+- **The C++ side's copies** of design values (`src/render/DesignValues.h`, for painting and export)
   are compared with the tokens by `tst_design_values`.
 - **CI** (`.github/workflows/ci.yml`) builds and tests every pull request, so all of this applies
   even when nothing was run locally.

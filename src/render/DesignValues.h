@@ -13,8 +13,10 @@ constexpr int CardFontSize = 15;       // Fonts.canvas: Card text and Group labe
 constexpr qreal CardPadding = 12;      // Space.md: around a Card's text
 constexpr qreal LabelPaddingX = 8;     // Space.sm: a Connection Label's box, sideways
 constexpr qreal LabelPaddingY = 4;     // Space.xs: ... and above and below
-constexpr qreal GroupLabelSpace = 32;  // Sizes.control + Space.xs: GroupItem's label bar above a Group
+constexpr qreal GroupLabelHeight = 28; // Sizes.control: GroupItem's label bar...
+constexpr qreal GroupLabelSpace = 32;  // Sizes.control + Space.xs: ...and how far above the Group it starts
 constexpr qreal GroupTint = 0.08;      // Colors.groupTint: how strongly a Group tints the Canvas
 constexpr qreal CardTint = 0.12;       // Colors.cardTint: how strongly a color tints a Card
+constexpr qreal GroupLabelTint = 0.3;  // Colors.groupLabelTint: ... and a Group's label bar
 
 } // namespace DesignValues

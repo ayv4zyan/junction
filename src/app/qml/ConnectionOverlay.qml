@@ -10,13 +10,26 @@ import Junction
 //  - dots on both ends: drag onto a card to re-attach (onto a Handle to pin that side)
 Item {
     id: overlay
-    required property var canvas
-    readonly property Editor editor: canvas.editor
-    readonly property var info: editor.selectedConnection
-    readonly property bool active: info.id !== undefined
-    // The label's box, or an empty one (also for a moment while the selection changes).
-    readonly property rect labelBox: info.labelRect ?? Qt.rect(0, 0, 0, 0)
-    property bool draggingWaypoint: false
+    // The CanvasView this is part of. Typed Item: Qt 6.9 rejects a type naming the view that creates it.
+    required property Item canvasView
+    required property Editor editor
+    readonly property var connection: editor.selection.connection   // null unless one Connection is selected
+    readonly property bool active: connection !== null
+    readonly property string connectionId: connection?.id ?? ""
+    readonly property rect labelBox: connection?.labelRect ?? Qt.rect(0, 0, 0, 0)   // empty without a label
+
+    // Dragging a Waypoint (`inserted`: a new one at midpoint `index`); one undo step.
+    component WaypointDragArea: DragArea {
+        id: waypointDrag
+        required property Editor editor
+        required property string connectionId
+        required property int index
+        required property bool inserted
+        cursorShape: Qt.SizeAllCursor
+        onDragStarted: editor.beginWaypointDrag(connectionId, index, inserted)
+        onDragged: (delta, invertSnap) => waypointDrag.editor.updateWaypointDrag(delta, invertSnap)
+        onDragFinished: editor.endWaypointDrag()
+    }
 
     // The dots come from ListModels that are updated in place. Rebuilding a Repeater's model
     // would destroy the dot under the mouse in the middle of a drag.
@@ -24,7 +37,6 @@ Item {
     ListModel { id: waypoints }
 
     function sync(model, points) {
-        points = points ?? []
         while (model.count > points.length)
             model.remove(model.count - 1)
         for (let i = 0; i < points.length; ++i) {
@@ -46,8 +58,8 @@ Item {
     // -1. Only that span's dot hands its drag to the whole label; a long label can cover the
     // dots of neighbouring spans too, and those are just hidden.
     readonly property int labelSpan: {
-        const points = info.midpoints ?? []
-        const centre = info.labelPosition
+        const points = connection?.midpoints ?? []
+        const centre = connection?.labelPosition
         let best = -1
         let bestDistance = Infinity
         for (let i = 0; centre && i < points.length; ++i) {
@@ -60,101 +72,107 @@ Item {
         return best
     }
 
-    onInfoChanged: {
-        sync(midpoints, info.midpoints)
-        sync(waypoints, info.waypoints)
+    onConnectionChanged: {
+        sync(midpoints, connection?.midpoints ?? [])
+        sync(waypoints, connection?.waypoints ?? [])
     }
 
     Repeater {
         model: midpoints
-        delegate: Dot {
+        delegate: PointMarker {
             id: midpoint
             required property int index
             required property real px
             required property real py
             readonly property bool covered: overlay.onLabel(px, py)        // under the label's text
             readonly property bool isLabel: index === overlay.labelSpan   // the label stands in for it
-            canvas: overlay.canvas
+            canvasView: overlay.canvasView
             center: Qt.point(px, py)
             filled: false
             screenRadius: 5
-            opacity: overlay.draggingWaypoint || covered ? 0 : 1   // the label's own dot still takes the mouse
+            opacity: overlay.editor.dragging || covered ? 0 : 1   // the label's own dot still takes the mouse
 
-            DragArea {
-                readonly property real margin: 4 / overlay.canvas.zoom
-                canvas: overlay.canvas
+            // What grabs it, in the dot's coordinates: the whole label when that stands in for
+            // it, otherwise the dot plus a margin.
+            readonly property rect grabArea: {
+                if (isLabel)
+                    return Qt.rect(overlay.labelBox.x - x, overlay.labelBox.y - y, overlay.labelBox.width, overlay.labelBox.height)
+                const margin = overlay.canvasView.markerMargin
+                return Qt.rect(-margin, -margin, width + 2 * margin, height + 2 * margin)
+            }
+
+            WaypointDragArea {
+                canvasView: overlay.canvasView
+                editor: overlay.editor
+                connectionId: overlay.connectionId
+                index: midpoint.index
+                inserted: true   // dragging it adds a Waypoint
                 visible: !midpoint.covered || midpoint.isLabel
-                // the dot plus a margin, or the whole label (in the dot's coordinates)
-                x: midpoint.isLabel ? overlay.labelBox.x - midpoint.x : -margin
-                y: midpoint.isLabel ? overlay.labelBox.y - midpoint.y : -margin
-                width: midpoint.isLabel ? overlay.labelBox.width : midpoint.width + 2 * margin
-                height: midpoint.isLabel ? overlay.labelBox.height : midpoint.height + 2 * margin
-                cursorShape: Qt.SizeAllCursor   // dragging it adds a Waypoint
-                onDragStarted: { overlay.draggingWaypoint = true; overlay.editor.beginWaypointDrag(overlay.info.id, midpoint.index, true) }
-                onDragged: (delta, invertSnap) => overlay.editor.updateWaypointDrag(delta, invertSnap)
-                onDragFinished: { overlay.editor.endWaypointDrag(); overlay.draggingWaypoint = false }
+                x: midpoint.grabArea.x
+                y: midpoint.grabArea.y
+                width: midpoint.grabArea.width
+                height: midpoint.grabArea.height
                 // the middle dot sits on the label, so double-clicking it edits the label
-                onDoubleClicked: overlay.canvas.editLabel(overlay.info.id)
-                onMenuRequested: overlay.canvas.openMenuFor(overlay.info.id)
+                onDoubleClicked: overlay.canvasView.editLabel(overlay.connectionId)
+                onMenuRequested: overlay.canvasView.openMenuFor(overlay.connectionId)
             }
         }
     }
 
     Repeater {
         model: waypoints
-        delegate: Dot {
+        delegate: PointMarker {
             id: waypoint
             required property int index
             required property real px
             required property real py
-            canvas: overlay.canvas
+            canvasView: overlay.canvasView
             center: Qt.point(px, py)
 
-            DragArea {
-                canvas: overlay.canvas
+            WaypointDragArea {
+                canvasView: overlay.canvasView
+                editor: overlay.editor
+                connectionId: overlay.connectionId
+                index: waypoint.index
+                inserted: false
                 anchors.fill: parent
-                anchors.margins: -4 / overlay.canvas.zoom
-                cursorShape: Qt.SizeAllCursor
-                onDragStarted: { overlay.draggingWaypoint = true; overlay.editor.beginWaypointDrag(overlay.info.id, waypoint.index, false) }
-                onDragged: (delta, invertSnap) => overlay.editor.updateWaypointDrag(delta, invertSnap)
-                onDragFinished: { overlay.editor.endWaypointDrag(); overlay.draggingWaypoint = false }
-                onDoubleClicked: overlay.editor.removeWaypoint(overlay.info.id, waypoint.index)
-                onMenuRequested: overlay.canvas.openMenuFor(overlay.info.id, waypoint.index)
+                anchors.margins: -overlay.canvasView.markerMargin
+                onDoubleClicked: overlay.editor.removeWaypoint(overlay.connectionId, waypoint.index)
+                onMenuRequested: overlay.canvasView.openMenuFor(overlay.connectionId, waypoint.index)
             }
         }
     }
 
     Repeater {
         model: overlay.active ? 2 : 0
-        delegate: Dot {
+        delegate: PointMarker {
             id: end
             required property int index
             readonly property bool fromEnd: index === 0
             property bool dragging: false
             property point dragPoint
-            canvas: overlay.canvas
-            center: dragging ? dragPoint : (fromEnd ? overlay.info.start : overlay.info.end) ?? Qt.point(0, 0)
+            canvasView: overlay.canvasView
+            center: dragging ? dragPoint : (fromEnd ? overlay.connection?.start : overlay.connection?.end) ?? Qt.point(0, 0)
 
             DragArea {
-                canvas: overlay.canvas
+                canvasView: overlay.canvasView
                 anchors.fill: parent
-                anchors.margins: -4 / overlay.canvas.zoom
+                anchors.margins: -overlay.canvasView.markerMargin
                 cursorShape: Qt.CrossCursor   // re-attaching an end, like connecting from a Handle
                 property point origin
                 onDragStarted: { origin = end.center; end.dragPoint = origin; end.dragging = true }
                 onDragged: (delta) => {
                     end.dragPoint = Qt.point(origin.x + delta.x, origin.y + delta.y)
-                    overlay.canvas.dropTarget = overlay.editor.cardAt(end.dragPoint, overlay.canvas.handleRadius)
+                    overlay.canvasView.showDropTarget(overlay.canvasView.attachmentAt(end.dragPoint, "").node)
                 }
                 onDragFinished: {
-                    const target = overlay.editor.cardAt(end.dragPoint, overlay.canvas.handleRadius)
-                    if (end.dragging && target)
-                        overlay.editor.reattach(overlay.info.id, end.fromEnd, target,
-                                                overlay.editor.handleAt(target, end.dragPoint, overlay.canvas.handleRadius))
+                    const at = overlay.canvasView.attachmentAt(end.dragPoint, "")
+                    if (end.dragging && at.node)
+                        overlay.editor.reattach(overlay.connectionId, end.fromEnd, at.node, at.side)
                     end.dragging = false
-                    overlay.canvas.dropTarget = ""
+                    overlay.canvasView.showDropTarget("")
                 }
-                onMenuRequested: overlay.canvas.openMenuFor(overlay.info.id)
+                onMenuRequested: overlay.canvasView.openMenuFor(overlay.connectionId)
             }
         }
     }

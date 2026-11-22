@@ -12,13 +12,19 @@ import JunctionDesign
 ApplicationWindow {
     id: window
 
-    readonly property LibraryModel library: canvasEditor.library
+    required property Editor editor
+    required property CanvasSession canvasSession   // the Editor's: its file, history and whether it can be edited
+    required property HitTest hitTest     // what is where on the open Canvas
+    required property Exporter exporter   // writes it out as a file or an image
+    // Created by main.cpp: the Library, its rows as the sidebar shows them, and the open Canvas.
+    required property Library library
+    required property LibraryRows libraryRows
 
     // Our shortcuts stay out of the way while text is being typed.
     readonly property bool typing: activeFocusItem !== null && activeFocusItem.visible
                                    && activeFocusItem.cursorPosition !== undefined
     // ...and while the Canvas can't be shown (its file can't be read).
-    readonly property bool canEdit: !typing && canvasEditor.loadError === ""
+    readonly property bool canEdit: !typing && window.canvasSession.editable
 
     // Colors, font and the controls' look come from the JunctionDesign style (main.cpp).
     width: 1280
@@ -40,16 +46,6 @@ ApplicationWindow {
     // canvas, which ends any text editing there (and so saves it to the Canvas it belongs to).
     function focusCanvas() { canvasView.forceActiveFocus() }
 
-    function exportAs(suffix) {
-        focusCanvas()
-        exportDialog.defaultSuffix = suffix
-        exportDialog.nameFilters = suffix === "canvas" ? [qsTr("Canvas (*.canvas)")]
-                                                       : [suffix.toUpperCase() + qsTr(" image (*.%1)").arg(suffix)]
-        exportDialog.selectedFile = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/"
-                                    + encodeURIComponent(library.currentCanvas) + "." + suffix
-        exportDialog.open()
-    }
-
     function toggleSidebar() {
         settings.sidebarOpen = !settings.sidebarOpen
         if (!settings.sidebarOpen && sidebar.activeFocus)
@@ -58,13 +54,13 @@ ApplicationWindow {
 
     // A new Project or Canvas: its name can be typed straight away, in the sidebar if it is
     // open, otherwise in the toolbar.
-    function startRename(project, canvas) {
+    function startRename(projectName, canvasName) {
         if (settings.sidebarOpen)
-            sidebar.renameRow(project, canvas)
-        else if (canvas)
-            canvasName.edit()
+            sidebar.renameRow(projectName, canvasName)
+        else if (canvasName)
+            toolbar.renameCanvas()
         else
-            projectName.edit()
+            toolbar.renameProject()
     }
 
     Settings {
@@ -74,15 +70,30 @@ ApplicationWindow {
         property real sidebarWidth: 260
     }
 
-    Editor {
-        id: canvasEditor
-        Component.onCompleted: start()
-        onErrorOccurred: (message) => toast.show(message, { error: true })
+    // Kept between runs in the same place as always (QSettings' "snapToGrid").
+    Settings {
+        id: editorSettings
+        property bool snapToGrid: true
+    }
+
+    Binding {
+        target: window.editor
+        property: "snapToGrid"
+        value: editorSettings.snapToGrid
+    }
+
+    // What goes wrong anywhere is said in the toast.
+    function showError(message) { toast.show(message, { error: true }) }
+
+    Component.onCompleted: {
+        for (const source of [canvasSession, library, exporter])
+            source.errorOccurred.connect(showError)
+        library.load()   // the Editor then opens what was open last time
     }
 
     Connections {
         target: window.library
-        function onRenameRequested(project, canvas) { Qt.callLater(window.startRename, project, canvas) }
+        function onCreatedEmpty(projectName, canvasName) { Qt.callLater(window.startRename, projectName, canvasName) }
     }
 
     // ---- Sidebar ----
@@ -110,6 +121,7 @@ ApplicationWindow {
             height: parent.height
             visible: sidebarSlot.width > 0
             library: window.library
+            libraryRows: window.libraryRows
             ask: askDialog
             headerHeight: toolbar.height
             onHideRequested: window.toggleSidebar()
@@ -157,92 +169,24 @@ ApplicationWindow {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
 
-        ToolBar {
+        CanvasToolbar {
             id: toolbar
             width: parent.width
             z: 1
-
-            RowLayout {
-                anchors.fill: parent
-                spacing: Space.xs
-
-                IconButton {
-                    visible: !settings.sidebarOpen
-                    iconName: "sidebar"
-                    tip: qsTr("Show sidebar (Ctrl+\\)")
-                    onClicked: window.toggleSidebar()
-                }
-                IconButton {
-                    iconName: "menu"
-                    tip: qsTr("Menu")
-                    onClicked: {
-                        window.focusCanvas()
-                        fileMenu.popup()
-                    }
-                    Menu {
-                        id: fileMenu
-                        MenuItem { text: qsTr("New canvas"); onTriggered: window.library.createCanvas(window.library.currentProject) }
-                        MenuItem { text: qsTr("New project"); onTriggered: window.library.createProject() }
-                        MenuSeparator {}
-                        MenuItem { text: qsTr("Import canvas…"); onTriggered: importDialog.open() }
-                        MenuItem { text: qsTr("Export as canvas file…"); onTriggered: window.exportAs("canvas") }
-                        MenuItem { text: qsTr("Export PNG…"); onTriggered: window.exportAs("png") }
-                        MenuItem { text: qsTr("Export SVG…"); onTriggered: window.exportAs("svg") }
-                        MenuSeparator {}
-                        MenuItem { text: qsTr("Open library folder"); onTriggered: Qt.openUrlExternally(window.library.folder) }
-                    }
-                }
-                IconButton { iconName: "undo"; tip: qsTr("Undo (Ctrl+Z)"); enabled: canvasEditor.canUndo; onClicked: canvasEditor.undo() }
-                IconButton { iconName: "redo"; tip: qsTr("Redo (Ctrl+Shift+Z)"); enabled: canvasEditor.canRedo; onClicked: canvasEditor.redo() }
-
-                // "Project / Canvas": click either to rename it. Long names never push the rest
-                // of the toolbar away: they shrink with "…" (the tooltip shows them in full);
-                // while renaming, the field takes the free space.
-                InlineName {
-                    id: projectName
-                    Layout.leftMargin: Space.xs
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: editing ? 160 : 40
-                    Layout.maximumWidth: editing ? 100000 : implicitWidth
-                    clickToEdit: true
-                    text: window.library.currentProject
-                    color: Colors.mutedText
-                    tip: qsTr("Project — click to rename")
-                    problemFor: (name) => window.library.projectNameProblem(name, window.library.currentProject)
-                    onRenamed: (name) => window.library.renameProject(window.library.currentProject, name)
-                    onFinished: window.focusCanvas()
-                }
-                Label {
-                    text: "/"
-                    color: Colors.mutedText
-                    visible: !projectName.editing && !canvasName.editing
-                }
-                InlineName {
-                    id: canvasName
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: editing ? 160 : 60
-                    Layout.maximumWidth: editing ? 100000 : implicitWidth
-                    clickToEdit: true
-                    text: window.library.currentCanvas
-                    font.weight: Font.DemiBold
-                    tip: canvasEditor.filePath + "\n" + qsTr("Click to rename (F2)")
-                    problemFor: (name) => window.library.canvasNameProblem(window.library.currentProject, name, window.library.currentCanvas)
-                    onRenamed: (name) => window.library.renameCanvas(window.library.currentProject, window.library.currentCanvas, name)
-                    onFinished: window.focusCanvas()
-                }
-                Item { Layout.fillWidth: true }
-                CheckBox {
-                    focusPolicy: Qt.NoFocus   // keep keyboard focus on the canvas
-                    text: qsTr("Snap to grid")
-                    checked: canvasEditor.snapToGrid
-                    onToggled: canvasEditor.snapToGrid = checked
-                    ToolTip.visible: hovered
-                    ToolTip.delay: Motion.tooltipDelay
-                    ToolTip.text: qsTr("Hold Alt while dragging to do the opposite")
-                }
-                ToolButton { focusPolicy: Qt.NoFocus; text: Math.round(canvasView.zoom * 100) + "%"; onClicked: canvasView.resetZoom() }
-                ToolButton { focusPolicy: Qt.NoFocus; text: qsTr("Fit"); onClicked: canvasView.userFit() }
+            library: window.library
+            editor: window.editor
+            canvasSession: window.canvasSession
+            canvasView: canvasView
+            sidebarOpen: settings.sidebarOpen
+            snapToGrid: editorSettings.snapToGrid
+            onSidebarToggleRequested: window.toggleSidebar()
+            onCanvasFocusRequested: window.focusCanvas()
+            onImportRequested: importDialog.open()
+            onExportRequested: (suffix) => {
+                window.focusCanvas()
+                exportDialog.exportAs(suffix)
             }
+            onSnapToggled: (snap) => editorSettings.snapToGrid = snap
         }
 
         CanvasView {
@@ -251,49 +195,23 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            editor: canvasEditor
-            enabled: canvasEditor.loadError === ""
+            editor: window.editor
+            hitTest: window.hitTest
+            library: window.library
+            ask: askDialog
+            enabled: window.canvasSession.editable
         }
 
         SelectionBar {
-            editor: canvasEditor
-            canvas: canvasView
+            editor: window.editor
+            canvasView: canvasView
         }
 
-        // A Canvas whose file can't be read: say why. It is never saved, so the file stays.
-        Floating {
-            visible: canvasEditor.loadError !== ""
+        LoadErrorPanel {
             anchors.centerIn: canvasView
             width: Math.min(460, canvasView.width - 2 * Space.xl)
-            height: errorColumn.implicitHeight + 2 * Space.xl
-            ColumnLayout {
-                id: errorColumn
-                anchors.fill: parent
-                anchors.margins: Space.xl
-                spacing: Space.sm
-                Label {
-                    text: qsTr("This canvas can't be opened")
-                    font.pixelSize: Fonts.title
-                    font.weight: Font.DemiBold
-                }
-                Label {
-                    Layout.fillWidth: true
-                    text: canvasEditor.loadError
-                    wrapMode: Text.Wrap
-                    color: Colors.mutedText
-                }
-                Label {
-                    Layout.fillWidth: true
-                    text: qsTr("Junction won't change the file. Fix it in another editor, or delete the canvas from the sidebar.")
-                    wrapMode: Text.Wrap
-                    color: Colors.mutedText
-                }
-                Button {
-                    Layout.topMargin: Space.md
-                    text: qsTr("Open library folder")
-                    onClicked: Qt.openUrlExternally(window.library.folder)
-                }
-            }
+            message: window.canvasSession.notEditableReason
+            folder: window.library.folder
         }
 
         Toast {
@@ -340,20 +258,20 @@ ApplicationWindow {
 
     // ---- Keyboard ----
 
-    Shortcut { sequences: [StandardKey.Undo]; enabled: window.canEdit; onActivated: canvasEditor.undo() }
-    Shortcut { sequences: [StandardKey.Redo]; enabled: window.canEdit; onActivated: canvasEditor.redo() }
-    Shortcut { sequences: ["Delete", "Backspace"]; enabled: window.canEdit; onActivated: canvasEditor.deleteSelection() }
-    Shortcut { sequences: [StandardKey.SelectAll]; enabled: window.canEdit; onActivated: canvasEditor.selectAll() }
-    Shortcut { sequences: [StandardKey.Cut]; enabled: window.canEdit; onActivated: canvasEditor.cut() }
-    Shortcut { sequences: [StandardKey.Copy]; enabled: window.canEdit; onActivated: canvasEditor.copy() }
-    Shortcut { sequences: [StandardKey.Paste]; enabled: window.canEdit; onActivated: canvasEditor.paste(canvasView.pointerWorld()) }
-    Shortcut { sequence: "Ctrl+D"; enabled: window.canEdit; onActivated: canvasEditor.duplicate() }
-    Shortcut { sequence: "Ctrl+G"; enabled: window.canEdit; onActivated: canvasView.editingId = canvasEditor.createGroup(canvasView.pointerWorld()) }
+    Shortcut { sequences: [StandardKey.Undo]; enabled: window.canEdit; onActivated: window.editor.undo() }
+    Shortcut { sequences: [StandardKey.Redo]; enabled: window.canEdit; onActivated: window.editor.redo() }
+    Shortcut { sequences: ["Delete", "Backspace"]; enabled: window.canEdit; onActivated: window.editor.deleteSelection() }
+    Shortcut { sequences: [StandardKey.SelectAll]; enabled: window.canEdit; onActivated: window.editor.selection.selectAll() }
+    Shortcut { sequences: [StandardKey.Cut]; enabled: window.canEdit; onActivated: window.editor.cut() }
+    Shortcut { sequences: [StandardKey.Copy]; enabled: window.canEdit; onActivated: window.editor.copy() }
+    Shortcut { sequences: [StandardKey.Paste]; enabled: window.canEdit; onActivated: window.editor.paste(canvasView.pointerWorld()) }
+    Shortcut { sequence: "Ctrl+D"; enabled: window.canEdit; onActivated: window.editor.duplicate() }
+    Shortcut { sequence: "Ctrl+G"; enabled: window.canEdit; onActivated: canvasView.editNew(window.editor.createGroup(canvasView.pointerWorld())) }
     // Arrow keys nudge the selection by one grid step.
-    Shortcut { sequence: "Left"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(-20, 0)) }
-    Shortcut { sequence: "Right"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(20, 0)) }
-    Shortcut { sequence: "Up"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(0, -20)) }
-    Shortcut { sequence: "Down"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(0, 20)) }
+    Shortcut { sequence: "Left"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(-1, 0)) }
+    Shortcut { sequence: "Right"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(1, 0)) }
+    Shortcut { sequence: "Up"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(0, -1)) }
+    Shortcut { sequence: "Down"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(0, 1)) }
     Shortcut { sequence: "Ctrl+0"; onActivated: canvasView.resetZoom() }
     Shortcut { sequence: "Ctrl+1"; onActivated: canvasView.userFit() }
 
@@ -383,7 +301,7 @@ ApplicationWindow {
         onActivated: window.startRename(window.library.currentProject, window.library.currentCanvas)
     }
     // Saving is automatic; Ctrl+S just does it now.
-    Shortcut { sequences: [StandardKey.Save]; onActivated: { window.focusCanvas(); canvasEditor.save() } }
+    Shortcut { sequences: [StandardKey.Save]; onActivated: { window.focusCanvas(); window.canvasSession.save() } }
 
     // ---- File dialogs ----
 
@@ -395,19 +313,15 @@ ApplicationWindow {
         onAccepted: window.library.importCanvases(selectedFiles)
     }
 
-    FileDialog {
+    ExportDialog {
         id: exportDialog
-        fileMode: FileDialog.SaveFile
-        onAccepted: {
-            const written = defaultSuffix === "canvas" ? canvasEditor.exportCanvas(selectedFile)
-                                                       : canvasEditor.exportImage(selectedFile, Colors.forPainter)
-            if (!written)
-                return   // the Editor has reported why
-            const file = selectedFile.toString()
-            const folder = file.slice(0, file.lastIndexOf("/"))
-            let name = decodeURIComponent(file.slice(file.lastIndexOf("/") + 1))
-            if (defaultSuffix === "canvas" && !name.endsWith(".canvas"))
-                name += ".canvas"   // exportCanvas adds it the same way
+        exporter: window.exporter
+        editor: window.editor
+        canvasName: window.library.currentCanvas
+        onExported: (file) => {
+            const path = file.toString()
+            const folder = path.slice(0, path.lastIndexOf("/"))
+            const name = decodeURIComponent(path.slice(path.lastIndexOf("/") + 1))
             toast.show(qsTr("Exported “%1”").arg(name),
                        { action: qsTr("Show in folder"), onAction: () => Qt.openUrlExternally(folder) })
         }

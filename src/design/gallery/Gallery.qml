@@ -241,7 +241,7 @@ ApplicationWindow {
                     }
                     Button {
                         text: "Ask for text"
-                        onClicked: ask.text({ title: "Edit 3 labels", text: "calls", placeholder: "Label", action: "Save",
+                        onClicked: ask.forText({ title: "Edit 3 labels", text: "calls", placeholder: "Label", action: "Save",
                                               onAccepted: (text) => toast.show("Label: " + text) })
                     }
                 }

@@ -160,7 +160,7 @@ NodeItem {
     Repeater {
         // Where each Handle sits, as a fraction of the card's size: top, right, bottom, left.
         model: [Qt.point(0.5, 0), Qt.point(1, 0.5), Qt.point(0.5, 1), Qt.point(0, 0.5)]
-        delegate: Dot {
+        delegate: PointMarker {
             id: handle
             required property point modelData
             canvasView: card.canvasView
@@ -171,7 +171,7 @@ NodeItem {
             MouseArea {
                 id: handleMouse
                 anchors.fill: parent
-                anchors.margins: card ? -card.canvasView.dotMargin : 0   // card is null while being destroyed
+                anchors.margins: card ? -card.canvasView.markerMargin : 0   // card is null while being destroyed
                 hoverEnabled: true
                 cursorShape: Qt.CrossCursor
                 onPressed: (mouse) => {

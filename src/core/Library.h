@@ -99,11 +99,11 @@ public:
     static QString uniqueName(const QString &base, const QStringList &taken);
 
 signals:
-    // In one change they come in this order: aboutToChange, then canvasMoved / canvasRemoved,
+    // In one change they come in this order: aboutToChangeFiles, then canvasMoved / canvasRemoved,
     // then projectsChanged, then currentChanged. The Editor relies on it: by the time it hears
     // currentChanged, the open file has already followed a rename.
     void loaded();          // load() is done; currentPath() is empty if the folder can't be written
-    void aboutToChange();   // files are about to change or another Canvas to open: save now
+    void aboutToChangeFiles();   // files are about to change or another Canvas to open: save now
     void projectsChanged(); // Projects or Canvases were added, removed, renamed or reordered
     void created(const QString &project, const QString &canvas);   // a new empty one; `canvas` is "" for a Project
     void expandedChanged(const QString &project);
@@ -123,12 +123,15 @@ private:
     std::optional<FoundCanvas> findCanvas(const QString &project, const QString &canvas) const;
     QStringList canvasNames(const QString &project) const;
     LibraryIndex readIndex();
+    std::optional<LibraryIndex> loadProjects();
     bool writeIndex() const;
     void openRemembered(const QString &project, const QString &canvas);
     QStringList canvasFiles(const QString &project) const;   // names of the .canvas files in its folder
     void setCurrent(const QString &project, const QString &canvas);
     bool createEmptyCanvasFile(const QString &path);
-    bool renamePath(const QString &from, const QString &to);
+    // Never replaces an existing file; a change of case only ("auth" -> "Auth") also works where
+    // the file system ignores case. On failure it says `failure` ("" to say nothing).
+    bool renamePath(const QString &from, const QString &to, const QString &failure);
     // Every change ends here: saves the index, emits projectsChanged(), then currentChanged() if
     // currentPath() is no longer the one last announced.
     void saveIndexAndNotify();

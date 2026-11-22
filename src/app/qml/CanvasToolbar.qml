@@ -11,6 +11,7 @@ ToolBar {
     id: toolbar
     required property Library library
     required property Editor editor
+    required property OpenCanvas openCanvas
     required property CanvasView canvasView
     required property bool sidebarOpen
     required property bool snapToGrid
@@ -54,8 +55,8 @@ ToolBar {
                 MenuItem { text: qsTr("Open library folder"); onTriggered: Qt.openUrlExternally(toolbar.library.folder) }
             }
         }
-        IconButton { iconName: "undo"; tip: qsTr("Undo (Ctrl+Z)"); enabled: toolbar.editor.canUndo; onClicked: toolbar.editor.undo() }
-        IconButton { iconName: "redo"; tip: qsTr("Redo (Ctrl+Shift+Z)"); enabled: toolbar.editor.canRedo; onClicked: toolbar.editor.redo() }
+        IconButton { iconName: "undo"; tip: qsTr("Undo (Ctrl+Z)"); enabled: toolbar.openCanvas.canUndo; onClicked: toolbar.editor.undo() }
+        IconButton { iconName: "redo"; tip: qsTr("Redo (Ctrl+Shift+Z)"); enabled: toolbar.openCanvas.canRedo; onClicked: toolbar.editor.redo() }
 
         // "Project / Canvas": click either to rename it. Long names never push the rest
         // of the toolbar away: they shrink with "…" (the tooltip shows them in full);
@@ -87,7 +88,7 @@ ToolBar {
             clickToEdit: true
             text: toolbar.library.currentCanvas
             font.weight: Font.DemiBold
-            tip: toolbar.editor.filePath + "\n" + qsTr("Click to rename (F2)")
+            tip: toolbar.openCanvas.filePath + "\n" + qsTr("Click to rename (F2)")
             problemFor: (name) => toolbar.library.canvasNameProblem(toolbar.library.currentProject, name, toolbar.library.currentCanvas)
             onRenamed: (name) => toolbar.library.renameCanvas(toolbar.library.currentProject, toolbar.library.currentCanvas, name)
             onFinished: toolbar.canvasFocusRequested()

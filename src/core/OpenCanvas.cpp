@@ -41,7 +41,7 @@ void OpenCanvas::openNothing(const QString &reason)
     m_document.clear();
     setNotEditableBecause(reason);
     setFilePath({});
-    activateHistory({});
+    m_history.setActiveStack(nullptr);   // no file, no history
     emit opened();
 }
 

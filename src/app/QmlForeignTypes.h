@@ -4,6 +4,7 @@
 
 #include "CanvasItems.h"
 #include "Library.h"
+#include "OpenCanvas.h"
 
 #include <QQmlEngine>
 
@@ -13,6 +14,14 @@ struct LibraryForeign
     QML_FOREIGN(Library)
     QML_NAMED_ELEMENT(Library)
     QML_UNCREATABLE("Created by main.cpp")
+};
+
+struct OpenCanvasForeign
+{
+    Q_GADGET
+    QML_FOREIGN(OpenCanvas)
+    QML_NAMED_ELEMENT(OpenCanvas)
+    QML_UNCREATABLE("Created by the Editor")
 };
 
 // The view Library::currentView() returns.

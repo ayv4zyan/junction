@@ -78,7 +78,7 @@ Item {
 
     Repeater {
         model: midpoints
-        delegate: Dot {
+        delegate: PointMarker {
             id: midpoint
             required property int index
             required property real px
@@ -96,7 +96,7 @@ Item {
             readonly property rect grabArea: {
                 if (isLabel)
                     return Qt.rect(overlay.labelBox.x - x, overlay.labelBox.y - y, overlay.labelBox.width, overlay.labelBox.height)
-                const margin = overlay.canvasView.dotMargin
+                const margin = overlay.canvasView.markerMargin
                 return Qt.rect(-margin, -margin, width + 2 * margin, height + 2 * margin)
             }
 
@@ -120,7 +120,7 @@ Item {
 
     Repeater {
         model: waypoints
-        delegate: Dot {
+        delegate: PointMarker {
             id: waypoint
             required property int index
             required property real px
@@ -135,7 +135,7 @@ Item {
                 index: waypoint.index
                 inserted: false
                 anchors.fill: parent
-                anchors.margins: -overlay.canvasView.dotMargin
+                anchors.margins: -overlay.canvasView.markerMargin
                 onDoubleClicked: overlay.editor.removeWaypoint(overlay.connection.id, waypoint.index)
                 onMenuRequested: overlay.canvasView.openMenuFor(overlay.connection.id, waypoint.index)
             }
@@ -144,7 +144,7 @@ Item {
 
     Repeater {
         model: overlay.active ? 2 : 0
-        delegate: Dot {
+        delegate: PointMarker {
             id: end
             required property int index
             readonly property bool fromEnd: index === 0
@@ -156,7 +156,7 @@ Item {
             DragArea {
                 canvasView: overlay.canvasView
                 anchors.fill: parent
-                anchors.margins: -overlay.canvasView.dotMargin
+                anchors.margins: -overlay.canvasView.markerMargin
                 cursorShape: Qt.CrossCursor   // re-attaching an end, like connecting from a Handle
                 property point origin
                 onDragStarted: { origin = end.center; end.dragPoint = origin; end.dragging = true }

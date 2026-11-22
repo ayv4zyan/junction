@@ -9,7 +9,7 @@ qt_add_qml_module(junction
         qml/ExportDialog.qml
         qml/CanvasView.qml
         qml/CanvasMenus.qml
-        qml/CanvasBackground.qml
+        qml/BackgroundInput.qml
         qml/NodeItem.qml
         qml/CardItem.qml
         qml/GroupItem.qml
@@ -18,7 +18,7 @@ qt_add_qml_module(junction
         qml/SelectionBar.qml
         qml/DragArea.qml
         qml/SelectMoveArea.qml
-        qml/Dot.qml
+        qml/PointMarker.qml
         qml/ResizeEdges.qml
         qml/IconButton.qml
         qml/InlineName.qml

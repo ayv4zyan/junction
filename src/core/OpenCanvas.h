@@ -19,9 +19,16 @@
 
 class QUndoStack;
 
+// QML reads these properties directly (main.cpp hands it over as `openCanvas`); changes go
+// through the Editor.
 class OpenCanvas : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
+    Q_PROPERTY(bool editable READ isEditable NOTIFY editableChanged)
+    Q_PROPERTY(QString notEditableReason READ notEditableReason NOTIFY editableChanged)
+    Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
+    Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
 
 public:
     explicit OpenCanvas(QObject *parent = nullptr);
@@ -33,7 +40,8 @@ public:
     // after openNothing(), when its file can't be read (then it is never written to, so the file
     // stays as it was), or once its file was deleted.
     bool isEditable() const { return !m_notEditableBecause.has_value(); }
-    QString notEditableReason() const { return m_notEditableBecause.value_or(QString()); }   // for the user
+    // Why it isn't editable, for the user; "" while it is (and before anything was opened).
+    QString notEditableReason() const { return m_notEditableBecause.value_or(QString()); }
     bool canUndo() const { return m_history.canUndo(); }
     bool canRedo() const { return m_history.canRedo(); }
 

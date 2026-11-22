@@ -1,8 +1,9 @@
 import QtQuick
 import JunctionDesign
 
-// A round dot that keeps the same size on screen at every zoom level: a Handle, a Waypoint or a
-// Connection end. Round on purpose in a square UI: it marks a point, not a surface.
+// A round marker that keeps the same size on screen at every zoom level, for a point you can
+// grab: a Handle, a Waypoint or a Connection end. Round on purpose in a square UI: it marks a
+// point, not a surface.
 Rectangle {
     required property CanvasView canvasView
     property point center

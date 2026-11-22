@@ -52,7 +52,7 @@ Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
 {
     // The open Canvas follows the Library. Before the Library changes files or opens another
     // Canvas, the open one is saved, without a drag still in progress.
-    connect(m_library, &Library::aboutToChange, this, [this] {
+    connect(m_library, &Library::aboutToChangeFiles, this, [this] {
         cancelDrag();
         m_canvas.savePending();
     });
@@ -61,10 +61,6 @@ Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
     connect(m_library, &Library::canvasRemoved, &m_canvas, &OpenCanvas::fileRemoved);
 
     connect(&m_canvas, &OpenCanvas::opened, this, &Editor::canvasOpened);
-    connect(&m_canvas, &OpenCanvas::filePathChanged, this, &Editor::filePathChanged);
-    connect(&m_canvas, &OpenCanvas::editableChanged, this, &Editor::canvasStateChanged);
-    connect(&m_canvas, &OpenCanvas::historyChanged, this, &Editor::historyChanged);
-    connect(&m_canvas, &OpenCanvas::errorOccurred, this, &Editor::errorOccurred);
 
     // Anything that changes in the Document may move the selected Connection's handles.
     const Document *document = &m_canvas.document();

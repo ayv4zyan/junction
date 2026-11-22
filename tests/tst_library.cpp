@@ -313,12 +313,12 @@ private slots:
         Library library(m_root);
         library.load();
         QStringList heard;
-        connect(&library, &Library::aboutToChange, this, [&] { heard << "aboutToChange"; });
+        connect(&library, &Library::aboutToChangeFiles, this, [&] { heard << "aboutToChangeFiles"; });
         connect(&library, &Library::canvasMoved, this, [&] { heard << "canvasMoved"; });
         connect(&library, &Library::projectsChanged, this, [&] { heard << "projectsChanged"; });
         connect(&library, &Library::currentChanged, this, [&] { heard << "currentChanged"; });
         QVERIFY(library.renameCanvas("Untitled", "Untitled", "Notes"));
-        QCOMPARE(heard, (QStringList{"aboutToChange", "canvasMoved", "projectsChanged", "currentChanged"}));
+        QCOMPARE(heard, (QStringList{"aboutToChangeFiles", "canvasMoved", "projectsChanged", "currentChanged"}));
     }
 
     void reorderingCountsPositionsBeforeTheMove()
@@ -414,7 +414,7 @@ private slots:
         library.load();
         library.createCanvas("Untitled");
         QStringList order;
-        connect(&library, &Library::aboutToChange, this, [&] { order << "aboutToChange:" + library.currentCanvas(); });
+        connect(&library, &Library::aboutToChangeFiles, this, [&] { order << "aboutToChange:" + library.currentCanvas(); });
         connect(&library, &Library::currentChanged, this, [&] { order << "current:" + library.currentCanvas(); });
         library.open("Untitled", "Untitled");
         QCOMPARE(order, (QStringList{"aboutToChange:Untitled 2", "current:Untitled"}));

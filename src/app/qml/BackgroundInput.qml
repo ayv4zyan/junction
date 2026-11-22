@@ -13,10 +13,10 @@ MouseArea {
 
     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
     hoverEnabled: true
-    cursorShape: mode === CanvasBackground.Panning ? Qt.ClosedHandCursor
+    cursorShape: mode === BackgroundInput.Panning ? Qt.ClosedHandCursor
                : canvasView.spaceHeld ? Qt.OpenHandCursor
                : overConnection ? Qt.PointingHandCursor : Qt.ArrowCursor
-    property int mode: CanvasBackground.Idle
+    property int mode: BackgroundInput.Idle
     property rect selectionRect   // the rectangle being dragged, in this item's coordinates
     property bool overConnection: false
     property point last
@@ -27,7 +27,7 @@ MouseArea {
         canvasView.forceActiveFocus()
         last = Qt.point(mouse.x, mouse.y)
         if (mouse.button === Qt.MiddleButton || canvasView.spaceHeld) {
-            mode = CanvasBackground.Panning
+            mode = BackgroundInput.Panning
             return
         }
         const hit = canvasView.hitTest.connectionAt(canvasView.toWorld(last), canvasView.connectionTolerance)
@@ -43,12 +43,12 @@ MouseArea {
         const additive = canvasView.isToggle(mouse.modifiers)
         if (hit) {
             canvasView.editor.select(hit, additive)
-            mode = CanvasBackground.Idle
+            mode = BackgroundInput.Idle
             return
         }
         if (!additive)
             canvasView.editor.clearSelection()
-        mode = CanvasBackground.Selecting
+        mode = BackgroundInput.Selecting
         selectionRect = Qt.rect(last.x, last.y, 0, 0)
         selectionDragStart = last
         selectionBeforeDrag = canvasView.editor.selection
@@ -57,10 +57,10 @@ MouseArea {
     onPositionChanged: (mouse) => {
         if (!pressed) {
             overConnection = canvasView.hitTest.connectionAt(canvasView.toWorld(Qt.point(mouse.x, mouse.y)), canvasView.connectionTolerance) !== ""
-        } else if (mode === CanvasBackground.Panning) {
+        } else if (mode === BackgroundInput.Panning) {
             canvasView.panBy(mouse.x - last.x, mouse.y - last.y)
             last = Qt.point(mouse.x, mouse.y)
-        } else if (mode === CanvasBackground.Selecting) {
+        } else if (mode === BackgroundInput.Selecting) {
             selectionRect = Qt.rect(Math.min(selectionDragStart.x, mouse.x), Math.min(selectionDragStart.y, mouse.y),
                                     Math.abs(mouse.x - selectionDragStart.x), Math.abs(mouse.y - selectionDragStart.y))
             // The selection follows the rectangle as it is dragged, not only on release.
@@ -70,7 +70,7 @@ MouseArea {
         }
     }
 
-    onReleased: mode = CanvasBackground.Idle
+    onReleased: mode = BackgroundInput.Idle
 
     onDoubleClicked: (mouse) => {
         if (mouse.button !== Qt.LeftButton)

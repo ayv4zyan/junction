@@ -72,13 +72,23 @@ Library::~Library()
 
 void Library::load()
 {
+    if (const std::optional<LibraryIndex> index = loadProjects()) {
+        openRemembered(index->currentProject, index->currentCanvas);
+        saveIndexAndNotify();
+    }
+    emit loaded();
+}
+
+// Reads the index and the folders into m_projects; what is really on disk wins. Returns the
+// index for what was open last time, or nothing when the folder can't be written
+// (errorOccurred has said so).
+std::optional<LibraryIndex> Library::loadProjects()
+{
     if (!QDir().mkpath(m_root)) {
         emit errorOccurred(tr("Could not create the library folder %1.").arg(m_root));
-        emit loaded();   // with nothing open
-        return;
+        return std::nullopt;
     }
     const LibraryIndex index = readIndex();
-
     m_projects.clear();
     const QStringList folders = QDir(m_root).entryList(QDir::Dirs | QDir::NoDotAndDotDot, SortOrder);
     const auto newProject = [](const QString &name) { return ProjectEntry{name, {}, true, {}}; };
@@ -93,14 +103,9 @@ void Library::load()
         }
         m_projects.append(p);
     }
-    if (m_projects.isEmpty() && addProject(0).isEmpty()) {
-        emit loaded();   // the folder can't be written; errorOccurred has said so
-        return;
-    }
-
-    openRemembered(index.currentProject, index.currentCanvas);
-    saveIndexAndNotify();
-    emit loaded();
+    if (m_projects.isEmpty() && addProject(0).isEmpty())
+        return std::nullopt;
+    return index;
 }
 
 // The index: order, views, expanded state, the open Canvas. Empty the first time. An index
@@ -320,7 +325,7 @@ bool Library::open(const QString &projectName, const QString &canvasName)
         setExpanded(projectName, true);
         return true;
     }
-    emit aboutToChange();
+    emit aboutToChangeFiles();
     setCurrent(projectName, canvas);
     ProjectEntry *p = project(projectName);
     const bool expand = !p->expanded;   // so the open Canvas can be seen in the sidebar
@@ -396,7 +401,7 @@ QString Library::addCanvas(ProjectEntry *p, int at, const CanvasEntry &entry)
 
 QString Library::createProject()
 {
-    emit aboutToChange();
+    emit aboutToChangeFiles();
     const QString name = addProject(m_projects.size());
     if (name.isEmpty())
         return {};
@@ -411,7 +416,7 @@ QString Library::createCanvas(const QString &projectName)
     ProjectEntry *p = project(projectName);
     if (!p)
         return {};
-    emit aboutToChange();
+    emit aboutToChangeFiles();
     const QString name = uniqueName(NewName, canvasNames(projectName));
     if (!createEmptyCanvasFile(canvasPath(projectName, name)))
         return {};
@@ -425,7 +430,7 @@ QString Library::duplicateCanvas(const QString &projectName, const QString &canv
     const auto at = findCanvas(projectName, canvas);
     if (!at)
         return {};
-    emit aboutToChange();   // the open Canvas is saved first, so the copy has its latest state
+    emit aboutToChangeFiles();   // the open Canvas is saved first, so the copy has its latest state
     const QString name = uniqueName(tr("%1 copy").arg(canvas), canvasNames(projectName));
     if (!QFile::copy(canvasPath(projectName, canvas), canvasPath(projectName, name))) {
         emit errorOccurred(tr("Could not copy “%1”.").arg(canvas));
@@ -442,7 +447,7 @@ QString Library::duplicateProject(const QString &projectName)
     const int i = projectIndex(projectName);
     if (i < 0)
         return {};
-    emit aboutToChange();
+    emit aboutToChangeFiles();
     const QString name = uniqueName(tr("%1 copy").arg(projectName), projectNames());
     ProjectEntry copy = m_projects[i];
     copy.name = name;
@@ -471,7 +476,7 @@ QString Library::importCanvas(const QString &filePath, const QString &projectNam
         return {};
     }
 
-    emit aboutToChange();
+    emit aboutToChangeFiles();
     QString base = QFileInfo(filePath).completeBaseName().trimmed();
     if (!nameProblem(base).isEmpty())
         base = tr("Imported canvas");
@@ -495,19 +500,23 @@ void Library::importCanvases(const QList<QUrl> &files)
 
 // Like QDir::rename, but never replaces an existing file, and a change of case only
 // ("auth" -> "Auth") also works where the file system ignores case.
-bool Library::renamePath(const QString &from, const QString &to)
+bool Library::renamePath(const QString &from, const QString &to, const QString &failure)
 {
-    if (sameName(from, to)) {
-        const QString temporary = from + QStringLiteral(".renaming");
-        if (!QDir().rename(from, temporary))
-            return false;
-        if (QDir().rename(temporary, to))
-            return true;
-        if (!QDir().rename(temporary, from))
-            emit errorOccurred(tr("%1 could not be renamed back and is now called %2.").arg(from, temporary));
+    const auto fail = [&](const QString &more = {}) {
+        if (!failure.isEmpty())
+            emit errorOccurred(more.isEmpty() ? failure : failure + ' ' + more);
         return false;
-    }
-    return !QFileInfo::exists(to) && QDir().rename(from, to);
+    };
+    if (!sameName(from, to))
+        return !QFileInfo::exists(to) && QDir().rename(from, to) ? true : fail();
+    const QString temporary = from + QStringLiteral(".renaming");
+    if (!QDir().rename(from, temporary))
+        return fail();
+    if (QDir().rename(temporary, to))
+        return true;
+    if (!QDir().rename(temporary, from))
+        return fail(tr("It could not be renamed back either, and is now called %1.").arg(temporary));
+    return fail();
 }
 
 bool Library::renameProject(const QString &projectName, const QString &newName)
@@ -522,11 +531,9 @@ bool Library::renameProject(const QString &projectName, const QString &newName)
         emit errorOccurred(problem);
         return false;
     }
-    emit aboutToChange();
-    if (!renamePath(projectPath(projectName), projectPath(name))) {
-        emit errorOccurred(tr("Could not rename “%1” to “%2”.").arg(projectName, name));
+    emit aboutToChangeFiles();
+    if (!renamePath(projectPath(projectName), projectPath(name), tr("Could not rename “%1” to “%2”.").arg(projectName, name)))
         return false;
-    }
     p->name = name;
     for (const CanvasEntry &c : p->canvases)
         emit canvasMoved(canvasPath(projectName, c.name), canvasPath(name, c.name));
@@ -548,13 +555,11 @@ bool Library::renameCanvas(const QString &projectName, const QString &canvas, co
         emit errorOccurred(problem);
         return false;
     }
-    emit aboutToChange();
+    emit aboutToChangeFiles();
     const QString from = canvasPath(projectName, canvas);
     const QString to = canvasPath(projectName, name);
-    if (!renamePath(from, to)) {
-        emit errorOccurred(tr("Could not rename “%1” to “%2”.").arg(canvas, name));
+    if (!renamePath(from, to, tr("Could not rename “%1” to “%2”.").arg(canvas, name)))
         return false;
-    }
     ProjectEntry &p = m_projects[at->projectIndex];
     p.canvases[at->canvasIndex].name = name;
     if (p.lastCanvas == canvas)
@@ -579,7 +584,7 @@ bool Library::deleteCanvas(const QString &projectName, const QString &canvas)
         emit errorOccurred(tr("A project needs at least one canvas. To remove this one, delete the project."));
         return false;
     }
-    emit aboutToChange();
+    emit aboutToChangeFiles();
     const QString path = canvasPath(projectName, canvas);
     if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
         emit errorOccurred(tr("Could not move “%1” to the trash.").arg(canvas));
@@ -599,7 +604,7 @@ bool Library::deleteProject(const QString &projectName)
     const int i = projectIndex(projectName);
     if (i < 0)
         return false;
-    emit aboutToChange();
+    emit aboutToChangeFiles();
     if (m_projects.size() == 1)
         return replaceLastProject();
     if (!trashProject(i))
@@ -626,7 +631,7 @@ bool Library::replaceLastProject()
         return false;
     }
     ProjectEntry &project = m_projects.first();
-    if (project.name != NewName && renamePath(projectPath(project.name), projectPath(NewName)))
+    if (project.name != NewName && renamePath(projectPath(project.name), projectPath(NewName), {}))
         project.name = NewName;
     setCurrent(project.name, project.firstCanvas());
     saveIndexAndNotify();
@@ -692,14 +697,12 @@ QString Library::moveCanvasToProject(ProjectEntry &source, int from, ProjectEntr
                                .arg(canvas, source.name));
         return {};
     }
-    emit aboutToChange();
+    emit aboutToChangeFiles();
     const QString name = uniqueName(canvas, canvasNames(target.name));
     const QString oldPath = canvasPath(source.name, canvas);
     const QString newPath = canvasPath(target.name, name);
-    if (!renamePath(oldPath, newPath)) {
-        emit errorOccurred(tr("Could not move “%1” to “%2”.").arg(canvas, target.name));
+    if (!renamePath(oldPath, newPath, tr("Could not move “%1” to “%2”.").arg(canvas, target.name)))
         return {};
-    }
     CanvasEntry entry = source.canvases.takeAt(from);
     entry.name = name;
     target.canvases.insert(qBound(0, toIndex, target.canvases.size()), entry);

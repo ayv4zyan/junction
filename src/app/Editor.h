@@ -93,11 +93,6 @@ class Editor : public QObject
     Q_PROPERTY(SelectionSummary selectionSummary READ selectionSummary NOTIFY selectedItemsChanged)
     Q_PROPERTY(QRectF selectionBounds READ selectionBounds NOTIFY selectedItemsChanged)
     Q_PROPERTY(bool dragging READ isDragging NOTIFY draggingChanged)   // moving, resizing, or a Waypoint
-    Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
-    Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
-    Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
-    Q_PROPERTY(bool editable READ isEditable NOTIFY canvasStateChanged)
-    Q_PROPERTY(QString notEditableReason READ notEditableReason NOTIFY canvasStateChanged)
     Q_PROPERTY(bool snapToGrid READ snapToGrid WRITE setSnapToGrid NOTIFY snapToGridChanged)
 
 public:
@@ -106,6 +101,7 @@ public:
     Editor(Library *library, QClipboard *clipboard, QObject *parent = nullptr);
 
     const Document &document() const { return m_canvas.document(); }
+    OpenCanvas *openCanvas() { return &m_canvas; }   // its file, history and whether it can be edited
     NodeModel *cards() { return &m_cards; }
     NodeModel *groups() { return &m_groups; }
     QStringList selection() const { return m_selection; }
@@ -116,11 +112,6 @@ public:
     // selection toolbar sits against it.
     QRectF selectionBounds() const;
     bool isDragging() const { return m_drag.has_value(); }
-    bool canUndo() const { return m_canvas.canUndo(); }
-    bool canRedo() const { return m_canvas.canRedo(); }
-    QString filePath() const { return m_canvas.filePath(); }
-    bool isEditable() const { return m_canvas.isEditable(); }
-    QString notEditableReason() const { return m_canvas.notEditableReason(); }   // "" while editable
     bool snapToGrid() const { return m_snapToGrid; }
     void setSnapToGrid(bool snap);
 
@@ -182,11 +173,8 @@ public:
 signals:
     void selectionChanged();
     void selectedItemsChanged();   // the selection, or something about the selected items
-    void historyChanged();
-    void filePathChanged();
     void snapToGridChanged();
     void canvasOpened();   // another Canvas is shown; the Document was replaced
-    void canvasStateChanged();   // whether it can be edited, and if not why
     void draggingChanged();
     void errorOccurred(const QString &message);
 

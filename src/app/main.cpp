@@ -58,6 +58,7 @@ int main(int argc, char *argv[])
         {"library", QVariant::fromValue(&library)},
         {"libraryRows", QVariant::fromValue(&libraryRows)},
         {"editor", QVariant::fromValue(&editor)},
+        {"openCanvas", QVariant::fromValue(editor.openCanvas())},
         {"hitTest", QVariant::fromValue(&hitTest)},
         {"exporter", QVariant::fromValue(&exporter)},
     });

@@ -30,10 +30,10 @@ Item {
     readonly property alias dropTarget: interaction.dropTarget     // Card a dragged Connection end would attach to
     readonly property alias spaceHeld: interaction.spaceHeld       // Space+drag pans
     readonly property real handleRadius: 14 / zoom   // how close to a Handle counts as "on" it
-    readonly property real dotMargin: 4 / zoom       // how far around a Dot still grabs it
+    readonly property real markerMargin: 4 / zoom       // how far around a PointMarker still grabs it
     readonly property real connectionTolerance: 6 / zoom   // how far from a Connection's line still hits it
     // The pointer is directly moving something: panning, a selection rectangle, a new Connection.
-    readonly property bool manipulating: background.mode !== CanvasBackground.Idle || connectFrom !== ""
+    readonly property bool manipulating: background.mode !== BackgroundInput.Idle || connectFrom !== ""
 
     enum ResizeKeeps { Fit, Center, Nothing }       // what a resize keeps, see keepOnResize
 
@@ -264,7 +264,7 @@ Item {
         colors: Colors.forPainter
     }
 
-    CanvasBackground {
+    BackgroundInput {
         id: background
         anchors.fill: parent
         canvasView: canvasView
@@ -318,7 +318,7 @@ Item {
     }
 
     Rectangle {
-        visible: background.mode === CanvasBackground.Selecting
+        visible: background.mode === BackgroundInput.Selecting
         x: background.selectionRect.x
         y: background.selectionRect.y
         width: background.selectionRect.width

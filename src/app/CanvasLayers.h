@@ -47,8 +47,8 @@ class ConnectionLayer : public CanvasLayer
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(Editor *editor READ editor WRITE setEditor NOTIFY editorChanged)
-    // The Connection whose label is being edited: its label is not drawn, the editor shows it.
-    Q_PROPERTY(QString hiddenLabel MEMBER m_hiddenLabel NOTIFY viewChanged)
+    // The Connection whose label is being edited: its label is not drawn, LabelEditor shows it.
+    Q_PROPERTY(QString labelEditedOn MEMBER m_labelEditedOn NOTIFY viewChanged)
 
 public:
     using CanvasLayer::CanvasLayer;
@@ -61,5 +61,5 @@ signals:
 
 private:
     Editor *m_editor = nullptr;
-    QString m_hiddenLabel;
+    QString m_labelEditedOn;
 };

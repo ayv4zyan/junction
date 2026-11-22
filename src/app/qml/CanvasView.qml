@@ -360,7 +360,7 @@ Item {
     ConnectionLayer {
         anchors.fill: parent
         editor: view.editor
-        hiddenLabel: view.labelingId
+        labelEditedOn: view.labelingId
         zoom: view.zoom
         pan: view.pan
         colors: Colors.forPainter

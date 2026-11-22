@@ -51,7 +51,7 @@ void ConnectionLayer::paint(QPainter *painter)
     for (const Connection &c : document.connections()) {
         if (const auto route = document.route(c)) {
             CanvasPainter::drawConnection(*painter, *route, c, palette, m_editor->selection().contains(c.id),
-                                          c.id != m_hiddenLabel,
+                                          c.id != m_labelEditedOn,
                                           CanvasPainter::colorUnder(route->labelPosition, document.nodes(), palette));
         }
     }

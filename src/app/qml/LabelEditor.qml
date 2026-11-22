@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Controls
 import Junction
 
 // Edits a Connection's label in place. It sits in canvas (world) coordinates, so it zooms
@@ -56,9 +57,22 @@ Rectangle {
         selectionColor: Theme.selection
         selectedTextColor: "white"
         onAccepted: box.canvas.forceActiveFocus()
-        onActiveFocusChanged: if (!activeFocus && box.visible) box.finish()
+        onActiveFocusChanged: if (!activeFocus && box.visible && !textMenu.visible) box.finish()
         Keys.onEscapePressed: box.canvas.forceActiveFocus()
         HoverHandler { cursorShape: Qt.IBeamCursor }   // a plain TextInput sets none
+    }
+
+    // A right-click opens the text menu. Above the TextInput, which would take the
+    // right-click itself; left clicks still go through to it.
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        onPressed: textMenu.popup()
+    }
+
+    TextMenu {
+        id: textMenu
+        editor: input
     }
 
     Text {

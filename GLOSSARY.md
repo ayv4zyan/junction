@@ -30,6 +30,10 @@ _Avoid_: unknown node, file card, link card
 A labeled rectangle; every Card lying inside its bounds belongs to it and moves with it.
 _Avoid_: frame, container, cluster
 
+**Selection**:
+The Cards, Groups and Connections currently picked out on a Canvas; editing commands (delete, duplicate, copy, group, color) act on all of it at once.
+_Avoid_: highlighted items, active items
+
 ### Connections
 
 **Handle**:
@@ -51,6 +55,10 @@ _Avoid_: fixed anchor, locked side
 **Path Style**:
 How a Connection's path is drawn between its ends: straight, curved or elbow.
 _Avoid_: line type, routing mode
+
+**Label**:
+The short name shown on a Group or a Connection. A Group always shows one (a default when left empty); a Connection's is optional. Cards hold text, not a label.
+_Avoid_: name, title, caption
 
 **Waypoint**:
 A user-placed point on a Connection that its path must pass through.

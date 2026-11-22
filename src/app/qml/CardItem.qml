@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Controls
 import Junction
 
 // One Card: Markdown text, Handles on hover, drag to move, double-click to edit.
@@ -43,13 +44,24 @@ Item {
         border.width: card.selected ? 2 : 1.5
     }
 
-    // While editing, a click in the card's padding keeps the cursor in the text. Hidden, not
-    // just disabled, otherwise: Qt shows a disabled MouseArea's I-beam all the same.
+    // While editing, a click in the card's padding keeps the cursor in the text, and a
+    // right-click anywhere on the card opens the text menu. Hidden, not just disabled,
+    // otherwise: Qt shows a disabled MouseArea's I-beam all the same.
     MouseArea {
         anchors.fill: parent
         visible: card.editing
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         cursorShape: Qt.IBeamCursor
-        onPressed: textEdit.forceActiveFocus()
+        onPressed: (mouse) => {
+            textEdit.forceActiveFocus()
+            if (mouse.button === Qt.RightButton)
+                textMenu.popup()
+        }
+    }
+
+    TextMenu {
+        id: textMenu
+        editor: textEdit
     }
 
     // Cards have a fixed size, so text that doesn't fit scrolls: with the mouse wheel over the
@@ -110,7 +122,7 @@ Item {
                 else if (cursorRectangle.y + cursorRectangle.height > scroller.contentY + scroller.height)
                     scroller.contentY = cursorRectangle.y + cursorRectangle.height - scroller.height
             }
-            onActiveFocusChanged: if (!activeFocus && card.editing) card.finishEditing()
+            onActiveFocusChanged: if (!activeFocus && card.editing && !textMenu.visible) card.finishEditing()
             Keys.onEscapePressed: card.canvas.forceActiveFocus()
         }
 
@@ -172,6 +184,7 @@ Item {
                 card.editor.select(card.nodeId)
         }
         onDoubleClicked: { if (card.kind === "text") card.canvas.editingId = card.nodeId }
+        onMenuRequested: card.canvas.openMenuFor(card.nodeId)
     }
 
     // Resizing by dragging a side or corner. Declared before the Handles so that a Handle in

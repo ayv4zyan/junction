@@ -73,6 +73,7 @@ Item {
                 onDragFinished: { overlay.editor.endWaypointDrag(); overlay.draggingWaypoint = false }
                 // the middle dot sits on the label, so double-clicking it edits the label
                 onDoubleClicked: overlay.canvas.editLabel(overlay.info.id)
+                onMenuRequested: overlay.canvas.openMenuFor(overlay.info.id)
             }
         }
     }
@@ -96,6 +97,7 @@ Item {
                 onDragged: (delta, invertSnap) => overlay.editor.updateWaypointDrag(delta, invertSnap)
                 onDragFinished: { overlay.editor.endWaypointDrag(); overlay.draggingWaypoint = false }
                 onDoubleClicked: overlay.editor.removeWaypoint(overlay.info.id, waypoint.index)
+                onMenuRequested: overlay.canvas.openMenuFor(overlay.info.id, waypoint.index)
             }
         }
     }
@@ -130,6 +132,7 @@ Item {
                     end.dragging = false
                     overlay.canvas.dropTarget = ""
                 }
+                onMenuRequested: overlay.canvas.openMenuFor(overlay.info.id)
             }
         }
     }

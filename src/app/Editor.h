@@ -33,6 +33,7 @@ class Editor : public QObject
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
     Q_PROPERTY(QVariantMap selectedConnection READ selectedConnection NOTIFY selectionDetailsChanged)
     Q_PROPERTY(QString selectionColor READ selectionColor NOTIFY selectionDetailsChanged)
+    Q_PROPERTY(QVariantMap selectionInfo READ selectionInfo NOTIFY selectionDetailsChanged)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
@@ -61,6 +62,9 @@ public:
     QStringList selection() const { return m_selection; }
     QVariantMap selectedConnection() const;
     QString selectionColor() const;   // color of the selected items, "" if mixed or default
+    // What the right-click menus need to know about the selection: how many Cards, Groups and
+    // Connections it holds, which of them have a Label, and the Label they share (if any).
+    QVariantMap selectionInfo() const;
     bool canUndo() const { return m_history.canUndo(); }
     bool canRedo() const { return m_history.canRedo(); }
     QString filePath() const { return m_filePath; }
@@ -108,8 +112,11 @@ public:
     Q_INVOKABLE void setConnectionStyle(const QString &style);
     Q_INVOKABLE void setArrows(bool fromArrow, bool toArrow);
     Q_INVOKABLE void setConnectionLabel(const QString &connectionId, const QString &label);
+    Q_INVOKABLE void setLabels(const QString &label);   // of every selected Group and Connection
+    Q_INVOKABLE void removeConnectionLabels();          // of every selected Connection
 
     // Clipboard and history
+    Q_INVOKABLE void cut();
     Q_INVOKABLE void copy();
     Q_INVOKABLE void paste(QPointF center);
     Q_INVOKABLE void duplicate();
@@ -154,6 +161,7 @@ private:
     void endDrag(const QString &text);
 
     QVector<Connection> selectedConnections() const;
+    QSet<QString> copiedNodeIds() const;
     QJsonObject selectionToJson() const;
     void insertJson(const QJsonObject &json, QPointF offset);
 

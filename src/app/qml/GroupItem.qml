@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Controls
 import Junction
 
 // One Group: a tinted area with a label above it. Drag the label to move the Group together
@@ -72,9 +73,23 @@ Item {
                 }
             }
             onAccepted: group.canvas.forceActiveFocus()
-            onActiveFocusChanged: if (!activeFocus && group.editing) group.finishEditing()
+            onActiveFocusChanged: if (!activeFocus && group.editing && !textMenu.visible) group.finishEditing()
             Keys.onEscapePressed: group.canvas.forceActiveFocus()
             HoverHandler { cursorShape: Qt.IBeamCursor }   // a plain TextInput sets none
+        }
+
+        // While renaming, a right-click on the label opens the text menu. Above the TextInput,
+        // which would take the right-click itself; left clicks still go through to it.
+        MouseArea {
+            anchors.fill: parent
+            visible: group.editing
+            acceptedButtons: Qt.RightButton
+            onPressed: textMenu.popup()
+        }
+
+        TextMenu {
+            id: textMenu
+            editor: labelInput
         }
 
         DragArea {
@@ -107,6 +122,7 @@ Item {
                     group.editor.select(group.nodeId)
             }
             onDoubleClicked: group.canvas.editingId = group.nodeId
+            onMenuRequested: group.canvas.openMenuFor(group.nodeId)
         }
     }
 

@@ -234,6 +234,42 @@ QString Editor::selectionColor() const
     return colors.size() == 1 ? colors.first() : QString();
 }
 
+QVariantMap Editor::selectionInfo() const
+{
+    int cards = 0, editableCards = 0, groups = 0, connections = 0, labeledConnections = 0;
+    QStringList labelTargets;   // the selected items that have a Label: Groups and Connections
+    QStringList labels;
+    for (const QString &id : m_selection) {
+        if (const Node *n = m_document.node(id)) {
+            if (n->kind == NodeKind::Group) {
+                ++groups;
+                labelTargets.append(id);
+                labels.append(n->label);
+            } else {
+                ++cards;
+                if (n->kind == NodeKind::Text)   // an Unsupported Card can't be edited
+                    ++editableCards;
+            }
+        } else if (const Connection *c = m_document.connection(id)) {
+            ++connections;
+            labelTargets.append(id);
+            labels.append(c->label);
+            if (!c->label.isEmpty())
+                ++labeledConnections;
+        }
+    }
+    labels.removeDuplicates();
+    return {
+        {"cards", cards},
+        {"editableCards", editableCards},
+        {"groups", groups},
+        {"connections", connections},
+        {"labeledConnections", labeledConnections},
+        {"labelTargets", labelTargets},
+        {"sharedLabel", labels.size() == 1 ? labels.first() : QString()},
+    };
+}
+
 // ---- Creating and editing ----
 
 Node Editor::newCard(QPointF center, const QString &text) const
@@ -642,12 +678,40 @@ void Editor::setConnectionLabel(const QString &connectionId, const QString &labe
     commit({{*existing, c}}, tr("Edit label"));
 }
 
+void Editor::setLabels(const QString &label)
+{
+    Transaction t;
+    for (const QString &id : m_selection) {
+        if (const Node *n = m_document.node(id); n && n->kind == NodeKind::Group) {
+            Node changed = *n;
+            changed.label = label;
+            t.append({*n, changed});
+        } else if (const Connection *c = m_document.connection(id)) {
+            Connection changed = *c;
+            changed.label = label;
+            t.append({*c, changed});
+        }
+    }
+    commit(t, tr("Edit label"));
+}
+
+void Editor::removeConnectionLabels()
+{
+    Transaction t;
+    for (const Connection &c : selectedConnections()) {
+        Connection changed = c;
+        changed.label.clear();
+        t.append({c, changed});
+    }
+    commit(t, tr("Remove label"));
+}
+
 // ---- Clipboard ----
 // The clipboard holds a small JSON Canvas: the selected nodes plus the Connections between them.
 
-QJsonObject Editor::selectionToJson() const
+// The nodes copy() takes: the selected ones, and a selected Group brings the cards inside it along.
+QSet<QString> Editor::copiedNodeIds() const
 {
-    // A selected Group brings the cards inside it along.
     QSet<QString> ids;
     for (const QString &id : m_selection) {
         if (const Node *n = m_document.node(id)) {
@@ -658,6 +722,12 @@ QJsonObject Editor::selectionToJson() const
             }
         }
     }
+    return ids;
+}
+
+QJsonObject Editor::selectionToJson() const
+{
+    const QSet<QString> ids = copiedNodeIds();
     QJsonArray nodes, edges;
     for (const Node &n : m_document.nodes()) {   // document order keeps Groups behind their cards
         if (ids.contains(n.id))
@@ -698,6 +768,26 @@ void Editor::insertJson(const QJsonObject &json, QPointF offset)
     }
     commit(t, tr("Paste"));
     setSelection(inserted);
+}
+
+// Removes exactly what copy() puts on the clipboard, so a cut Group takes its cards along
+// (Delete removes only the Group).
+void Editor::cut()
+{
+    const QSet<QString> ids = copiedNodeIds();
+    if (ids.isEmpty())
+        return;
+    copy();
+    Transaction t;
+    for (const Connection &c : m_document.connections()) {
+        if (ids.contains(c.fromNode) || ids.contains(c.toNode))
+            t.append({c, std::nullopt});
+    }
+    for (const Node &n : m_document.nodes()) {
+        if (ids.contains(n.id))
+            t.append({n, std::nullopt});
+    }
+    commit(t, tr("Cut"));
 }
 
 void Editor::copy()

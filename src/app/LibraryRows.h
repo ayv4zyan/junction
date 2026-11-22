@@ -51,8 +51,8 @@ signals:
 private:
     struct Row
     {
-        int project;                 // position in the Library
-        std::optional<int> canvas;   // position in the Project; none for the Project's own row
+        int projectIndex;                 // position in the Library
+        std::optional<int> canvasIndex;   // position in the Project; none for the Project's own row
     };
 
     void rebuild();

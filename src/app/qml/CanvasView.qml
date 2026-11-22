@@ -23,8 +23,8 @@ Item {
     readonly property alias pan: camera.pan
     // What the user is doing. Read-only for the items on the canvas: they change it through the
     // functions below (editText(), startConnection(), ...).
-    readonly property alias editingId: interaction.editingId       // Card or Group whose text is being edited
-    readonly property alias labelingId: interaction.labelingId     // Connection whose label is being edited
+    readonly property alias editingNodeId: interaction.editingNodeId       // Card or Group whose text is being edited
+    readonly property alias editingLabelId: interaction.editingLabelId     // Connection whose label is being edited
     readonly property alias connectFrom: interaction.connectFrom   // Card a new Connection is being dragged from
     readonly property alias dropTarget: interaction.dropTarget     // Card a dragged Connection end would attach to
     readonly property alias spaceHeld: interaction.spaceHeld       // Space+drag pans
@@ -47,22 +47,22 @@ Item {
 
     QtObject {
         id: interaction
-        property string editingId: ""
-        property string labelingId: ""
+        property string editingNodeId: ""
+        property string editingLabelId: ""
         property string connectFrom: ""
         property string dropTarget: ""
         property int dropSide: CanvasEnums.Side.Floating   // the dropTarget's Handle under the pointer, if any
         property point connectPointer                   // where the new Connection's end is, in world coordinates
         property bool spaceHeld: false
-        property point connectPress   // where the new Connection's drag began, in screen coordinates
+        property point connectPressPoint   // where the new Connection's drag began, in screen coordinates
     }
 
     // ---- Editing text (called by CardItem, GroupItem and the menus) ----
 
-    function editText(nodeId) { interaction.editingId = nodeId }
+    function editText(nodeId) { interaction.editingNodeId = nodeId }
     function endTextEditing(nodeId) {
-        if (interaction.editingId === nodeId)
-            interaction.editingId = ""
+        if (interaction.editingNodeId === nodeId)
+            interaction.editingNodeId = ""
     }
 
     // Shift or Ctrl while clicking adds to / removes from the selection.
@@ -147,7 +147,7 @@ Item {
     function startConnection(nodeId, screenPoint) {
         forceActiveFocus()
         interaction.connectFrom = nodeId
-        interaction.connectPress = screenPoint
+        interaction.connectPressPoint = screenPoint
     }
 
     // Where a dragged Connection end would attach at `world`: the topmost Card there (a point
@@ -174,7 +174,7 @@ Item {
     function finishConnection(screenPoint) {
         const from = connectFrom
         cancelConnection()
-        const moved = Math.hypot(screenPoint.x - interaction.connectPress.x, screenPoint.y - interaction.connectPress.y)
+        const moved = Math.hypot(screenPoint.x - interaction.connectPressPoint.x, screenPoint.y - interaction.connectPressPoint.y)
         if (!from || moved < 10)
             return
 
@@ -197,13 +197,13 @@ Item {
 
     // Opens the LabelEditor on a Connection.
     function editLabel(connectionId) {
-        if (labelingId === connectionId)
+        if (editingLabelId === connectionId)
             return              // already open: keep what has been typed
         forceActiveFocus()      // first ends any other text editing
         editor.select(connectionId)
-        interaction.labelingId = connectionId
+        interaction.editingLabelId = connectionId
     }
-    function endLabelEditing() { interaction.labelingId = "" }
+    function endLabelEditing() { interaction.editingLabelId = "" }
 
     // While a Connection's end is dragged to another Card (ConnectionOverlay), that Card shows
     // its Handles.
@@ -234,7 +234,7 @@ Item {
         function onCanvasOpened() {
             canvasView.cancelConnection()
             canvasView.editText("")
-            if (canvasView.labelingId) {   // the Connection belonged to the Canvas shown before
+            if (canvasView.editingLabelId) {   // the Connection belonged to the Canvas shown before
                 canvasView.endLabelEditing()
                 canvasView.forceActiveFocus()
             }
@@ -294,7 +294,7 @@ Item {
     ConnectionLayer {
         anchors.fill: parent
         editor: canvasView.editor
-        labelEditedOn: canvasView.labelingId
+        labelEditedOn: canvasView.editingLabelId
         connectFrom: canvasView.connectFrom
         connectPointer: interaction.connectPointer
         dropTarget: canvasView.dropTarget

@@ -16,7 +16,7 @@ Item {
 
     readonly property Editor editor: canvasView.editor
     readonly property bool selected: editor.selection.includes(nodeId)
-    readonly property bool editing: canvasView.editingId === nodeId
+    readonly property bool editing: canvasView.editingNodeId === nodeId
     readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
     // The outline: the selection color while selected, otherwise the node's own.
     readonly property color borderColor: selected ? Colors.selection : accent

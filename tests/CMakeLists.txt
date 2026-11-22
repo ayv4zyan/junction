@@ -26,6 +26,7 @@ add_test(NAME tst_design_check COMMAND tst_design_check)
 # The design values the C++ side copies (src/render/DesignValues.h) match the tokens.
 qt_add_executable(tst_design_values tst_design_values.cpp)
 target_link_libraries(tst_design_values PRIVATE junction_render junction_design junction_designplugin Qt6::Test Qt6::Qml Qt6::Gui)
+target_compile_definitions(tst_design_values PRIVATE CANVAS_COLORS_JS="${CMAKE_SOURCE_DIR}/src/app/qml/CanvasColors.js")
 add_test(NAME tst_design_values COMMAND tst_design_values)
 set_tests_properties(tst_design_values PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 

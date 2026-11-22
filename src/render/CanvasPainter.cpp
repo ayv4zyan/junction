@@ -258,6 +258,10 @@ bool exportImage(const Document &document, const QSet<QString> &onlyIds, const Q
             return false;
         }
         paint(painter);
+        if (!painter.end()) {   // the rest of the file is written here
+            *error = cantWrite;
+            return false;
+        }
         return true;
     }
 

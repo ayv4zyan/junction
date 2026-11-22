@@ -17,8 +17,9 @@ bool SingleInstance::handOverToRunning()
     if (!running.waitForConnected(500))
         return false;
     running.write(qgetenv("XDG_ACTIVATION_TOKEN"));
-    running.waitForBytesWritten(500);
-    return true;
+    if (!running.waitForBytesWritten(500))
+        qWarning("Junction: already running, but could not ask it to come forward");
+    return true;   // either way, this launch must not open the Library a second time
 }
 
 void SingleInstance::listen()

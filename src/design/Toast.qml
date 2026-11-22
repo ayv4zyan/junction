@@ -8,10 +8,9 @@ import QtQuick.Layouts
 //   toast.show(message, { action: qsTr("Show in folder"), onAction: () => ... })
 // Errors get a red edge and stay longer; so does a toast with an action, which also stays while
 // the pointer is over it. Clicking the message dismisses it.
-Floating {
+RisingFloating {
     id: toast
 
-    property bool shown: false
     property bool error: false
     property string actionText
     property var actionHandler: null
@@ -30,29 +29,6 @@ Floating {
     implicitHeight: row.implicitHeight + 2 * Space.sm
     border.color: error ? Colors.danger : Colors.cardBorder
     border.width: error ? 1.5 : 1
-
-    // Layering: it slides up a little as it fades in.
-    property real offset: 0
-    transform: Translate { y: toast.offset }
-    state: shown ? "shown" : "hidden"
-    states: [
-        State { name: "shown"; PropertyChanges { toast.opacity: 1; toast.offset: 0; toast.visible: true } },
-        State { name: "hidden"; PropertyChanges { toast.opacity: 0; toast.offset: Space.sm; toast.visible: false } }
-    ]
-    transitions: [
-        Transition {
-            to: "shown"
-            PropertyAction { property: "visible" }
-            NumberAnimation { properties: "opacity,offset"; duration: Motion.normal; easing.type: Motion.enter }
-        },
-        Transition {
-            to: "hidden"
-            SequentialAnimation {
-                NumberAnimation { properties: "opacity,offset"; duration: Motion.out(Motion.normal); easing.type: Motion.exit }
-                PropertyAction { property: "visible" }
-            }
-        }
-    ]
 
     Timer {
         id: timer

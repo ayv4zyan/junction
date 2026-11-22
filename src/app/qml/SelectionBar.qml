@@ -10,13 +10,13 @@ import "CanvasColors.js" as CanvasColors
 // the top edge, always inside the canvas), so the controls appear next to what they change.
 // It hides while anything is dragged, the canvas is panned, a selection rectangle is drawn or a
 // new Connection is pulled out, so it never chases the pointer.
-Floating {
+RisingFloating {
     id: bar
     required property Editor editor
     required property CanvasView canvasView
     readonly property var connection: editor.selectedConnection
     readonly property bool isConnection: connection.valid
-    readonly property bool shown: editor.selection.length > 0 && !editor.dragging && !canvasView.manipulating
+    shown: editor.selection.length > 0 && !editor.dragging && !canvasView.manipulating
 
     // The selection on screen, in the canvas's coordinates.
     readonly property rect target: {
@@ -37,31 +37,11 @@ Floating {
 
     // Follows the selection 1:1 (also while scrolling the canvas): never animated.
     x: canvasView.x + position.x
-    y: canvasView.y + position.y + offset
+    y: canvasView.y + position.y
     width: row.implicitWidth + 2 * Space.xs
     height: Sizes.toolbar
 
-    // Layering: it fades in, rising a few pixels, when something gets selected.
-    property real offset: 0
-    state: shown ? "shown" : "hidden"
-    states: [
-        State { name: "shown"; PropertyChanges { bar.opacity: 1; bar.offset: 0; bar.visible: true } },
-        State { name: "hidden"; PropertyChanges { bar.opacity: 0; bar.offset: Space.xs; bar.visible: false } }
-    ]
-    transitions: [
-        Transition {
-            to: "shown"
-            PropertyAction { property: "visible" }
-            NumberAnimation { properties: "opacity,offset"; duration: Motion.normal; easing.type: Motion.enter }
-        },
-        Transition {
-            to: "hidden"
-            SequentialAnimation {
-                NumberAnimation { properties: "opacity,offset"; duration: Motion.out(Motion.normal); easing.type: Motion.exit }
-                PropertyAction { property: "visible" }
-            }
-        }
-    ]
+    rise: Space.xs   // it fades in, rising a few pixels, when something gets selected
 
     Row {
         id: row
@@ -88,17 +68,17 @@ Floating {
 
         // Path style: one icon button per style; the current one is highlighted.
         Repeater {
-            model: [[CanvasEnums.PathStyle.Straight, "style-straight", qsTr("Straight")],
-                    [CanvasEnums.PathStyle.Curved, "style-curved", qsTr("Curved")],
-                    [CanvasEnums.PathStyle.Elbow, "style-elbow", qsTr("Elbow")]]
+            model: [{ style: CanvasEnums.PathStyle.Straight, icon: "style-straight", tip: qsTr("Straight") },
+                    { style: CanvasEnums.PathStyle.Curved, icon: "style-curved", tip: qsTr("Curved") },
+                    { style: CanvasEnums.PathStyle.Elbow, icon: "style-elbow", tip: qsTr("Elbow") }]
             delegate: IconButton {
                 anchors.verticalCenter: parent?.verticalCenter
                 required property var modelData
                 visible: bar.isConnection
-                iconName: modelData[1]
-                tip: modelData[2]
-                checked: bar.connection.style === modelData[0]
-                onClicked: bar.editor.setConnectionStyle(modelData[0])
+                iconName: modelData.icon
+                tip: modelData.tip
+                checked: bar.connection.style === modelData.style
+                onClicked: bar.editor.setConnectionStyle(modelData.style)
             }
         }
 
@@ -107,20 +87,20 @@ Floating {
             anchors.verticalCenter: parent.verticalCenter
         }
 
-        // Arrowheads: [name, arrow at start, arrow at end, tooltip]
+        // Arrowheads
         Repeater {
-            model: [["none", false, false, qsTr("No arrows")],
-                    ["end", false, true, qsTr("Arrow at end")],
-                    ["start", true, false, qsTr("Arrow at start")],
-                    ["both", true, true, qsTr("Arrows at both ends")]]
+            model: [{ icon: "arrows-none", fromArrow: false, toArrow: false, tip: qsTr("No arrows") },
+                    { icon: "arrows-end", fromArrow: false, toArrow: true, tip: qsTr("Arrow at end") },
+                    { icon: "arrows-start", fromArrow: true, toArrow: false, tip: qsTr("Arrow at start") },
+                    { icon: "arrows-both", fromArrow: true, toArrow: true, tip: qsTr("Arrows at both ends") }]
             delegate: IconButton {
                 anchors.verticalCenter: parent?.verticalCenter
                 required property var modelData
                 visible: bar.isConnection
-                iconName: "arrows-" + modelData[0]
-                tip: modelData[3]
-                checked: bar.connection.fromArrow === modelData[1] && bar.connection.toArrow === modelData[2]
-                onClicked: bar.editor.setArrows(modelData[1], modelData[2])
+                iconName: modelData.icon
+                tip: modelData.tip
+                checked: bar.connection.fromArrow === modelData.fromArrow && bar.connection.toArrow === modelData.toArrow
+                onClicked: bar.editor.setArrows(modelData.fromArrow, modelData.toArrow)
             }
         }
 

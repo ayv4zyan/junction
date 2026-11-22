@@ -1,7 +1,9 @@
 #include "CanvasPainter.h"
 #include "DesignValues.h"
 
+#include <QFile>
 #include <QGuiApplication>
+#include <QJSEngine>
 #include <QQmlEngine>
 #include <QTest>
 #include <QtQml/qqmlextensionplugin.h>
@@ -47,6 +49,28 @@ private slots:
         QVariantMap incomplete = token("Colors", "forPainter").toMap();
         incomplete.remove("cardFill");
         QVERIFY(!Palette::fromVariantMap(incomplete).has_value());
+    }
+
+    // A JSON Canvas color ("", "1".."6", "#rrggbb") is resolved by CanvasColors.js for the QML
+    // items and by Palette::resolve for painting and export; both must give the same color.
+    void colorsResolveTheSameInQmlAndCpp()
+    {
+        QFile file(QStringLiteral(CANVAS_COLORS_JS));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QString script = QString::fromUtf8(file.readAll());
+        script.remove(".pragma library");
+        QJSEngine js;
+        QVERIFY(!js.evaluate(script).isError());
+
+        const Palette palette = *Palette::fromVariantMap(token("Colors", "forPainter").toMap());
+        QJSValue presets = js.newArray(palette.presets.size());
+        for (int i = 0; i < palette.presets.size(); ++i)
+            presets.setProperty(i, palette.presets[i].name());
+        const QColor fallback("#888888");
+        for (const QString &color : {"", "1", "6", "7", "0", "#123456", "nonsense"}) {
+            const QJSValue fromJs = js.globalObject().property("resolve").call({color, presets, fallback.name()});
+            QCOMPARE(QColor(fromJs.toString()), palette.resolve(color, fallback));
+        }
     }
 };
 

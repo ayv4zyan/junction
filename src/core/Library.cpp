@@ -60,10 +60,12 @@ Library::Library(const QString &root, QObject *parent)
     connect(&m_viewSaveTimer, &QTimer::timeout, this, &Library::saveIndex);
 }
 
+// Saves the index one last time. Nobody is listening for errorOccurred any more, so a failure
+// goes to the log.
 Library::~Library()
 {
-    if (!m_projects.isEmpty())
-        saveIndex();
+    if (!m_projects.isEmpty() && !writeIndex())
+        qWarning("Junction: the library index could not be saved");
 }
 
 // ---- Loading and saving ----
@@ -142,12 +144,16 @@ QStringList Library::canvasFiles(const QString &project) const
 
 void Library::saveIndex()
 {
+    if (!writeIndex())
+        emit errorOccurred(tr("Could not save the library index in %1.").arg(m_root));
+}
+
+bool Library::writeIndex() const
+{
     const LibraryIndex index{m_projects, m_currentProject, m_currentCanvas};
     QSaveFile file(QDir(m_root).filePath(IndexFile));
-    const bool written = file.open(QIODevice::WriteOnly)
-                         && file.write(QJsonDocument(index.toJson()).toJson(QJsonDocument::Indented)) >= 0 && file.commit();
-    if (!written)
-        emit errorOccurred(tr("Could not save the library index: %1").arg(file.errorString()));
+    return file.open(QIODevice::WriteOnly)
+           && file.write(QJsonDocument(index.toJson()).toJson(QJsonDocument::Indented)) >= 0 && file.commit();
 }
 
 void Library::saveAndAnnounce()
@@ -423,10 +429,10 @@ QString Library::duplicateCanvas(const QString &projectName, const QString &canv
         emit errorOccurred(tr("Could not copy “%1”.").arg(canvas));
         return {};
     }
-    ProjectEntry &p = m_projects[at->project];
-    CanvasEntry copy = p.canvases[at->canvas];
+    ProjectEntry &p = m_projects[at->projectIndex];
+    CanvasEntry copy = p.canvases[at->canvasIndex];
     copy.name = name;
-    return addCanvas(&p, at->canvas + 1, copy);
+    return addCanvas(&p, at->canvasIndex + 1, copy);
 }
 
 QString Library::duplicateProject(const QString &projectName)
@@ -547,8 +553,8 @@ bool Library::renameCanvas(const QString &projectName, const QString &canvas, co
         emit errorOccurred(tr("Could not rename “%1” to “%2”.").arg(canvas, name));
         return false;
     }
-    ProjectEntry &p = m_projects[at->project];
-    p.canvases[at->canvas].name = name;
+    ProjectEntry &p = m_projects[at->projectIndex];
+    p.canvases[at->canvasIndex].name = name;
     if (p.lastCanvas == canvas)
         p.lastCanvas = name;
     emit canvasMoved(from, to);
@@ -565,8 +571,8 @@ bool Library::deleteCanvas(const QString &projectName, const QString &canvas)
     const auto at = place(projectName, canvas);
     if (!at)
         return false;
-    ProjectEntry *p = &m_projects[at->project];
-    const int i = at->canvas;
+    ProjectEntry *p = &m_projects[at->projectIndex];
+    const int i = at->canvasIndex;
     if (p->canvases.size() == 1) {
         emit errorOccurred(tr("A project needs at least one canvas. To remove this one, delete the project."));
         return false;
@@ -659,8 +665,8 @@ QString Library::moveCanvas(const QString &projectName, const QString &canvas, c
     ProjectEntry *target = project(toProject);
     if (!at || !target)
         return {};
-    ProjectEntry *source = &m_projects[at->project];
-    const int from = at->canvas;
+    ProjectEntry *source = &m_projects[at->projectIndex];
+    const int from = at->canvasIndex;
 
     if (source == target) {   // only the order changes
         const int to = movedPosition(from, toIndex, source->canvases.size());
@@ -714,7 +720,7 @@ std::optional<Viewport> Library::view(const QString &projectName, const QString 
     const auto at = place(projectName, canvas);
     if (!at)
         return std::nullopt;
-    return m_projects[at->project].canvases[at->canvas].view;
+    return m_projects[at->projectIndex].canvases[at->canvasIndex].view;
 }
 
 // Not written to disk right away: it changes on every pan step. The index is saved with the
@@ -722,7 +728,7 @@ std::optional<Viewport> Library::view(const QString &projectName, const QString 
 void Library::setView(const QString &projectName, const QString &canvas, const Viewport &view)
 {
     if (const auto at = place(projectName, canvas))
-        m_projects[at->project].canvases[at->canvas].view = view;
+        m_projects[at->projectIndex].canvases[at->canvasIndex].view = view;
 }
 
 QVariant Library::currentView() const

@@ -49,7 +49,7 @@ void LibraryRows::expandedChanged(const QString &project)
     if (header < 0)
         return;
     const int count = int(m_library->projects()[p].canvases.size());
-    const bool shown = header + 1 < m_rows.size() && m_rows[header + 1].project == p;
+    const bool shown = header + 1 < m_rows.size() && m_rows[header + 1].projectIndex == p;
     if (m_library->projects()[p].expanded && !shown) {
         beginInsertRows({}, header + 1, header + count);
         for (int c = 0; c < count; ++c)
@@ -88,25 +88,25 @@ QVariant LibraryRows::data(const QModelIndex &index, int role) const
     if (!index.isValid() || index.row() >= m_rows.size())
         return {};
     const Row row = m_rows[index.row()];
-    const ProjectEntry &project = m_library->projects()[row.project];
-    const bool isProject = !row.canvas;
+    const ProjectEntry &project = m_library->projects()[row.projectIndex];
+    const bool isProject = !row.canvasIndex;
     switch (role) {
     case IsProjectRole:
         return isProject;
     case NameRole:
-        return isProject ? project.name : project.canvases[*row.canvas].name;
+        return isProject ? project.name : project.canvases[*row.canvasIndex].name;
     case ProjectRole:
         return project.name;
     case ProjectIndexRole:
-        return row.project;
+        return row.projectIndex;
     case CanvasIndexRole:
-        return row.canvas.value_or(-1);   // QML reads -1 for a Project row
+        return row.canvasIndex.value_or(-1);   // QML reads -1 for a Project row
     case CanvasCountRole:
         return int(project.canvases.size());
     case ExpandedRole:
         return project.expanded || !m_filter.isEmpty();
     case CurrentRole:
-        return project.name == m_library->currentProject() && (isProject || project.canvases[*row.canvas].name == m_library->currentCanvas());
+        return project.name == m_library->currentProject() && (isProject || project.canvases[*row.canvasIndex].name == m_library->currentCanvas());
     }
     return {};
 }
@@ -145,7 +145,7 @@ int LibraryRows::rowOf(const QString &project, const QString &canvas) const
     if (p < 0 || c == -1)
         return -1;   // no such Project or Canvas (not its Project's row)
     for (int i = 0; i < m_rows.size(); ++i) {
-        if (m_rows[i].project == p && m_rows[i].canvas == c)
+        if (m_rows[i].projectIndex == p && m_rows[i].canvasIndex == c)
             return i;
     }
     return -1;
@@ -156,7 +156,7 @@ int LibraryRows::lastRowOf(const QString &project) const
     const int p = m_library->projectIndex(project);
     int last = -1;
     for (int i = 0; i < m_rows.size(); ++i) {
-        if (m_rows[i].project == p)
+        if (m_rows[i].projectIndex == p)
             last = i;
     }
     return last;
@@ -165,9 +165,9 @@ int LibraryRows::lastRowOf(const QString &project) const
 bool LibraryRows::openFirstMatch()
 {
     for (const Row &row : std::as_const(m_rows)) {
-        if (row.canvas) {
-            const ProjectEntry &project = m_library->projects()[row.project];
-            m_library->open(project.name, project.canvases[*row.canvas].name);
+        if (row.canvasIndex) {
+            const ProjectEntry &project = m_library->projects()[row.projectIndex];
+            m_library->open(project.name, project.canvases[*row.canvasIndex].name);
             return true;
         }
     }

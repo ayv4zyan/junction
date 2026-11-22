@@ -116,12 +116,13 @@ private:
     // Where a Canvas is: its Project's position in m_projects and its own in that Project.
     struct CanvasPlace
     {
-        int project;
-        int canvas;
+        int projectIndex;
+        int canvasIndex;
     };
     std::optional<CanvasPlace> place(const QString &project, const QString &canvas) const;
     QStringList canvasNames(const QString &project) const;
     LibraryIndex readIndex();
+    bool writeIndex() const;
     void openRemembered(const QString &project, const QString &canvas);
     QStringList canvasFiles(const QString &project) const;   // names of the .canvas files in its folder
     void setCurrent(const QString &project, const QString &canvas);

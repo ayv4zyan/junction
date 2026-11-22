@@ -12,9 +12,9 @@ NodeItem {
     required property string nodeDisplayText   // what the card shows (see NodeModel)
 
     readonly property bool isText: nodeKind === CanvasEnums.NodeKind.Text   // otherwise Unsupported: shown, never edited
-    property int hoveredHandles: 0
-    readonly property bool showHandles: !editing && (body.containsMouse || resizeEdges.hovered || hoveredHandles > 0
-                                                     || canvasView.connectFrom === nodeId
+    // Handles show while the pointer is on the card or close to it (on a Handle, or on the
+    // outer half of a resize strip), and while a Connection is dragged from or onto it.
+    readonly property bool showHandles: !editing && (hover.hovered || canvasView.connectFrom === nodeId
                                                      || canvasView.dropTarget === nodeId)
 
     function finishEditing(text) {
@@ -133,6 +133,11 @@ NodeItem {
         onWheel: (event) => scroller.scrollBy(-card.canvasView.wheelDelta(event).y / card.canvasView.zoom)   // the card is scaled by the zoom
     }
 
+    HoverHandler {
+        id: hover
+        margin: card.canvasView.handleRadius
+    }
+
     SelectMoveArea {
         id: body
         canvasView: card.canvasView
@@ -169,7 +174,6 @@ NodeItem {
                 anchors.margins: card ? -card.canvasView.dotMargin : 0   // card is null while being destroyed
                 hoverEnabled: true
                 cursorShape: Qt.CrossCursor
-                onContainsMouseChanged: card.hoveredHandles += containsMouse ? 1 : -1
                 onPressed: (mouse) => {
                     if (card.canvasView.spaceHeld) {   // Space+drag pans
                         mouse.accepted = false

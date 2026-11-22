@@ -37,7 +37,7 @@ private slots:
         const QString path = writeFile("broken.canvas", "{ not json");
         OpenCanvas canvas;
         canvas.open(path);
-        QVERIFY(!canvas.loadError().isEmpty());
+        QVERIFY(!canvas.notEditableReason().isEmpty());
         canvas.push(addCard("a"), "Add");
         QVERIFY(canvas.document().nodes().isEmpty());
         canvas.save();

@@ -39,7 +39,7 @@ qt_add_qml_module(junction
         HitTest.h HitTest.cpp
         Exporter.h Exporter.cpp
         LibraryRows.h LibraryRows.cpp
-        CoreTypes.h
+        QmlForeignTypes.h
         SingleInstance.h SingleInstance.cpp
         NodeModel.h NodeModel.cpp
         CanvasLayers.h CanvasLayers.cpp

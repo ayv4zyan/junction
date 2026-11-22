@@ -81,22 +81,14 @@ ApplicationWindow {
         value: editorSettings.snapToGrid
     }
 
-    Connections {
-        target: window.editor
-        function onErrorOccurred(message) { toast.show(message, { error: true }) }
-    }
+    // What goes wrong anywhere is said in the toast.
+    function showError(message) { toast.show(message, { error: true }) }
 
-    Connections {
-        target: window.library
-        function onErrorOccurred(message) { toast.show(message, { error: true }) }
+    Component.onCompleted: {
+        for (const source of [editor, library, exporter])
+            source.errorOccurred.connect(showError)
+        library.load()   // the Editor then opens what was open last time
     }
-
-    Connections {
-        target: window.exporter
-        function onErrorOccurred(message) { toast.show(message, { error: true }) }
-    }
-
-    Component.onCompleted: library.load()   // the Editor then opens what was open last time
 
     Connections {
         target: window.library
@@ -216,7 +208,7 @@ ApplicationWindow {
         LoadErrorPanel {
             anchors.centerIn: canvasView
             width: Math.min(460, canvasView.width - 2 * Space.xl)
-            message: window.editor.loadError
+            message: window.editor.notEditableReason
             folder: window.library.folder
         }
 

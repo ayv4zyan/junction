@@ -8,8 +8,6 @@ Item {
     required property CanvasView canvasView
     required property string nodeId
     readonly property real thickness: 10 / canvasView.zoom   // half inside the border, half outside
-    property int hoveredCount: 0
-    readonly property bool hovered: hoveredCount > 0
 
     anchors.fill: parent
 
@@ -36,7 +34,6 @@ Item {
                        : vertical === 0 ? Qt.SizeHorCursor
                        : horizontal === vertical ? Qt.SizeFDiagCursor : Qt.SizeBDiagCursor
 
-            onContainsMouseChanged: edges.hoveredCount += containsMouse ? 1 : -1
             onTapped: (modifiers) => edges.canvasView.editor.select(edges.nodeId, edges.canvasView.isToggle(modifiers))
             onDragStarted: edges.canvasView.editor.beginResize(edges.nodeId, strip.sides)
             onDragged: (delta, invertSnap) => edges.canvasView.editor.updateResize(delta, invertSnap)

@@ -97,7 +97,7 @@ class Editor : public QObject
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
     Q_PROPERTY(bool editable READ isEditable NOTIFY canvasStateChanged)
-    Q_PROPERTY(QString loadError READ loadError NOTIFY canvasStateChanged)   // why the Canvas can't be shown
+    Q_PROPERTY(QString notEditableReason READ notEditableReason NOTIFY canvasStateChanged)
     Q_PROPERTY(bool snapToGrid READ snapToGrid WRITE setSnapToGrid NOTIFY snapToGridChanged)
 
 public:
@@ -120,7 +120,7 @@ public:
     bool canRedo() const { return m_canvas.canRedo(); }
     QString filePath() const { return m_canvas.filePath(); }
     bool isEditable() const { return m_canvas.isEditable(); }
-    QString loadError() const { return m_canvas.loadError(); }
+    QString notEditableReason() const { return m_canvas.notEditableReason(); }   // "" while editable
     bool snapToGrid() const { return m_snapToGrid; }
     void setSnapToGrid(bool snap);
 
@@ -227,7 +227,7 @@ private:
     QVector<Item> itemsMovingWithSelection() const;
     template <typename Kind>
     const Kind *activeDrag() const;   // the drag in progress, if it is of that kind
-    void beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &kind);
+    bool beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &kind);
     template <typename Moved>
     void showDrag(Moved moved);   // every dragged item becomes moved(item as the drag began)
     void endDrag(const QString &text);

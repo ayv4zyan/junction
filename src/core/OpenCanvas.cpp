@@ -26,9 +26,9 @@ void OpenCanvas::open(const QString &path)
     QString error;
     if (!m_document.load(path, &error)) {
         m_document.clear();
-        setState(State::Unreadable, tr("%1 can't be read: %2").arg(QFileInfo(path).fileName(), error));
+        setNotEditableBecause(tr("%1 can't be read: %2").arg(QFileInfo(path).fileName(), error));
     } else {
-        setState(State::Editable);
+        setNotEditableBecause(std::nullopt);
     }
     setFilePath(path);
     activateHistory(path);
@@ -39,7 +39,7 @@ void OpenCanvas::openNothing(const QString &reason)
 {
     savePending();
     m_document.clear();
-    setState(State::NothingOpen, reason);
+    setNotEditableBecause(reason);
     setFilePath({});
     activateHistory({});
     emit opened();
@@ -134,18 +134,17 @@ void OpenCanvas::fileRemoved(const QString &path)
         // Library opens another Canvas. A new Canvas may later get the same path (delete the
         // only Project, and a new "Untitled" appears): it must be loaded afresh.
         m_saveTimer.stop();
-        setState(State::Deleted, tr("%1 was deleted.").arg(QFileInfo(path).fileName()));
+        setNotEditableBecause(tr("%1 was deleted.").arg(QFileInfo(path).fileName()));
         setFilePath({});
     }
 }
 
-void OpenCanvas::setState(State state, const QString &notEditableBecause)
+void OpenCanvas::setNotEditableBecause(const std::optional<QString> &reason)
 {
-    if (state == m_state && notEditableBecause == m_notEditableBecause)
+    if (reason == m_notEditableBecause)
         return;
-    m_state = state;
-    m_notEditableBecause = notEditableBecause;
-    emit stateChanged();
+    m_notEditableBecause = reason;
+    emit editableChanged();
 }
 
 void OpenCanvas::setFilePath(const QString &path)

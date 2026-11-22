@@ -8,6 +8,7 @@
 #include <QPainter>
 #include <QSvgGenerator>
 #include <QTextDocument>
+#include <functional>
 
 namespace {
 
@@ -51,6 +52,65 @@ void drawMarkdown(QPainter &painter, const QString &markdown, const QRectF &rect
     painter.setClipRect(context.clip);
     document.documentLayout()->draw(&painter, context);
     painter.restore();
+}
+
+// What an export shows: the nodes named in `onlyIds` (all of them when it is empty), the
+// Connections between two of those, and the area around them with a margin.
+struct ExportedPart
+{
+    QVector<Node> groups;
+    QVector<Node> cards;
+    QVector<std::pair<Connection, Geometry::Route>> connections;
+    QRectF bounds;   // empty when there is nothing to export
+};
+
+ExportedPart exportedPart(const Document &document, const QSet<QString> &onlyIds)
+{
+    auto included = [&](const QString &id) { return onlyIds.isEmpty() || onlyIds.contains(id); };
+    ExportedPart part;
+    for (const Node &n : document.nodes()) {
+        if (!included(n.id))
+            continue;
+        (n.kind() == NodeKind::Group ? part.groups : part.cards).append(n);
+        part.bounds = part.bounds.united(n.rect);
+    }
+    if (part.bounds.isEmpty())
+        return part;
+    for (const Connection &c : document.connections()) {
+        const auto route = document.route(c);
+        if (route && included(c.fromNode) && included(c.toNode)) {
+            part.connections.append({c, *route});
+            part.bounds = part.bounds.united(route->path.boundingRect());
+        }
+    }
+    // room around it, and above for the Group label bars
+    part.bounds.adjust(-ExportMargin, -ExportMargin - GroupLabelSpace, ExportMargin, ExportMargin);
+    return part;
+}
+
+bool writeSvg(const QString &path, const QRectF &bounds, const std::function<void(QPainter &)> &paint)
+{
+    QSvgGenerator svg;
+    svg.setFileName(path);
+    svg.setSize(bounds.size().toSize());
+    svg.setViewBox(bounds);
+    QPainter painter;
+    if (!painter.begin(&svg))   // fails when the file can't be opened for writing
+        return false;
+    paint(painter);
+    return painter.end();       // the rest of the file is written here
+}
+
+bool writePng(const QString &path, const QRectF &bounds, const std::function<void(QPainter &)> &paint)
+{
+    constexpr qreal scale = 2;   // sharp on high-DPI screens and in documents
+    QImage image((bounds.size() * scale).toSize(), QImage::Format_ARGB32_Premultiplied);
+    QPainter painter(&image);
+    painter.scale(scale, scale);
+    painter.translate(-bounds.topLeft());
+    paint(painter);
+    painter.end();
+    return image.save(path);
 }
 
 } // namespace
@@ -209,74 +269,27 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
 bool exportImage(const Document &document, const QSet<QString> &onlyIds, const QString &path,
                   const Palette &palette, QString *error)
 {
-    auto included = [&](const QString &id) { return onlyIds.isEmpty() || onlyIds.contains(id); };
-
-    QVector<Node> groups, cards;
-    QRectF bounds;
-    for (const Node &n : document.nodes()) {
-        if (!included(n.id))
-            continue;
-        (n.kind() == NodeKind::Group ? groups : cards).append(n);
-        bounds = bounds.united(n.rect);
-    }
-    if (bounds.isEmpty()) {
+    const ExportedPart part = exportedPart(document, onlyIds);
+    if (part.bounds.isEmpty()) {
         *error = QCoreApplication::translate("CanvasPainter", "Nothing to export.");
         return false;
     }
-
-    QVector<std::pair<Connection, Geometry::Route>> connections;
-    for (const Connection &c : document.connections()) {
-        const auto route = document.route(c);
-        if (route && included(c.fromNode) && included(c.toNode)) {
-            connections.append({c, *route});
-            bounds = bounds.united(route->path.boundingRect());
-        }
-    }
-    bounds.adjust(-ExportMargin, -ExportMargin - GroupLabelSpace, ExportMargin, ExportMargin);   // and Group label bars
-
-    auto paint = [&](QPainter &painter) {
+    const auto paint = [&](QPainter &painter) {
         painter.setRenderHint(QPainter::Antialiasing);
-        painter.fillRect(bounds, palette.background);
-        for (const Node &n : groups)
+        painter.fillRect(part.bounds, palette.background);
+        for (const Node &n : part.groups)
             drawNode(painter, n, palette);
-        for (const auto &[connection, route] : connections)
+        for (const auto &[connection, route] : part.connections)
             drawConnection(painter, route, connection, palette, false, true,
-                           colorUnder(route.labelPosition, groups, palette));
-        for (const Node &n : cards)
+                           colorUnder(route.labelPosition, part.groups, palette));
+        for (const Node &n : part.cards)
             drawNode(painter, n, palette);
     };
-
-    const QString cantWrite = QCoreApplication::translate("CanvasPainter", "Could not write %1").arg(path);
-    if (path.endsWith(".svg", Qt::CaseInsensitive)) {
-        QSvgGenerator svg;
-        svg.setFileName(path);
-        svg.setSize(bounds.size().toSize());
-        svg.setViewBox(bounds);
-        QPainter painter;
-        if (!painter.begin(&svg)) {   // fails when the file can't be opened for writing
-            *error = cantWrite;
-            return false;
-        }
-        paint(painter);
-        if (!painter.end()) {   // the rest of the file is written here
-            *error = cantWrite;
-            return false;
-        }
-        return true;
-    }
-
-    constexpr qreal scale = 2;   // sharp on high-DPI screens and in documents
-    QImage image((bounds.size() * scale).toSize(), QImage::Format_ARGB32_Premultiplied);
-    QPainter painter(&image);
-    painter.scale(scale, scale);
-    painter.translate(-bounds.topLeft());
-    paint(painter);
-    painter.end();
-    if (!image.save(path)) {
-        *error = cantWrite;
-        return false;
-    }
-    return true;
+    const bool written = path.endsWith(".svg", Qt::CaseInsensitive) ? writeSvg(path, part.bounds, paint)
+                                                                    : writePng(path, part.bounds, paint);
+    if (!written)
+        *error = QCoreApplication::translate("CanvasPainter", "Could not write %1").arg(path);
+    return written;
 }
 
 } // namespace CanvasPainter

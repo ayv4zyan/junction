@@ -62,7 +62,7 @@ Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
 
     connect(&m_canvas, &OpenCanvas::opened, this, &Editor::canvasOpened);
     connect(&m_canvas, &OpenCanvas::filePathChanged, this, &Editor::filePathChanged);
-    connect(&m_canvas, &OpenCanvas::stateChanged, this, &Editor::canvasStateChanged);
+    connect(&m_canvas, &OpenCanvas::editableChanged, this, &Editor::canvasStateChanged);
     connect(&m_canvas, &OpenCanvas::historyChanged, this, &Editor::historyChanged);
     connect(&m_canvas, &OpenCanvas::errorOccurred, this, &Editor::errorOccurred);
 
@@ -372,13 +372,19 @@ const Kind *Editor::activeDrag() const
     return m_drag ? std::get_if<Kind>(&m_drag->kind) : nullptr;
 }
 
-void Editor::beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &kind)
+// Not on a Canvas that can't be edited: the drag would show changes that can't be kept. A drag
+// still in progress (its release never came) is put back first.
+bool Editor::beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &kind)
 {
+    cancelDrag();
+    if (!m_canvas.isEditable())
+        return false;
     Transaction changes;
     for (const Item &item : items)
         changes.append(Change::updated(item, item));
     m_drag = Drag{changes, kind};
     emit draggingChanged();
+    return true;
 }
 
 template <typename Moved>
@@ -511,7 +517,8 @@ void Editor::beginWaypointDrag(const QString &connectionId, int index, bool inse
     const QVector<QPointF> &points = insert ? route->midpoints : c->waypoints;
     if (index < 0 || index >= points.size())
         return;
-    beginDrag({*c}, WaypointDrag{index, points[index], insert});
+    if (!beginDrag({*c}, WaypointDrag{index, points[index], insert}))
+        return;
     showDraggedWaypointAt(points[index]);   // a new Waypoint shows up right away
 }
 

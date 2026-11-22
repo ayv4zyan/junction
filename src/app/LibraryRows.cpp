@@ -139,11 +139,14 @@ QVariantMap LibraryRows::rowAt(int row) const
 int LibraryRows::rowOf(const QString &project, const QString &canvas) const
 {
     const int p = m_library->projectIndex(project);
-    std::optional<int> c;
-    if (!canvas.isEmpty())
+    if (p < 0)
+        return -1;
+    std::optional<int> c;   // none: the Project's own row
+    if (!canvas.isEmpty()) {
         c = m_library->canvasIndex(project, canvas);
-    if (p < 0 || c == -1)
-        return -1;   // no such Project or Canvas (not its Project's row)
+        if (*c < 0)
+            return -1;   // no such Canvas (not its Project's row instead)
+    }
     for (int i = 0; i < m_rows.size(); ++i) {
         if (m_rows[i].projectIndex == p && m_rows[i].canvasIndex == c)
             return i;

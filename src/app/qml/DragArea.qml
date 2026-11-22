@@ -8,7 +8,7 @@ import QtQuick
 // A right-click never drags: it is reported as `menuRequested`.
 MouseArea {
     id: area
-    required property var canvas
+    required property CanvasView canvas
     acceptedButtons: Qt.LeftButton | Qt.RightButton
 
     signal grabbed(var mouse)                         // pressed (not while Space pans)

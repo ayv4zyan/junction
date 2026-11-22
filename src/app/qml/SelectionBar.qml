@@ -13,7 +13,7 @@ import "CanvasColors.js" as CanvasColors
 Floating {
     id: bar
     required property Editor editor
-    required property var canvas    // the CanvasView
+    required property CanvasView canvas
     readonly property var connection: editor.selectedConnection
     readonly property bool isConnection: connection.id !== undefined
     readonly property bool shown: editor.selection.length > 0 && !editor.dragging && !canvas.manipulating

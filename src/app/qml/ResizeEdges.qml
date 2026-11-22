@@ -5,7 +5,7 @@ import QtQuick
 // resize cursor, dragging it moves that side, or both sides at a corner.
 Item {
     id: edges
-    required property var canvas
+    required property CanvasView canvas
     required property string nodeId
     readonly property real thickness: 10 / canvas.zoom   // half inside the border, half outside
     property int hoveredCount: 0

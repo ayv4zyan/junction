@@ -9,7 +9,7 @@ import "CanvasColors.js" as CanvasColors
 // with every Card inside it; double-click the label to rename it.
 Item {
     id: group
-    required property var canvas
+    required property CanvasView canvas
     required property string nodeId
     required property real nodeX
     required property real nodeY
@@ -30,8 +30,7 @@ Item {
 
     function finishEditing() {
         editor.setText(nodeId, labelInput.text)
-        if (canvas.editingId === nodeId)
-            canvas.editingId = ""
+        canvas.endTextEditing(nodeId)
     }
 
     Rectangle {
@@ -96,37 +95,12 @@ Item {
             editor: labelInput
         }
 
-        DragArea {
+        SelectMoveArea {
             canvas: group.canvas
+            nodeId: group.nodeId
             anchors.fill: parent
             visible: !group.editing   // hidden, not disabled, so the label's I-beam shows while editing
-            property bool moving: false
-
-            // Press: Shift/Ctrl toggles; otherwise an unselected item becomes the selection.
-            // Drag: moves the whole selection. Click: narrows the selection to this item.
-            onGrabbed: (mouse) => {
-                if (group.canvas.isToggle(mouse.modifiers))
-                    group.editor.select(group.nodeId, true)
-                else if (!group.selected)
-                    group.editor.select(group.nodeId)
-            }
-            onDragStarted: {
-                moving = group.selected
-                if (moving)
-                    group.editor.beginMove(group.nodeId)
-            }
-            onDragged: (delta, invertSnap) => { if (moving) group.editor.updateMove(delta, invertSnap) }
-            onDragFinished: {
-                if (moving)
-                    group.editor.endMove()
-                moving = false
-            }
-            onTapped: (modifiers) => {
-                if (!group.canvas.isToggle(modifiers))
-                    group.editor.select(group.nodeId)
-            }
-            onDoubleClicked: group.canvas.editingId = group.nodeId
-            onMenuRequested: group.canvas.openMenuFor(group.nodeId)
+            onDoubleClicked: group.canvas.editText(group.nodeId)
         }
     }
 

@@ -8,7 +8,7 @@ import "CanvasColors.js" as CanvasColors
 // One Card: Markdown text, Handles on hover, drag to move, double-click to edit.
 Item {
     id: card
-    required property var canvas
+    required property CanvasView canvas
     required property string nodeId
     required property string kind
     required property real nodeX
@@ -35,8 +35,7 @@ Item {
 
     function finishEditing() {
         editor.setText(nodeId, textEdit.text)
-        if (canvas.editingId === nodeId)
-            canvas.editingId = ""
+        canvas.endTextEditing(nodeId)
     }
 
     Rectangle {
@@ -156,39 +155,14 @@ Item {
         onWheel: (event) => scroller.scrollBy(-card.canvas.wheelDelta(event).y / card.canvas.zoom)   // the card is scaled by the zoom
     }
 
-    DragArea {
+    SelectMoveArea {
         id: body
         canvas: card.canvas
+        nodeId: card.nodeId
         anchors.fill: parent
         visible: !card.editing   // hidden, not disabled, so the text's I-beam shows while editing
         hoverEnabled: true
-        property bool moving: false
-
-        // Press: Shift/Ctrl toggles; otherwise an unselected item becomes the selection.
-        // Drag: moves the whole selection. Click: narrows the selection to this item.
-        onGrabbed: (mouse) => {
-            if (card.canvas.isToggle(mouse.modifiers))
-                card.editor.select(card.nodeId, true)
-            else if (!card.selected)
-                card.editor.select(card.nodeId)
-        }
-        onDragStarted: {
-            moving = card.selected
-            if (moving)
-                card.editor.beginMove(card.nodeId)
-        }
-        onDragged: (delta, invertSnap) => { if (moving) card.editor.updateMove(delta, invertSnap) }
-        onDragFinished: {
-            if (moving)
-                card.editor.endMove()
-            moving = false
-        }
-        onTapped: (modifiers) => {
-            if (!card.canvas.isToggle(modifiers))
-                card.editor.select(card.nodeId)
-        }
-        onDoubleClicked: { if (card.kind === "text") card.canvas.editingId = card.nodeId }
-        onMenuRequested: card.canvas.openMenuFor(card.nodeId)
+        onDoubleClicked: { if (card.kind === "text") card.canvas.editText(card.nodeId) }
     }
 
     // Resizing by dragging a side or corner. Declared before the Handles so that a Handle in

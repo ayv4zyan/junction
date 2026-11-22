@@ -11,6 +11,7 @@ qt_add_qml_module(junction
         qml/LabelEditor.qml
         qml/SelectionBar.qml
         qml/DragArea.qml
+        qml/SelectMoveArea.qml
         qml/Dot.qml
         qml/ResizeEdges.qml
         qml/IconButton.qml

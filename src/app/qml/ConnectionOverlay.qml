@@ -10,7 +10,7 @@ import Junction
 //  - dots on both ends: drag onto a card to re-attach (onto a Handle to pin that side)
 Item {
     id: overlay
-    required property var canvas
+    required property CanvasView canvas
     readonly property Editor editor: canvas.editor
     readonly property var info: editor.selectedConnection
     readonly property bool active: info.id !== undefined
@@ -144,7 +144,7 @@ Item {
                 onDragStarted: { origin = end.center; end.dragPoint = origin; end.dragging = true }
                 onDragged: (delta) => {
                     end.dragPoint = Qt.point(origin.x + delta.x, origin.y + delta.y)
-                    overlay.canvas.dropTarget = overlay.editor.cardAt(end.dragPoint, overlay.canvas.handleRadius)
+                    overlay.canvas.showDropTarget(overlay.editor.cardAt(end.dragPoint, overlay.canvas.handleRadius))
                 }
                 onDragFinished: {
                     const target = overlay.editor.cardAt(end.dragPoint, overlay.canvas.handleRadius)
@@ -152,7 +152,7 @@ Item {
                         overlay.editor.reattach(overlay.info.id, end.fromEnd, target,
                                                 overlay.editor.handleAt(target, end.dragPoint, overlay.canvas.handleRadius))
                     end.dragging = false
-                    overlay.canvas.dropTarget = ""
+                    overlay.canvas.showDropTarget("")
                 }
                 onMenuRequested: overlay.canvas.openMenuFor(overlay.info.id)
             }

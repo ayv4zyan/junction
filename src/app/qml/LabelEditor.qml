@@ -10,7 +10,7 @@ import JunctionDesign
 // Opened by CanvasView.editLabel(). Enter, Esc or clicking away keeps the text.
 Rectangle {
     id: box
-    required property var canvas
+    required property CanvasView canvas
     readonly property Editor editor: canvas.editor
     readonly property string connectionId: canvas.labelingId
     // The label stays where the Connection's middle is, even when its cards move (undo).
@@ -37,7 +37,7 @@ Rectangle {
 
     function finish() {
         const id = connectionId
-        canvas.labelingId = ""
+        canvas.endLabelEditing()
         editor.setConnectionLabel(id, input.text)
     }
 

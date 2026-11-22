@@ -17,19 +17,38 @@ Item {
 
     property real zoom: 1
     property point pan: Qt.point(0, 0)
-    property string editingId: ""        // Card or Group whose text is being edited
-    property string labelingId: ""       // Connection whose label is being edited
-    property string connectFrom: ""      // Card a new Connection is being dragged from
-    property string dropTarget: ""       // node under the pointer while dragging a Connection
-    property bool connectCancelled: false
-    property point connectPress
-    property bool spaceHeld: false
+    // What the user is doing. Read-only for the items on the canvas: they change it through the
+    // functions below (editText(), startConnection(), ...).
+    readonly property alias editingId: interaction.editingId       // Card or Group whose text is being edited
+    readonly property alias labelingId: interaction.labelingId     // Connection whose label is being edited
+    readonly property alias connectFrom: interaction.connectFrom   // Card a new Connection is being dragged from
+    readonly property alias dropTarget: interaction.dropTarget     // Card a dragged Connection end would attach to
+    readonly property alias spaceHeld: interaction.spaceHeld       // Space+drag pans
     readonly property real handleRadius: 14 / zoom   // how close to a Handle counts as "on" it
     // The pointer is directly moving something: panning, a selection rectangle, a new Connection.
     readonly property bool manipulating: background.mode === "pan" || rubberBand.visible || connectFrom !== ""
 
     focus: true
     clip: true
+
+    QtObject {
+        id: interaction
+        property string editingId: ""
+        property string labelingId: ""
+        property string connectFrom: ""
+        property string dropTarget: ""
+        property bool spaceHeld: false
+        property bool connectCancelled: false   // Esc while dragging out a new Connection
+        property point connectPress             // where that drag began, in screen coordinates
+    }
+
+    // ---- Editing text (called by CardItem, GroupItem and the menus) ----
+
+    function editText(nodeId) { interaction.editingId = nodeId }
+    function endTextEditing(nodeId) {
+        if (interaction.editingId === nodeId)
+            interaction.editingId = ""
+    }
 
     // Shift or Ctrl while clicking adds to / removes from the selection.
     function isToggle(modifiers) { return (modifiers & (Qt.ShiftModifier | Qt.ControlModifier)) !== 0 }
@@ -71,9 +90,9 @@ Item {
 
     function startConnection(nodeId, screenPoint) {
         forceActiveFocus()
-        connectFrom = nodeId
-        connectPress = screenPoint
-        connectCancelled = false
+        interaction.connectFrom = nodeId
+        interaction.connectPress = screenPoint
+        interaction.connectCancelled = false
     }
 
     // The card a dragged Connection would attach to. A point just outside a card's border
@@ -84,10 +103,10 @@ Item {
     }
 
     function moveConnection(screenPoint) {
-        if (connectCancelled)
+        if (interaction.connectCancelled)
             return
         const world = toWorld(screenPoint)
-        dropTarget = connectionTarget(world)
+        interaction.dropTarget = connectionTarget(world)
         editor.setConnectionPreview(connectFrom, world, dropTarget,
                                     dropTarget ? editor.handleAt(dropTarget, world, handleRadius) : "")
     }
@@ -95,10 +114,10 @@ Item {
     function finishConnection(screenPoint) {
         const from = connectFrom
         editor.clearConnectionPreview()
-        connectFrom = ""
-        dropTarget = ""
-        const moved = Math.hypot(screenPoint.x - connectPress.x, screenPoint.y - connectPress.y)
-        if (connectCancelled || moved < 10)
+        interaction.connectFrom = ""
+        interaction.dropTarget = ""
+        const moved = Math.hypot(screenPoint.x - interaction.connectPress.x, screenPoint.y - interaction.connectPress.y)
+        if (interaction.connectCancelled || moved < 10)
             return
 
         const world = toWorld(screenPoint)
@@ -108,13 +127,13 @@ Item {
         if (target)
             editor.connectNodes(from, target, editor.handleAt(target, world, handleRadius))
         else
-            editingId = editor.connectToNewCard(from, world)
+            editText(editor.connectToNewCard(from, world))
     }
 
     function cancelConnection() {
-        connectFrom = ""
-        connectCancelled = true
-        dropTarget = ""
+        interaction.connectFrom = ""
+        interaction.connectCancelled = true
+        interaction.dropTarget = ""
         editor.clearConnectionPreview()
     }
 
@@ -126,8 +145,13 @@ Item {
             return              // already open: keep what has been typed
         forceActiveFocus()      // first ends any other text editing
         editor.select(connectionId)
-        labelingId = connectionId
+        interaction.labelingId = connectionId
     }
+    function endLabelEditing() { interaction.labelingId = "" }
+
+    // While a Connection's end is dragged to another Card (ConnectionOverlay), that Card shows
+    // its Handles.
+    function showDropTarget(nodeId) { interaction.dropTarget = nodeId }
 
     // ---- Right-click menus ----
     // Right-clicking an item first makes it the selection, unless it is already part of it.
@@ -157,7 +181,7 @@ Item {
         else if (info.connections === 1)
             editLabel(targets[0])
         else
-            editingId = targets[0]
+            editText(targets[0])
     }
 
     function labelsText() {
@@ -167,7 +191,7 @@ Item {
 
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Space && !event.isAutoRepeat) {
-            spaceHeld = true
+            interaction.spaceHeld = true
             event.accepted = true
         } else if (event.key === Qt.Key_Escape) {
             if (connectFrom)
@@ -179,7 +203,7 @@ Item {
     }
     Keys.onReleased: (event) => {
         if (event.key === Qt.Key_Space && !event.isAutoRepeat)
-            spaceHeld = false
+            interaction.spaceHeld = false
     }
 
     // After opening a Canvas the view goes back to where the user left it, or fits the content
@@ -224,9 +248,9 @@ Item {
     Connections {
         target: view.editor
         function onDocumentLoaded() {
-            view.editingId = ""
+            view.editText("")
             if (view.labelingId) {   // the Connection belonged to the Canvas shown before
-                view.labelingId = ""
+                view.endLabelEditing()
                 view.forceActiveFocus()
             }
             const saved = view.editor.savedView()
@@ -336,7 +360,7 @@ Item {
             if (hit)
                 view.editLabel(hit)
             else
-                view.editingId = view.editor.createCard(world)
+                view.editText(view.editor.createCard(world))
         }
 
         onWheel: (wheel) => {
@@ -401,8 +425,8 @@ Item {
     Menu {
         id: canvasMenu
         property point at
-        MenuEntry { text: qsTr("New card"); onTriggered: view.editingId = view.editor.createCard(canvasMenu.at) }
-        MenuEntry { text: qsTr("New group"); onTriggered: view.editingId = view.editor.createGroup(canvasMenu.at) }
+        MenuEntry { text: qsTr("New card"); onTriggered: view.editText(view.editor.createCard(canvasMenu.at)) }
+        MenuEntry { text: qsTr("New group"); onTriggered: view.editText(view.editor.createGroup(canvasMenu.at)) }
         MenuSeparator {}
         MenuEntry { text: qsTr("Paste"); hint: "Ctrl+V"; onTriggered: view.editor.paste(canvasMenu.at) }
     }
@@ -413,7 +437,7 @@ Item {
         MenuEntry {
             text: qsTr("Edit text")
             enabled: view.editor.selection.length === 1 && view.editor.selectionInfo.editableCards === 1
-            onTriggered: view.editingId = view.editor.selection[0]
+            onTriggered: view.editText(view.editor.selection[0])
         }
         MenuEntry {
             text: view.labelsText()
@@ -427,7 +451,7 @@ Item {
         MenuEntry {
             text: qsTr("Group")
             hint: "Ctrl+G"
-            onTriggered: view.editingId = view.editor.createGroup(view.pointerWorld())
+            onTriggered: view.editText(view.editor.createGroup(view.pointerWorld()))
         }
         MenuSeparator {}
         MenuEntry { text: qsTr("Delete"); hint: "Del"; destructive: true; onTriggered: view.editor.deleteSelection() }

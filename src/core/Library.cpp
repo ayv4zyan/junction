@@ -34,6 +34,63 @@ std::optional<CanvasView> viewFromJson(const QJsonValue &value)
     return CanvasView{QPointF(json["x"].toDouble(), json["y"].toDouble()), zoom};
 }
 
+QVector<ProjectEntry> projectsFromJson(const QJsonArray &array)
+{
+    QVector<ProjectEntry> projects;
+    for (const QJsonValue &value : array) {
+        const QJsonObject json = value.toObject();
+        ProjectEntry project{json["name"].toString(), {}, json["expanded"].toBool(true), json["last"].toString()};
+        for (const QJsonValue &canvas : json["canvases"].toArray())
+            project.canvases.append({canvas["name"].toString(), viewFromJson(canvas["view"])});
+        projects.append(project);
+    }
+    return projects;
+}
+
+QJsonArray projectsToJson(const QVector<ProjectEntry> &projects)
+{
+    QJsonArray array;
+    for (const ProjectEntry &p : projects) {
+        QJsonArray canvases;
+        for (const CanvasEntry &c : p.canvases) {
+            QJsonObject canvas{{"name", c.name}};
+            if (c.view)
+                canvas["view"] = viewToJson(*c.view);
+            canvases.append(canvas);
+        }
+        array.append(QJsonObject{{"name", p.name}, {"expanded", p.expanded}, {"last", p.lastCanvas}, {"canvases", canvases}});
+    }
+    return array;
+}
+
+// What is really on disk wins over what the index lists: the listed entries that exist keep
+// their order, and names on disk that weren't listed follow, made with `newEntry`.
+template <typename Entry, typename NewEntry>
+QVector<Entry> reconciled(const QVector<Entry> &listed, const QStringList &onDisk, NewEntry newEntry)
+{
+    QVector<Entry> result;
+    QStringList names;
+    for (const Entry &entry : listed) {
+        if (onDisk.contains(entry.name) && !names.contains(entry.name)) {
+            result.append(entry);
+            names.append(entry.name);
+        }
+    }
+    for (const QString &name : onDisk) {
+        if (!names.contains(name))
+            result.append(newEntry(name));
+    }
+    return result;
+}
+
+// Where an item at `from` lands when dropped at `toIndex`, a position in the list of `count`
+// items as it is before the item is taken out.
+int movedPosition(int from, int toIndex, int count)
+{
+    const int to = toIndex > from ? toIndex - 1 : toIndex;
+    return qBound(0, to, count - 1);
+}
+
 } // namespace
 
 Library::Library(const QString &root, QObject *parent)
@@ -52,87 +109,50 @@ Library::~Library()
 void Library::load()
 {
     QDir().mkpath(m_root);
-
-    // What the index remembers: order, views, expanded state, the open Canvas.
     QFile indexFile(QDir(m_root).filePath(IndexFile));
-    QJsonObject index;
+    QJsonObject index;   // order, views, expanded state, the open Canvas; empty the first time
     if (indexFile.open(QIODevice::ReadOnly))
         index = QJsonDocument::fromJson(indexFile.readAll()).object();
 
-    QVector<ProjectEntry> listed;
-    for (const QJsonValue &value : index["projects"].toArray()) {
-        const QJsonObject json = value.toObject();
-        ProjectEntry project{json["name"].toString(), {}, json["expanded"].toBool(true), json["last"].toString()};
-        for (const QJsonValue &canvas : json["canvases"].toArray())
-            project.canvases.append({canvas["name"].toString(), viewFromJson(canvas["view"])});
-        listed.append(project);
-    }
-
-    // What is really on disk wins: listed items keep their order, unlisted ones go last.
-    const QStringList folders = QDir(m_root).entryList(QDir::Dirs | QDir::NoDotAndDotDot, SortOrder);
-    QVector<ProjectEntry> found;
-    for (const ProjectEntry &p : listed) {
-        if (folders.contains(p.name) && std::none_of(found.begin(), found.end(), [&](auto &f) { return f.name == p.name; }))
-            found.append(p);
-    }
-    for (const QString &folder : folders) {
-        if (std::none_of(found.begin(), found.end(), [&](auto &f) { return f.name == folder; }))
-            found.append({folder, {}, true, {}});
-    }
-
     m_projects.clear();
-    for (ProjectEntry p : found) {
-        QStringList files;
-        for (const QString &file : QDir(projectPath(p.name)).entryList({"*" + Extension}, QDir::Files, SortOrder))
-            files.append(file.chopped(Extension.size()));
-        QVector<CanvasEntry> canvases;
-        for (const CanvasEntry &c : p.canvases) {
-            if (files.contains(c.name) && std::none_of(canvases.begin(), canvases.end(), [&](auto &k) { return k.name == c.name; }))
-                canvases.append(c);
-        }
-        for (const QString &file : files) {
-            if (std::none_of(canvases.begin(), canvases.end(), [&](auto &k) { return k.name == file; }))
-                canvases.append({file, std::nullopt});
-        }
+    const QStringList folders = QDir(m_root).entryList(QDir::Dirs | QDir::NoDotAndDotDot, SortOrder);
+    const auto newProject = [](const QString &name) { return ProjectEntry{name, {}, true, {}}; };
+    const auto newCanvas = [](const QString &name) { return CanvasEntry{name, std::nullopt}; };
+    for (ProjectEntry p : reconciled(projectsFromJson(index["projects"].toArray()), folders, newProject)) {
+        p.canvases = reconciled(p.canvases, canvasFiles(p.name), newCanvas);
         // A Project always has a Canvas to show; an empty folder gets a new one.
-        if (canvases.isEmpty()) {
+        if (p.canvases.isEmpty()) {
             if (!createEmptyCanvasFile(canvasPath(p.name, NewName)))
                 continue;
-            canvases.append({NewName, std::nullopt});
+            p.canvases.append(newCanvas(NewName));
         }
-        p.canvases = canvases;
         m_projects.append(p);
     }
     if (m_projects.isEmpty() && addProject(0).isEmpty())
         return;   // the folder can't be written; errorOccurred has said so
 
+    // The Canvas open last time; if it is gone, the first of its Project, or else the very first.
     const QJsonObject current = index["current"].toObject();
-    const QString project = current["project"].toString();
-    const QString canvas = current["canvas"].toString();
-    if (canvasIndex(project, canvas) >= 0)
-        setCurrent(project, canvas);
-    else if (projectIndex(project) >= 0)
-        setCurrent(project, m_projects[projectIndex(project)].canvases.first().name);
-    else
-        setCurrent(m_projects.first().name, m_projects.first().canvases.first().name);
-    finish();
+    const QString lastProject = current["project"].toString();
+    const ProjectEntry &project = projectIndex(lastProject) >= 0 ? *this->project(lastProject) : m_projects.first();
+    const QString lastCanvas = current["canvas"].toString();
+    setCurrent(project.name, canvasIndex(project.name, lastCanvas) >= 0 && project.name == lastProject
+                                 ? lastCanvas : project.canvases.first().name);
+    saveAndAnnounce();
+}
+
+QStringList Library::canvasFiles(const QString &project) const
+{
+    QStringList names;
+    for (const QString &file : QDir(projectPath(project)).entryList({"*" + Extension}, QDir::Files, SortOrder))
+        names.append(file.chopped(Extension.size()));
+    return names;
 }
 
 void Library::saveIndex()
 {
-    QJsonArray projects;
-    for (const ProjectEntry &p : m_projects) {
-        QJsonArray canvases;
-        for (const CanvasEntry &c : p.canvases) {
-            QJsonObject canvas{{"name", c.name}};
-            if (c.view)
-                canvas["view"] = viewToJson(*c.view);
-            canvases.append(canvas);
-        }
-        projects.append(QJsonObject{{"name", p.name}, {"expanded", p.expanded}, {"last", p.lastCanvas}, {"canvases", canvases}});
-    }
     const QJsonObject index{
-        {"projects", projects},
+        {"projects", projectsToJson(m_projects)},
         {"current", QJsonObject{{"project", m_currentProject}, {"canvas", m_currentCanvas}}},
     };
     QSaveFile file(QDir(m_root).filePath(IndexFile));
@@ -142,14 +162,19 @@ void Library::saveIndex()
         emit errorOccurred(tr("Could not save the library index: %1").arg(file.errorString()));
 }
 
-void Library::finish()
+void Library::saveAndAnnounce()
 {
     saveIndex();
     emit changed();
-    if (m_currentMoved) {
-        m_currentMoved = false;
-        emit currentChanged();
-    }
+    announceCurrent();
+}
+
+void Library::announceCurrent()
+{
+    if (currentPath() == m_announcedPath)
+        return;
+    m_announcedPath = currentPath();
+    emit currentChanged();
 }
 
 // ---- Looking things up ----
@@ -270,7 +295,6 @@ void Library::setCurrent(const QString &project, const QString &canvas)
         return;
     m_currentProject = project;
     m_currentCanvas = canvas;
-    m_currentMoved = true;
     if (ProjectEntry *p = this->project(project))
         p->lastCanvas = canvas;
 }
@@ -292,8 +316,7 @@ bool Library::open(const QString &projectName, const QString &canvas)
     saveIndex();
     if (expand)
         emit expandedChanged(projectName);
-    m_currentMoved = false;
-    emit currentChanged();
+    announceCurrent();
     return true;
 }
 
@@ -342,7 +365,7 @@ QString Library::createProject()
     if (name.isEmpty())
         return {};
     setCurrent(name, NewName);
-    finish();
+    saveAndAnnounce();
     return name;
 }
 
@@ -358,7 +381,7 @@ QString Library::createCanvas(const QString &projectName)
     p->canvases.append({name, std::nullopt});
     p->expanded = true;
     setCurrent(projectName, name);
-    finish();
+    saveAndAnnounce();
     return name;
 }
 
@@ -378,7 +401,7 @@ QString Library::duplicateCanvas(const QString &projectName, const QString &canv
     copy.name = name;
     p->canvases.insert(i + 1, copy);
     setCurrent(projectName, name);
-    finish();
+    saveAndAnnounce();
     return name;
 }
 
@@ -401,7 +424,7 @@ QString Library::duplicateProject(const QString &projectName)
     }
     m_projects.insert(i + 1, copy);
     setCurrent(name, copy.canvases.first().name);
-    finish();
+    saveAndAnnounce();
     return name;
 }
 
@@ -434,7 +457,7 @@ QString Library::importCanvas(const QString &filePath, const QString &projectNam
     p->canvases.append({name, std::nullopt});
     p->expanded = true;
     setCurrent(projectName, name);
-    finish();
+    saveAndAnnounce();
     return name;
 }
 
@@ -474,11 +497,9 @@ bool Library::renameProject(const QString &projectName, const QString &newName)
     p->name = name;
     for (const CanvasEntry &c : p->canvases)
         emit canvasMoved(canvasPath(projectName, c.name), canvasPath(name, c.name));
-    if (m_currentProject == projectName) {
+    if (m_currentProject == projectName)
         m_currentProject = name;
-        m_currentMoved = true;
-    }
-    finish();
+    saveAndAnnounce();
     return true;
 }
 
@@ -504,11 +525,9 @@ bool Library::renameCanvas(const QString &projectName, const QString &canvas, co
     if (p->lastCanvas == canvas)
         p->lastCanvas = name;
     emit canvasMoved(from, to);
-    if (m_currentProject == projectName && m_currentCanvas == canvas) {
+    if (m_currentProject == projectName && m_currentCanvas == canvas)
         m_currentCanvas = name;
-        m_currentMoved = true;
-    }
-    finish();
+    saveAndAnnounce();
     return true;
 }
 
@@ -535,7 +554,7 @@ bool Library::deleteCanvas(const QString &projectName, const QString &canvas)
     // The open Canvas is replaced by the one that took its place, or the one before it.
     if (m_currentProject == projectName && m_currentCanvas == canvas)
         setCurrent(projectName, p->canvases[qMin(i, p->canvases.size() - 1)].name);
-    finish();
+    saveAndAnnounce();
     return true;
 }
 
@@ -556,15 +575,14 @@ bool Library::deleteProject(const QString &projectName)
     if (m_projects.isEmpty() && addProject(0).isEmpty()) {
         m_currentProject.clear();
         m_currentCanvas.clear();
-        m_currentMoved = true;
-        finish();
+        saveAndAnnounce();
         return true;
     }
     if (m_currentProject == projectName) {
         const ProjectEntry &next = m_projects[qMin(i, m_projects.size() - 1)];
         setCurrent(next.name, next.canvases.first().name);
     }
-    finish();
+    saveAndAnnounce();
     return true;
 }
 
@@ -575,12 +593,11 @@ void Library::moveProject(const QString &projectName, int toIndex)
     const int from = projectIndex(projectName);
     if (from < 0)
         return;
-    int to = toIndex > from ? toIndex - 1 : toIndex;
-    to = qBound(0, to, m_projects.size() - 1);
+    const int to = movedPosition(from, toIndex, m_projects.size());
     if (to == from)
         return;
     m_projects.move(from, to);
-    finish();
+    saveAndAnnounce();
 }
 
 QString Library::moveCanvas(const QString &projectName, const QString &canvas, const QString &toProject, int toIndex)
@@ -592,11 +609,10 @@ QString Library::moveCanvas(const QString &projectName, const QString &canvas, c
         return {};
 
     if (source == target) {   // only the order changes
-        int to = toIndex > from ? toIndex - 1 : toIndex;
-        to = qBound(0, to, source->canvases.size() - 1);
+        const int to = movedPosition(from, toIndex, source->canvases.size());
         if (to != from) {
             source->canvases.move(from, to);
-            finish();
+            saveAndAnnounce();
         }
         return canvas;
     }
@@ -622,9 +638,8 @@ QString Library::moveCanvas(const QString &projectName, const QString &canvas, c
     if (m_currentProject == projectName && m_currentCanvas == canvas) {
         m_currentProject = toProject;
         m_currentCanvas = name;
-        m_currentMoved = true;
     }
-    finish();
+    saveAndAnnounce();
     return name;
 }
 

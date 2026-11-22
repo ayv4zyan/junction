@@ -102,7 +102,7 @@ signals:
     void aboutToChange();   // files are about to change or another Canvas to open: save now
     void changed();         // Projects or Canvases were added, removed, renamed or reordered
     void expandedChanged(const QString &project);
-    void currentChanged();
+    void currentChanged();  // currentPath() changed: another Canvas is open, or it was renamed or moved
     void canvasMoved(const QString &oldPath, const QString &newPath);   // renamed or moved
     void canvasRemoved(const QString &path);
     void errorOccurred(const QString &message);
@@ -111,15 +111,19 @@ private:
     ProjectEntry *project(const QString &name);
     QStringList projectNames() const;
     QStringList canvasNames(const QString &project) const;
+    QStringList canvasFiles(const QString &project) const;   // names of the .canvas files in its folder
     void setCurrent(const QString &project, const QString &canvas);
     bool createEmptyCanvasFile(const QString &path);
     bool renamePath(const QString &from, const QString &to);
-    void finish();   // after a change: save the index and tell everyone
+    // Every change ends here: saves the index, emits changed(), then currentChanged() if
+    // currentPath() is no longer the one last announced.
+    void saveAndAnnounce();
+    void announceCurrent();
     QString addProject(int at);
 
     QString m_root;
     QVector<ProjectEntry> m_projects;
     QString m_currentProject;
     QString m_currentCanvas;
-    bool m_currentMoved = false;   // currentChanged() is due at the end of the change
+    QString m_announcedPath;   // currentPath() as of the last currentChanged()
 };

@@ -54,3 +54,63 @@ LibraryIndex LibraryIndex::fromJson(const QJsonObject &json)
     index.currentCanvas = current["canvas"].toString();
     return index;
 }
+
+std::optional<int> LibraryIndex::projectPosition(const QString &project) const
+{
+    for (int i = 0; i < projects.size(); ++i) {
+        if (projects[i].name == project)
+            return i;
+    }
+    return std::nullopt;
+}
+
+std::optional<CanvasPosition> LibraryIndex::canvasPosition(const QString &project, const QString &canvas) const
+{
+    const std::optional<int> p = projectPosition(project);
+    if (!p)
+        return std::nullopt;
+    const QVector<CanvasEntry> &canvases = projects[*p].canvases;
+    for (int c = 0; c < canvases.size(); ++c) {
+        if (canvases[c].name == canvas)
+            return CanvasPosition{*p, c};
+    }
+    return std::nullopt;
+}
+
+ProjectEntry *LibraryIndex::project(const QString &name)
+{
+    const std::optional<int> p = projectPosition(name);
+    return p ? &projects[*p] : nullptr;
+}
+
+const ProjectEntry *LibraryIndex::project(const QString &name) const
+{
+    const std::optional<int> p = projectPosition(name);
+    return p ? &projects[*p] : nullptr;
+}
+
+QStringList LibraryIndex::projectNames() const
+{
+    QStringList names;
+    for (const ProjectEntry &p : projects)
+        names.append(p.name);
+    return names;
+}
+
+QStringList LibraryIndex::canvasNames(const QString &project) const
+{
+    QStringList names;
+    if (const ProjectEntry *p = this->project(project)) {
+        for (const CanvasEntry &c : p->canvases)
+            names.append(c.name);
+    }
+    return names;
+}
+
+QString LibraryIndex::lastOpenedCanvas(const QString &project) const
+{
+    const ProjectEntry *p = this->project(project);
+    if (!p)
+        return {};
+    return canvasPosition(project, p->lastOpened) ? p->lastOpened : p->firstCanvas();
+}

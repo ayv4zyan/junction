@@ -17,7 +17,7 @@ void LibraryRows::rebuild()
 {
     beginResetModel();
     m_rows.clear();
-    const QVector<ProjectEntry> &projects = m_library->projects();
+    const QVector<ProjectEntry> &projects = m_library->index().projects;
     for (int p = 0; p < projects.size(); ++p) {
         const ProjectEntry &project = projects[p];
         QVector<Row> canvases;
@@ -45,17 +45,18 @@ void LibraryRows::showExpanded(const QString &project)
     if (!m_filter.isEmpty())
         return;   // while searching, every Project is shown expanded anyway
     const int header = rowOf(project);
-    const int p = m_library->projectIndex(project);
-    if (header < 0)
+    const std::optional<int> p = m_library->index().projectPosition(project);
+    if (header < 0 || !p)
         return;
-    const int count = int(m_library->projects()[p].canvases.size());
-    const bool shown = header + 1 < m_rows.size() && m_rows[header + 1].projectIndex == p;
-    if (m_library->projects()[p].expanded && !shown) {
+    const ProjectEntry &entry = m_library->index().projects[*p];
+    const int count = int(entry.canvases.size());
+    const bool shown = header + 1 < m_rows.size() && m_rows[header + 1].projectIndex == *p;
+    if (entry.expanded && !shown) {
         beginInsertRows({}, header + 1, header + count);
         for (int c = 0; c < count; ++c)
-            m_rows.insert(header + 1 + c, {p, c});
+            m_rows.insert(header + 1 + c, {*p, c});
         endInsertRows();
-    } else if (!m_library->projects()[p].expanded && shown) {
+    } else if (!entry.expanded && shown) {
         beginRemoveRows({}, header + 1, header + count);
         m_rows.remove(header + 1, count);
         endRemoveRows();
@@ -90,9 +91,9 @@ QVariant LibraryRows::data(const QModelIndex &index, int role) const
     // The rows are rebuilt on every projectsChanged; one that no longer matches the Library
     // (which would be a bug) is shown as nothing rather than read out of range.
     const Row row = m_rows[index.row()];
-    if (row.projectIndex >= m_library->projects().size())
+    if (row.projectIndex >= m_library->index().projects.size())
         return {};
-    const ProjectEntry &project = m_library->projects()[row.projectIndex];
+    const ProjectEntry &project = m_library->index().projects[row.projectIndex];
     if (row.canvasIndex && *row.canvasIndex >= project.canvases.size())
         return {};
     const bool isProject = !row.canvasIndex;
@@ -144,17 +145,18 @@ QVariantMap LibraryRows::rowAt(int row) const
 
 int LibraryRows::rowOf(const QString &project, const QString &canvas) const
 {
-    const int p = m_library->projectIndex(project);
-    if (p < 0)
+    const std::optional<int> p = m_library->index().projectPosition(project);
+    if (!p)
         return -1;
     std::optional<int> c;   // none: the Project's own row
     if (!canvas.isEmpty()) {
-        c = m_library->canvasIndex(project, canvas);
-        if (*c < 0)
+        const std::optional<CanvasPosition> at = m_library->index().canvasPosition(project, canvas);
+        if (!at)
             return -1;   // no such Canvas (not its Project's row instead)
+        c = at->canvas;
     }
     for (int i = 0; i < m_rows.size(); ++i) {
-        if (m_rows[i].projectIndex == p && m_rows[i].canvasIndex == c)
+        if (m_rows[i].projectIndex == *p && m_rows[i].canvasIndex == c)
             return i;
     }
     return -1;
@@ -162,10 +164,10 @@ int LibraryRows::rowOf(const QString &project, const QString &canvas) const
 
 int LibraryRows::lastRowOf(const QString &project) const
 {
-    const int p = m_library->projectIndex(project);
+    const std::optional<int> p = m_library->index().projectPosition(project);
     int last = -1;
-    for (int i = 0; i < m_rows.size(); ++i) {
-        if (m_rows[i].projectIndex == p)
+    for (int i = 0; p && i < m_rows.size(); ++i) {
+        if (m_rows[i].projectIndex == *p)
             last = i;
     }
     return last;
@@ -175,7 +177,7 @@ bool LibraryRows::openFirstMatch()
 {
     for (const Row &row : std::as_const(m_rows)) {
         if (row.canvasIndex) {
-            const ProjectEntry &project = m_library->projects()[row.projectIndex];
+            const ProjectEntry &project = m_library->index().projects[row.projectIndex];
             m_library->open(project.name, project.canvases[*row.canvasIndex].name);
             return true;
         }

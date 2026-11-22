@@ -42,21 +42,19 @@ public:
     void saveIndex();
 
     QUrl folder() const { return QUrl::fromLocalFile(m_folder.root()); }
-    QStringList projectNames() const;
+    // The Projects and their Canvases in sidebar order, and which Canvas is open.
+    const LibraryIndex &index() const { return m_index; }
+    QStringList projectNames() const { return m_index.projectNames(); }
     Q_INVOKABLE int canvasCount(const QString &project) const;
-    const QVector<ProjectEntry> &projects() const { return m_projects; }
-    int projectIndex(const QString &project) const;
-    int canvasIndex(const QString &project, const QString &canvas) const;
     QString canvasPath(const QString &project, const QString &canvas) const;
 
     // The Canvas open in the editor.
-    QString currentProject() const { return m_currentProject; }
-    QString currentCanvas() const { return m_currentCanvas; }
-    QString currentPath() const { return canvasPath(m_currentProject, m_currentCanvas); }
+    QString currentProject() const { return m_index.currentProject; }
+    QString currentCanvas() const { return m_index.currentCanvas; }
+    QString currentPath() const { return canvasPath(m_index.currentProject, m_index.currentCanvas); }
     Q_INVOKABLE bool open(const QString &project, const QString &canvas);
     Q_INVOKABLE bool openProject(const QString &project);   // the Canvas last open in it
     Q_INVOKABLE void openAdjacent(int step);   // the previous (-1) or next (1) Canvas in the Project
-    QString lastCanvas(const QString &project) const;   // or its first, if that one is gone
 
     // Why a name can't be used, or "" when it can. `except` is the item being renamed.
     Q_INVOKABLE QString projectNameProblem(const QString &name, const QString &except = {}) const;
@@ -110,17 +108,7 @@ signals:
     void errorOccurred(const QString &message);
 
 private:
-    ProjectEntry *project(const QString &name);
-    // A Canvas looked up by name: its Project's position in m_projects and its own there.
-    struct FoundCanvas
-    {
-        int projectIndex;
-        int canvasIndex;
-    };
-    std::optional<FoundCanvas> findCanvas(const QString &project, const QString &canvas) const;
-    QStringList canvasNames(const QString &project) const;
     LibraryIndex readIndex();
-    LibraryIndex currentIndex() const;   // what saveIndex() writes
     std::optional<LibraryIndex> loadProjects();
     void openWhatWasOpenLastTime(const QString &project, const QString &canvas);
     void setCurrent(const QString &project, const QString &canvas);
@@ -140,9 +128,7 @@ private:
     QString addProject(int at);
 
     LibraryFolder m_folder;
-    QVector<ProjectEntry> m_projects;
-    QString m_currentProject;
-    QString m_currentCanvas;
+    LibraryIndex m_index;   // what is saved as the index file
     QString m_lastAnnouncedPath;   // currentPath() as of the last currentChanged()
     QTimer m_viewSaveTimer;    // saves the index once the view stops changing
 };

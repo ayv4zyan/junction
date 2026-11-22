@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QPointF>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 #include <optional>
 
@@ -42,11 +43,28 @@ struct ProjectEntry
     }
 };
 
+// Where a Canvas is: its Project's position in LibraryIndex::projects, and its own in there.
+struct CanvasPosition
+{
+    int project;
+    int canvas;
+};
+
 struct LibraryIndex
 {
     QVector<ProjectEntry> projects;
     QString currentProject;
     QString currentCanvas;
+
+    // Looking things up by name; nothing (or empty) when there is no such Project or Canvas.
+    std::optional<int> projectPosition(const QString &project) const;
+    std::optional<CanvasPosition> canvasPosition(const QString &project, const QString &canvas) const;
+    ProjectEntry *project(const QString &name);
+    const ProjectEntry *project(const QString &name) const;
+    QStringList projectNames() const;
+    QStringList canvasNames(const QString &project) const;
+    // The Canvas last open in the Project, or its first if that one is gone.
+    QString lastOpenedCanvas(const QString &project) const;
 
     QJsonObject toJson() const;
     static LibraryIndex fromJson(const QJsonObject &json);   // missing parts are left empty

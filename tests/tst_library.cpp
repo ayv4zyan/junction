@@ -20,7 +20,7 @@ class TestLibrary : public QObject
     static QStringList canvases(const Library &library, int project)
     {
         QStringList names;
-        for (const CanvasEntry &c : library.projects()[project].canvases)
+        for (const CanvasEntry &c : library.index().projects[project].canvases)
             names.append(c.name);
         return names;
     }
@@ -28,7 +28,7 @@ class TestLibrary : public QObject
     static QStringList projects(const Library &library)
     {
         QStringList names;
-        for (const ProjectEntry &p : library.projects())
+        for (const ProjectEntry &p : library.index().projects)
             names.append(p.name);
         return names;
     }
@@ -107,7 +107,7 @@ private slots:
         QCOMPARE(canvases(library, 1), (QStringList{"Untitled", "Zeta", "Untitled 2"}));
         QCOMPARE(library.currentProject(), "Web");
         QCOMPARE(library.currentCanvas(), "Zeta");
-        QVERIFY(library.projects()[1].expanded);   // opening a Canvas shows it in the sidebar
+        QVERIFY(library.index().projects[1].expanded);   // opening a Canvas shows it in the sidebar
         const auto view = library.view("Web", "Zeta");
         QVERIFY(view.has_value());
         QCOMPARE(view->center, QPointF(10, 20));
@@ -274,8 +274,8 @@ private slots:
         library.createProject();            // Untitled 2 (Project)
         library.open("Untitled", "Untitled 2");
         QCOMPARE(library.moveCanvas("Untitled", "Untitled 2", "Untitled 2", 0), QString("Untitled 2"));
-        QCOMPARE(library.lastCanvas("Untitled 2"), QString("Untitled 2"));
-        QCOMPARE(library.lastCanvas("Untitled"), QString("Untitled"));
+        QCOMPARE(library.index().lastOpenedCanvas("Untitled 2"), QString("Untitled 2"));
+        QCOMPARE(library.index().lastOpenedCanvas("Untitled"), QString("Untitled"));
         QCOMPARE(library.currentProject(), QString("Untitled 2"));
     }
 
@@ -384,14 +384,14 @@ private slots:
             library.load();
             library.createCanvas("Untitled");   // Untitled 2, opened
             library.createProject();            // the Project "Untitled 2", opened
-            QCOMPARE(library.lastCanvas("Untitled"), "Untitled 2");
+            QCOMPARE(library.index().lastOpenedCanvas("Untitled"), "Untitled 2");
             library.renameCanvas("Untitled", "Untitled 2", "Auth");
-            QCOMPARE(library.lastCanvas("Untitled"), "Auth");
+            QCOMPARE(library.index().lastOpenedCanvas("Untitled"), "Auth");
         }
         Library library(m_root);
         library.load();
-        QCOMPARE(library.lastCanvas("Untitled"), "Auth");
-        QCOMPARE(library.lastCanvas("Untitled 2"), "Untitled");
+        QCOMPARE(library.index().lastOpenedCanvas("Untitled"), "Auth");
+        QCOMPARE(library.index().lastOpenedCanvas("Untitled 2"), "Untitled");
     }
 
     void openingExpandsTheProjectWithoutChangingTheList()
@@ -405,7 +405,7 @@ private slots:
         library.open("Untitled", "Untitled");
         QCOMPARE(changed.size(), 0);
         QCOMPARE(expanded.size(), 1);
-        QVERIFY(library.projects()[0].expanded);
+        QVERIFY(library.index().projects[0].expanded);
     }
 
     void openingSavesTheOldCanvasFirst()

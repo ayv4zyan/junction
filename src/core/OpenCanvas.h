@@ -26,9 +26,20 @@ public:
     explicit OpenCanvas(QObject *parent = nullptr);
     ~OpenCanvas() override;   // saves what is still waiting to be saved
 
+    // What is open. Only an Editable Canvas takes changes and is saved.
+    enum class State
+    {
+        NothingOpen,   // before the first open(), or openNothing()
+        Editable,
+        Unreadable,    // its file can't be read; it is never written to, so it stays as it was
+        Deleted,       // its file was deleted while open
+    };
+
     const Document &document() const { return m_document; }
     QString filePath() const { return m_filePath; }
-    QString loadError() const { return m_loadError; }   // "" while the Canvas can be edited
+    State state() const { return m_state; }
+    bool isEditable() const { return m_state == State::Editable; }
+    QString loadError() const { return m_notEditableBecause; }   // why it isn't Editable, for the user
     bool canUndo() const { return m_history.canUndo(); }
     bool canRedo() const { return m_history.canRedo(); }
 
@@ -59,18 +70,19 @@ public:
 signals:
     void opened();   // another file is shown (or none); the Document was replaced
     void filePathChanged();
-    void loadErrorChanged();
+    void stateChanged();   // and with it, perhaps, loadError()
     void historyChanged();
     void errorOccurred(const QString &message);
 
 private:
     void setFilePath(const QString &path);
-    void setLoadError(const QString &error);
+    void setState(State state, const QString &notEditableBecause = {});
     void activateHistory(const QString &path);
 
     Document m_document;
     QString m_filePath;
-    QString m_loadError;
+    State m_state = State::NothingOpen;
+    QString m_notEditableBecause;
     QUndoGroup m_history;                      // forwards undo/redo to the open file's stack
     QHash<QString, QUndoStack *> m_stacks;     // by file path
     QHash<QString, QDateTime> m_lastWritten;   // when each file was last loaded or saved by us

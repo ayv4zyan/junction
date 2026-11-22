@@ -21,7 +21,7 @@ ApplicationWindow {
     readonly property bool typing: activeFocusItem !== null && activeFocusItem.visible
                                    && activeFocusItem.cursorPosition !== undefined
     // ...and while the Canvas can't be shown (its file can't be read).
-    readonly property bool canEdit: !typing && window.editor.loadError === ""
+    readonly property bool canEdit: !typing && window.editor.editable
 
     // Colors, font and the controls' look come from the JunctionDesign style (main.cpp).
     width: 1280
@@ -197,7 +197,7 @@ ApplicationWindow {
             editor: window.editor
             library: window.library
             ask: askDialog
-            enabled: window.editor.loadError === ""
+            enabled: window.editor.editable
         }
 
         SelectionBar {

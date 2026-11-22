@@ -96,7 +96,8 @@ class Editor : public QObject
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
-    Q_PROPERTY(QString loadError READ loadError NOTIFY loadErrorChanged)   // why the Canvas can't be shown
+    Q_PROPERTY(bool editable READ isEditable NOTIFY canvasStateChanged)
+    Q_PROPERTY(QString loadError READ loadError NOTIFY canvasStateChanged)   // why the Canvas can't be shown
     Q_PROPERTY(bool snapToGrid READ snapToGrid WRITE setSnapToGrid NOTIFY snapToGridChanged)
 
 public:
@@ -118,6 +119,7 @@ public:
     bool canUndo() const { return m_canvas.canUndo(); }
     bool canRedo() const { return m_canvas.canRedo(); }
     QString filePath() const { return m_canvas.filePath(); }
+    bool isEditable() const { return m_canvas.isEditable(); }
     QString loadError() const { return m_canvas.loadError(); }
     bool snapToGrid() const { return m_snapToGrid; }
     void setSnapToGrid(bool snap);
@@ -190,7 +192,7 @@ signals:
     void filePathChanged();
     void snapToGridChanged();
     void canvasOpened();   // another Canvas is shown; the Document was replaced
-    void loadErrorChanged();
+    void canvasStateChanged();   // whether it can be edited, and if not why
     void draggingChanged();
     void errorOccurred(const QString &message);
 

@@ -26,9 +26,9 @@ void OpenCanvas::open(const QString &path)
     QString error;
     if (!m_document.load(path, &error)) {
         m_document.clear();
-        setLoadError(tr("%1 can't be read: %2").arg(QFileInfo(path).fileName(), error));
+        setState(State::Unreadable, tr("%1 can't be read: %2").arg(QFileInfo(path).fileName(), error));
     } else {
-        setLoadError({});
+        setState(State::Editable);
     }
     setFilePath(path);
     activateHistory(path);
@@ -39,7 +39,7 @@ void OpenCanvas::openNothing(const QString &reason)
 {
     savePending();
     m_document.clear();
-    setLoadError(reason);
+    setState(State::NothingOpen, reason);
     setFilePath({});
     activateHistory({});
     emit opened();
@@ -67,7 +67,7 @@ bool OpenCanvas::push(const Transaction &transaction, const QString &text)
         if (!change.changesNothing())
             real.append(change);
     }
-    if (real.isEmpty() || !m_loadError.isEmpty() || !m_history.activeStack())   // nothing opened yet
+    if (real.isEmpty() || !isEditable())
         return false;
     m_history.activeStack()->push(new TransactionCommand(&m_document, real, text));
     m_saveTimer.start();
@@ -99,7 +99,7 @@ void OpenCanvas::showUncommitted(const QVector<Item> &items)
 void OpenCanvas::save()
 {
     m_saveTimer.stop();
-    if (m_filePath.isEmpty() || !m_loadError.isEmpty())
+    if (!isEditable())
         return;
     QString error;
     if (!m_document.save(m_filePath, &error)) {
@@ -134,17 +134,18 @@ void OpenCanvas::fileRemoved(const QString &path)
         // Library opens another Canvas. A new Canvas may later get the same path (delete the
         // only Project, and a new "Untitled" appears): it must be loaded afresh.
         m_saveTimer.stop();
-        setLoadError(tr("%1 was deleted.").arg(QFileInfo(path).fileName()));
+        setState(State::Deleted, tr("%1 was deleted.").arg(QFileInfo(path).fileName()));
         setFilePath({});
     }
 }
 
-void OpenCanvas::setLoadError(const QString &error)
+void OpenCanvas::setState(State state, const QString &notEditableBecause)
 {
-    if (error == m_loadError)
+    if (state == m_state && notEditableBecause == m_notEditableBecause)
         return;
-    m_loadError = error;
-    emit loadErrorChanged();
+    m_state = state;
+    m_notEditableBecause = notEditableBecause;
+    emit stateChanged();
 }
 
 void OpenCanvas::setFilePath(const QString &path)

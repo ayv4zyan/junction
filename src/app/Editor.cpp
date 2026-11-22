@@ -62,7 +62,7 @@ Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
 
     connect(&m_canvas, &OpenCanvas::opened, this, &Editor::canvasOpened);
     connect(&m_canvas, &OpenCanvas::filePathChanged, this, &Editor::filePathChanged);
-    connect(&m_canvas, &OpenCanvas::loadErrorChanged, this, &Editor::loadErrorChanged);
+    connect(&m_canvas, &OpenCanvas::stateChanged, this, &Editor::canvasStateChanged);
     connect(&m_canvas, &OpenCanvas::historyChanged, this, &Editor::historyChanged);
     connect(&m_canvas, &OpenCanvas::errorOccurred, this, &Editor::errorOccurred);
 

@@ -93,7 +93,7 @@ ApplicationWindow {
 
     Connections {
         target: window.library
-        function onCreated(projectName, canvasName) { Qt.callLater(window.startRename, projectName, canvasName) }
+        function onCreatedEmpty(projectName, canvasName) { Qt.callLater(window.startRename, projectName, canvasName) }
     }
 
     // ---- Sidebar ----
@@ -266,7 +266,7 @@ ApplicationWindow {
     Shortcut { sequences: [StandardKey.Copy]; enabled: window.canEdit; onActivated: window.editor.copy() }
     Shortcut { sequences: [StandardKey.Paste]; enabled: window.canEdit; onActivated: window.editor.paste(canvasView.pointerWorld()) }
     Shortcut { sequence: "Ctrl+D"; enabled: window.canEdit; onActivated: window.editor.duplicate() }
-    Shortcut { sequence: "Ctrl+G"; enabled: window.canEdit; onActivated: canvasView.editText(window.editor.createGroup(canvasView.pointerWorld())) }
+    Shortcut { sequence: "Ctrl+G"; enabled: window.canEdit; onActivated: canvasView.editNew(window.editor.createGroup(canvasView.pointerWorld())) }
     // Arrow keys nudge the selection by one grid step.
     Shortcut { sequence: "Left"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(-1, 0)) }
     Shortcut { sequence: "Right"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(1, 0)) }

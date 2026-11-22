@@ -8,7 +8,8 @@ import JunctionDesign
 // with every Card inside it; double-click the label to rename it.
 NodeItem {
     id: group
-    required property string nodeLabel
+    required property string nodeLabel         // as typed, for editing
+    required property string nodeDisplayText   // as shown (a default while the label is empty)
 
     function finishEditing(text) {
         editor.setLabels([nodeId], text)
@@ -35,7 +36,7 @@ NodeItem {
             id: labelText
             anchors.centerIn: parent
             visible: !group.editing
-            text: group.nodeLabel || qsTr("Group")
+            text: group.nodeDisplayText
             color: group.selected ? Colors.onAccent : Colors.text
             font.pixelSize: Fonts.canvas
             renderType: Text.CurveRendering   // sharp at every zoom level, like Card text

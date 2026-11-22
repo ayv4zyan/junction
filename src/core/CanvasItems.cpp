@@ -63,17 +63,21 @@ QString Node::label() const
     return group ? group->label : QString();
 }
 
-QString Node::markdown() const
+QString GroupContent::defaultLabel()
 {
-    // In plain Markdown a newline is a space; two spaces before it make it a hard break.
-    return text().replace('\n', QStringLiteral("  \n"));
+    return QCoreApplication::translate("Group", "Group");
 }
 
-QString Node::unsupportedText() const
+QString Node::displayText() const
 {
-    const auto *unsupported = std::get_if<UnsupportedContent>(&content);
-    const QString type = unsupported ? unsupported->raw["type"].toString() : QString();
-    return QCoreApplication::translate("Node", "Unsupported: %1").arg(type);
+    if (const auto *card = std::get_if<TextContent>(&content)) {
+        // In plain Markdown a newline is a space; two spaces before it make it a hard break.
+        return QString(card->text).replace('\n', QStringLiteral("  \n"));
+    }
+    if (const auto *group = std::get_if<GroupContent>(&content))
+        return group->label.isEmpty() ? GroupContent::defaultLabel() : group->label;
+    const auto &unsupported = std::get<UnsupportedContent>(content);
+    return QCoreApplication::translate("Node", "Unsupported: %1").arg(unsupported.raw["type"].toString());
 }
 
 QJsonObject Node::toJson() const

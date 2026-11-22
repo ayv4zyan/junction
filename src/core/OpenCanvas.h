@@ -40,7 +40,7 @@ public:
     // after openNothing(), when its file can't be read (then it is never written to, so the file
     // stays as it was), or once its file was deleted.
     bool isEditable() const { return !m_notEditableBecause.has_value(); }
-    // Why it isn't editable, for the user; "" while it is (and before anything was opened).
+    // Why it isn't editable, for the user; "" while it is.
     QString notEditableReason() const { return m_notEditableBecause.value_or(QString()); }
     bool canUndo() const { return m_history.canUndo(); }
     bool canRedo() const { return m_history.canRedo(); }
@@ -83,7 +83,7 @@ private:
 
     Document m_document;
     QString m_filePath;
-    std::optional<QString> m_notEditableBecause = QString();   // empty while editable; nothing open yet
+    std::optional<QString> m_notEditableBecause = tr("Nothing is open yet.");   // none while editable
     QUndoGroup m_history;                      // forwards undo/redo to the open file's stack
     QHash<QString, QUndoStack *> m_stacks;     // by file path
     QHash<QString, QDateTime> m_lastWritten;   // when each file was last loaded or saved by us

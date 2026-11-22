@@ -33,7 +33,7 @@ struct ProjectEntry
     QString name;
     QVector<CanvasEntry> canvases;   // never empty in the Library (it adds one where there is none)
     bool expanded = true;            // shown open in the sidebar
-    QString lastCanvas;              // the Canvas last open in this Project
+    QString lastOpened;              // the Canvas last open in this Project, as stored (may be gone)
 
     QString firstCanvas() const
     {

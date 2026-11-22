@@ -49,16 +49,18 @@ RisingFloating {
         anchors.centerIn: parent
 
         Repeater {
-            model: ["", "1", "2", "3", "4", "5", "6"]
+            model: [{ color: "", tip: qsTr("Default color") }, { color: "1", tip: qsTr("Red") },
+                    { color: "2", tip: qsTr("Orange") }, { color: "3", tip: qsTr("Yellow") },
+                    { color: "4", tip: qsTr("Green") }, { color: "5", tip: qsTr("Cyan") },
+                    { color: "6", tip: qsTr("Purple") }]
             delegate: Swatch {
-                required property string modelData
+                required property var modelData
                 anchors.verticalCenter: parent.verticalCenter
-                fill: modelData ? CanvasColors.resolve(modelData, Colors.presets, Colors.line) : Colors.cardFill
-                outlined: modelData === ""
-                chosen: bar.editor.selectionColor === modelData
-                tip: [qsTr("Default color"), qsTr("Red"), qsTr("Orange"), qsTr("Yellow"),
-                      qsTr("Green"), qsTr("Cyan"), qsTr("Purple")][modelData ? parseInt(modelData) : 0]
-                onClicked: bar.editor.setColor(modelData)
+                fill: modelData.color ? CanvasColors.resolve(modelData.color, Colors.presets, Colors.line) : Colors.cardFill
+                outlined: modelData.color === ""
+                chosen: bar.editor.selectionColor === modelData.color
+                tip: modelData.tip
+                onClicked: bar.editor.setColor(modelData.color)
             }
         }
 

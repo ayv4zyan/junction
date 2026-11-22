@@ -31,7 +31,7 @@ QJsonObject LibraryIndex::toJson() const
                 canvas["view"] = viewToJson(*c.view);
             canvases.append(canvas);
         }
-        projectsJson.append(QJsonObject{{"name", p.name}, {"expanded", p.expanded}, {"last", p.lastCanvas}, {"canvases", canvases}});
+        projectsJson.append(QJsonObject{{"name", p.name}, {"expanded", p.expanded}, {"last", p.lastOpened}, {"canvases", canvases}});
     }
     return {
         {"projects", projectsJson},

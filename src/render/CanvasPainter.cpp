@@ -233,7 +233,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
 
         // The label on its bar above the Group, as GroupItem shows it.
         const QFont labelFont = font(CardFontSize, QFont::Bold);
-        const QString label = node.label().isEmpty() ? QCoreApplication::translate("GroupItem", "Group") : node.label();
+        const QString label = node.displayText();
         const qreal width = QFontMetricsF(labelFont).horizontalAdvance(label) + 2 * CardPadding;
         const QRectF bar(node.rect.left(), node.rect.top() - GroupLabelSpace, width, GroupLabelHeight);
         QColor barFill = accent;
@@ -258,11 +258,11 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
 
     const QRectF content = node.rect.adjusted(CardPadding, CardPadding, -CardPadding, -CardPadding);
     if (node.kind() == NodeKind::Text) {
-        drawMarkdown(painter, node.markdown(), content, palette.text);
+        drawMarkdown(painter, node.displayText(), content, palette.text);
     } else {
         painter.setPen(palette.mutedText);
         painter.setFont(font(CardFontSize));
-        painter.drawText(content, Qt::AlignCenter | Qt::TextWordWrap, node.unsupportedText());
+        painter.drawText(content, Qt::AlignCenter | Qt::TextWordWrap, node.displayText());
     }
 }
 

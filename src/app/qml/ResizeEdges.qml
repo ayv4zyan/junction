@@ -22,14 +22,14 @@ Item {
             // -1 = the left (top) side moves, 1 = the right (bottom) one, 0 = neither
             readonly property int horizontal: sides & Qt.LeftEdge ? -1 : sides & Qt.RightEdge ? 1 : 0
             readonly property int vertical: sides & Qt.TopEdge ? -1 : sides & Qt.BottomEdge ? 1 : 0
-            readonly property real t: edges.thickness
+            readonly property real across: edges.thickness   // the strip's width across the border
 
             canvasView: edges.canvasView
             hoverEnabled: true
-            x: horizontal < 0 ? -t / 2 : horizontal > 0 ? edges.width - t / 2 : t / 2
-            y: vertical < 0 ? -t / 2 : vertical > 0 ? edges.height - t / 2 : t / 2
-            width: horizontal === 0 ? edges.width - t : t
-            height: vertical === 0 ? edges.height - t : t
+            x: horizontal < 0 ? -across / 2 : horizontal > 0 ? edges.width - across / 2 : across / 2
+            y: vertical < 0 ? -across / 2 : vertical > 0 ? edges.height - across / 2 : across / 2
+            width: horizontal === 0 ? edges.width - across : across
+            height: vertical === 0 ? edges.height - across : across
             cursorShape: horizontal === 0 ? Qt.SizeVerCursor
                        : vertical === 0 ? Qt.SizeHorCursor
                        : horizontal === vertical ? Qt.SizeFDiagCursor : Qt.SizeBDiagCursor

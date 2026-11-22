@@ -66,7 +66,7 @@ QVariant NodeModel::data(const QModelIndex &index, int role) const
     case HeightRole: return n->rect.height();
     case TextRole: return n->text();
     case LabelRole: return n->label();
-    case DisplayTextRole: return n->kind() == NodeKind::Unsupported ? n->unsupportedText() : n->markdown();
+    case DisplayTextRole: return n->displayText();
     case ColorRole: return n->color;
     }
     return {};

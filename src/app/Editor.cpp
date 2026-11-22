@@ -290,7 +290,7 @@ QString Editor::createGroup(QPointF center)
 
     Node group;
     group.id = Document::newId();
-    group.content = GroupContent{tr("Group")};
+    group.content = GroupContent{GroupContent::defaultLabel()};
     const qreal margin = Geometry::GridSize * 2;
     group.rect = bounds.isEmpty() ? placed(center, GroupSize) : bounds.adjusted(-margin, -margin, margin, margin);
     return addAndSelect({Change::added(group)}, tr("Group"), group.id);
@@ -530,6 +530,8 @@ void Editor::updateWaypointDrag(QPointF delta, bool invertSnap)
 void Editor::showDraggedWaypointAt(QPointF point)
 {
     const WaypointDrag *drag = activeDrag<WaypointDrag>();
+    if (!drag)
+        return;
     showDrag([&](const Item &item) {
         Connection c = std::get<Connection>(item);
         if (drag->inserted)

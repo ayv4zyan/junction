@@ -61,6 +61,12 @@ Item {
     // ---- Editing text (called by CardItem, GroupItem and the menus) ----
 
     function editText(nodeId) { interaction.editingNodeId = nodeId }
+    // A Card or Group just made: its text is typed straight away. "" when it couldn't be made.
+    function editNew(nodeId) {
+        if (nodeId)
+            editText(nodeId)
+    }
+    function stopTextEditing() { interaction.editingNodeId = "" }
     function endTextEditing(nodeId) {
         if (interaction.editingNodeId === nodeId)
             interaction.editingNodeId = ""
@@ -186,7 +192,7 @@ Item {
         if (at.node)
             editor.connectNodes(from, at.node, at.side)
         else
-            editText(editor.connectToNewCard(from, world))
+            editNew(editor.connectToNewCard(from, world))
     }
 
     function cancelConnection() {
@@ -234,7 +240,7 @@ Item {
         target: canvasView.editor
         function onCanvasOpened() {
             canvasView.cancelConnection()
-            canvasView.editText("")
+            canvasView.stopTextEditing()
             if (canvasView.editingLabelId) {   // the Connection belonged to the Canvas shown before
                 canvasView.endLabelEditing()
                 canvasView.forceActiveFocus()

@@ -284,7 +284,7 @@ private slots:
     {
         Library library(m_root);
         library.load();
-        QSignalSpy created(&library, &Library::created);
+        QSignalSpy created(&library, &Library::createdEmpty);
         library.createCanvas("Untitled");
         library.createProject();
         QCOMPARE(created.count(), 2);

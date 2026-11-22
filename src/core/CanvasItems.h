@@ -37,7 +37,8 @@ struct TextContent         // a Card
 };
 struct GroupContent        // a Group
 {
-    QString label;         // its title
+    QString label;         // its title; shown as defaultLabel() while empty
+    static QString defaultLabel();
     bool operator==(const GroupContent &) const = default;
 };
 struct UnsupportedContent  // an Unsupported Card
@@ -58,10 +59,9 @@ struct Node
     bool isCard() const { return kind() != NodeKind::Group; }
     QString text() const;    // a Card's Markdown; "" for the other kinds
     QString label() const;   // a Group's title; "" for the other kinds
-    // A Card's text as Markdown with every newline a line break, as Obsidian shows it.
-    QString markdown() const;
-    // What an Unsupported Card shows in place of its content.
-    QString unsupportedText() const;
+    // What it shows: a Card's text as Markdown (every newline a line break, as Obsidian shows
+    // it), a Group's label (or its default), or an Unsupported Card's placeholder text.
+    QString displayText() const;
 
     QJsonObject toJson() const;
     static Node fromJson(const QJsonObject &json);

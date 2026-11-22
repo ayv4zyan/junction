@@ -54,8 +54,8 @@ Item {
     Menu {
         id: canvasMenu
         property point at
-        MenuEntry { text: qsTr("New card"); onTriggered: menus.canvasView.editText(menus.editor.createCard(canvasMenu.at)) }
-        MenuEntry { text: qsTr("New group"); onTriggered: menus.canvasView.editText(menus.editor.createGroup(canvasMenu.at)) }
+        MenuEntry { text: qsTr("New card"); onTriggered: menus.canvasView.editNew(menus.editor.createCard(canvasMenu.at)) }
+        MenuEntry { text: qsTr("New group"); onTriggered: menus.canvasView.editNew(menus.editor.createGroup(canvasMenu.at)) }
         MenuSeparator {}
         MenuEntry { text: qsTr("Paste"); hint: "Ctrl+V"; onTriggered: menus.editor.paste(canvasMenu.at) }
     }
@@ -80,7 +80,7 @@ Item {
         MenuEntry {
             text: qsTr("Group")
             hint: "Ctrl+G"
-            onTriggered: menus.canvasView.editText(menus.editor.createGroup(menus.canvasView.pointerWorld()))
+            onTriggered: menus.canvasView.editNew(menus.editor.createGroup(menus.canvasView.pointerWorld()))
         }
         MenuSeparator {}
         MenuEntry { text: qsTr("Delete"); hint: "Del"; destructive: true; onTriggered: menus.editor.deleteSelection() }

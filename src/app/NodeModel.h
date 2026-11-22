@@ -23,7 +23,7 @@ public:
         HeightRole,
         TextRole,          // a Text Card's Markdown, as typed
         LabelRole,         // a Group's title
-        DisplayTextRole,   // what a Card shows: its Markdown as displayed, or the Unsupported text
+        DisplayTextRole,   // what it shows (see Node::displayText)
         ColorRole,
     };
 

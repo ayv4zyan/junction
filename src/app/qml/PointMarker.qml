@@ -10,12 +10,12 @@ Rectangle {
     property bool filled: true
     property real screenRadius: 6
 
-    readonly property real r: screenRadius / canvasView.zoom
-    x: center.x - r
-    y: center.y - r
-    width: 2 * r
-    height: 2 * r
-    radius: r
+    readonly property real worldRadius: screenRadius / canvasView.zoom
+    x: center.x - worldRadius
+    y: center.y - worldRadius
+    width: 2 * worldRadius
+    height: 2 * worldRadius
+    radius: worldRadius
     color: filled ? Colors.selection : Colors.background
     border.color: Colors.selection
     border.width: 1.5 / canvasView.zoom

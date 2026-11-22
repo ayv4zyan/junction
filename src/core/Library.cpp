@@ -203,10 +203,14 @@ int Library::canvasIndex(const QString &project, const QString &canvas) const
 std::optional<Library::FoundCanvas> Library::findCanvas(const QString &project, const QString &canvas) const
 {
     const int p = projectIndex(project);
-    const int c = canvasIndex(project, canvas);
-    if (p < 0 || c < 0)
+    if (p < 0)
         return std::nullopt;
-    return FoundCanvas{p, c};
+    const QVector<CanvasEntry> &canvases = m_projects[p].canvases;
+    for (int c = 0; c < canvases.size(); ++c) {
+        if (canvases[c].name == canvas)
+            return FoundCanvas{p, c};
+    }
+    return std::nullopt;
 }
 
 ProjectEntry *Library::project(const QString &name)
@@ -270,26 +274,25 @@ QString Library::nameProblem(const QString &name)
 
 QString Library::projectNameProblem(const QString &name, const QString &except) const
 {
-    const auto taken = [](const QString &existing) { return tr("There is already a project named “%1”.").arg(existing); };
-    return nameProblemAmong(name.trimmed(), projectNames(), except, taken);
+    return nameProblemAmong(name.trimmed(), projectNames(), except, tr("There is already a project named “%1”."));
 }
 
 QString Library::canvasNameProblem(const QString &project, const QString &name, const QString &except) const
 {
-    const auto taken = [&](const QString &existing) { return tr("“%1” already has a canvas named “%2”.").arg(project, existing); };
-    return nameProblemAmong(name.trimmed(), canvasNames(project), except, taken);
+    return nameProblemAmong(name.trimmed(), canvasNames(project), except,
+                            tr("“%1” already has a canvas named “%2”.").arg(project));
 }
 
-// The name's problem (see nameProblem()), or the message `taken` makes for an existing name it
-// equals, ignoring case. `except`, the item being renamed, doesn't count.
+// The name's problem (see nameProblem()), or `taken` filled in with an existing name it equals,
+// ignoring case. `except`, the item being renamed, doesn't count.
 QString Library::nameProblemAmong(const QString &name, const QStringList &existing, const QString &except,
-                                  const std::function<QString(const QString &)> &taken)
+                                  const QString &taken)
 {
     if (QString problem = nameProblem(name); !problem.isEmpty())
         return problem;
     for (const QString &other : existing) {
         if (other != except && sameName(other, name))
-            return taken(other);
+            return QString(taken).arg(other);
     }
     return {};
 }
@@ -312,7 +315,7 @@ void Library::setCurrent(const QString &project, const QString &canvas)
     m_currentProject = project;
     m_currentCanvas = canvas;
     if (ProjectEntry *p = this->project(project))
-        p->lastCanvas = canvas;
+        p->lastOpened = canvas;
 }
 
 // Only the open Canvas changes here, not the list: no projectsChanged().
@@ -353,7 +356,7 @@ QString Library::lastCanvas(const QString &projectName) const
     if (p < 0)
         return {};
     const ProjectEntry &project = m_projects[p];
-    return canvasIndex(projectName, project.lastCanvas) >= 0 ? project.lastCanvas : project.firstCanvas();
+    return canvasIndex(projectName, project.lastOpened) >= 0 ? project.lastOpened : project.firstCanvas();
 }
 
 // ---- Creating ----
@@ -407,7 +410,7 @@ QString Library::createProject()
         return {};
     setCurrent(name, NewName);
     saveIndexAndNotify();
-    emit created(name, {});
+    emit createdEmpty(name, {});
     return name;
 }
 
@@ -421,7 +424,7 @@ QString Library::createCanvas(const QString &projectName)
     if (!createEmptyCanvasFile(canvasPath(projectName, name)))
         return {};
     addCanvas(p, p->canvases.size(), {name, std::nullopt});
-    emit created(projectName, name);
+    emit createdEmpty(projectName, name);
     return name;
 }
 
@@ -570,8 +573,8 @@ bool Library::renameCanvas(const QString &projectName, const QString &canvas, co
         return false;
     ProjectEntry &p = m_projects[at->projectIndex];
     p.canvases[at->canvasIndex].name = name;
-    if (p.lastCanvas == canvas)
-        p.lastCanvas = name;
+    if (p.lastOpened == canvas)
+        p.lastOpened = name;
     emit canvasMoved(from, to);
     if (m_currentProject == projectName && m_currentCanvas == canvas)
         m_currentCanvas = name;
@@ -715,11 +718,11 @@ QString Library::moveCanvasToProject(ProjectEntry &source, int from, ProjectEntr
     entry.name = name;
     target.canvases.insert(qBound(0, toIndex, target.canvases.size()), entry);
     target.expanded = true;
-    if (source.lastCanvas == canvas)
-        source.lastCanvas.clear();   // lastCanvas() falls back to its first Canvas
+    if (source.lastOpened == canvas)
+        source.lastOpened.clear();   // lastCanvas() then falls back to its first Canvas
     emit canvasMoved(oldPath, newPath);
     if (m_currentProject == source.name && m_currentCanvas == canvas)
-        setCurrent(target.name, name);   // also the target's lastCanvas
+        setCurrent(target.name, name);   // also the target's lastOpened
     saveIndexAndNotify();
     return name;
 }

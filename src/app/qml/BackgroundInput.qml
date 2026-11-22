@@ -80,7 +80,7 @@ MouseArea {
         if (hit)
             canvasView.editLabel(hit)
         else
-            canvasView.editText(canvasView.editor.createCard(world))
+            canvasView.editNew(canvasView.editor.createCard(world))
     }
 
     onWheel: (wheel) => {

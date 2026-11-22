@@ -16,7 +16,6 @@
 #include "LibraryIndex.h"
 
 #include <QObject>
-#include <functional>
 #include <QPointF>
 #include <QTimer>
 #include <QUrl>
@@ -65,7 +64,7 @@ public:
     Q_INVOKABLE QString canvasNameProblem(const QString &project, const QString &name, const QString &except = {}) const;
 
     // Each returns the new item's name ("" on failure) and opens it.
-    // These two also emit created(), so the UI can have the new item named right away.
+    // These two also emit createdEmpty(), so the UI can have the new item named right away.
     Q_INVOKABLE QString createProject();
     Q_INVOKABLE QString createCanvas(const QString &project);
     Q_INVOKABLE QString duplicateProject(const QString &project);
@@ -105,7 +104,7 @@ signals:
     void loaded();          // load() is done; currentPath() is empty if the folder can't be written
     void aboutToChangeFiles();   // files are about to change or another Canvas to open: save now
     void projectsChanged(); // Projects or Canvases were added, removed, renamed or reordered
-    void created(const QString &project, const QString &canvas);   // a new empty one; `canvas` is "" for a Project
+    void createdEmpty(const QString &project, const QString &canvas);   // a new empty one; `canvas` is "" for a Project
     void expandedChanged(const QString &project);
     void currentChanged();  // currentPath() changed: another Canvas is open, or it was renamed or moved
     void canvasMoved(const QString &oldPath, const QString &newPath);   // renamed or moved
@@ -141,7 +140,7 @@ private:
     void reorderCanvas(ProjectEntry &project, int from, int toIndex);
     QString moveCanvasToProject(ProjectEntry &source, int from, ProjectEntry &target, int toIndex);
     static QString nameProblemAmong(const QString &name, const QStringList &existing, const QString &except,
-                                    const std::function<QString(const QString &)> &taken);
+                                    const QString &taken);
     bool replaceLastProject();
     bool trashProject(int index);
     QString addProject(int at);

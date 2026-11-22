@@ -4,7 +4,7 @@ LibraryRows::LibraryRows(Library *library, QObject *parent)
     : QAbstractListModel(parent), m_library(library)
 {
     connect(m_library, &Library::projectsChanged, this, &LibraryRows::rebuild);
-    connect(m_library, &Library::created, this, [this] { setFilter({}); });   // so the new row can be seen
+    connect(m_library, &Library::createdEmpty, this, [this] { setFilter({}); });   // so the new row can be seen
     connect(m_library, &Library::expandedChanged, this, &LibraryRows::showExpanded);
     connect(m_library, &Library::currentChanged, this, [this] {
         if (!m_rows.isEmpty())

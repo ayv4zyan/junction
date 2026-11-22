@@ -8,6 +8,7 @@
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QStandardPaths>
 #include <QStyleHints>
 #include <QtQml/qqmlextensionplugin.h>
 
@@ -27,7 +28,8 @@ int main(int argc, char *argv[])
     // One running app per Library: two would overwrite each other's index. A second launch
     // connects to the first, which brings its window forward, and then quits. The message is
     // the launcher's activation token (Wayland only lets a window take focus with one).
-    const QByteArray libraryHash = QCryptographicHash::hash(Editor::libraryFolder().toUtf8(), QCryptographicHash::Sha1);
+    const QString libraryFolder = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/Library";
+    const QByteArray libraryHash = QCryptographicHash::hash(libraryFolder.toUtf8(), QCryptographicHash::Sha1);
     const QString serverName = "junction-" + QString::fromLatin1(libraryHash.toHex().left(12));
     {
         QLocalSocket running;
@@ -43,9 +45,11 @@ int main(int argc, char *argv[])
     if (!server.listen(serverName))
         qWarning("Junction: %s; a second launch will not find this one", qPrintable(server.errorString()));
 
+    Editor editor(libraryFolder);   // outlives the engine, which is destroyed first
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
+    engine.setInitialProperties({{"editor", QVariant::fromValue(&editor)}});
     engine.loadFromModule("Junction", "Main");
 
     QObject::connect(&server, &QLocalServer::newConnection, &app, [&] {

@@ -1,6 +1,6 @@
 #include "NodeModel.h"
 
-NodeModel::NodeModel(Document *document, Filter filter, QObject *parent)
+NodeModel::NodeModel(const Document *document, Filter filter, QObject *parent)
     : QAbstractListModel(parent), m_document(document), m_filter(filter)
 {
     connect(document, &Document::nodeAdded, this, [this](const QString &id) {

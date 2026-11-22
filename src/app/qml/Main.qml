@@ -12,13 +12,14 @@ import JunctionDesign
 ApplicationWindow {
     id: window
 
-    readonly property LibraryModel library: canvasEditor.library
+    required property Editor editor   // created by main.cpp, which decides where the Library is
+    readonly property LibraryModel library: editor.library
 
     // Our shortcuts stay out of the way while text is being typed.
     readonly property bool typing: activeFocusItem !== null && activeFocusItem.visible
                                    && activeFocusItem.cursorPosition !== undefined
     // ...and while the Canvas can't be shown (its file can't be read).
-    readonly property bool canEdit: !typing && canvasEditor.loadError === ""
+    readonly property bool canEdit: !typing && window.editor.loadError === ""
 
     // Colors, font and the controls' look come from the JunctionDesign style (main.cpp).
     width: 1280
@@ -74,11 +75,24 @@ ApplicationWindow {
         property real sidebarWidth: 260
     }
 
-    Editor {
-        id: canvasEditor
-        Component.onCompleted: start()
-        onErrorOccurred: (message) => toast.show(message, { error: true })
+    // Kept between runs in the same place as always (QSettings' "snapToGrid").
+    Settings {
+        id: editorSettings
+        property bool snapToGrid: true
     }
+
+    Binding {
+        target: window.editor
+        property: "snapToGrid"
+        value: editorSettings.snapToGrid
+    }
+
+    Connections {
+        target: window.editor
+        function onErrorOccurred(message) { toast.show(message, { error: true }) }
+    }
+
+    Component.onCompleted: editor.start()
 
     Connections {
         target: window.library
@@ -192,8 +206,8 @@ ApplicationWindow {
                         MenuItem { text: qsTr("Open library folder"); onTriggered: Qt.openUrlExternally(window.library.folder) }
                     }
                 }
-                IconButton { iconName: "undo"; tip: qsTr("Undo (Ctrl+Z)"); enabled: canvasEditor.canUndo; onClicked: canvasEditor.undo() }
-                IconButton { iconName: "redo"; tip: qsTr("Redo (Ctrl+Shift+Z)"); enabled: canvasEditor.canRedo; onClicked: canvasEditor.redo() }
+                IconButton { iconName: "undo"; tip: qsTr("Undo (Ctrl+Z)"); enabled: window.editor.canUndo; onClicked: window.editor.undo() }
+                IconButton { iconName: "redo"; tip: qsTr("Redo (Ctrl+Shift+Z)"); enabled: window.editor.canRedo; onClicked: window.editor.redo() }
 
                 // "Project / Canvas": click either to rename it. Long names never push the rest
                 // of the toolbar away: they shrink with "…" (the tooltip shows them in full);
@@ -225,7 +239,7 @@ ApplicationWindow {
                     clickToEdit: true
                     text: window.library.currentCanvas
                     font.weight: Font.DemiBold
-                    tip: canvasEditor.filePath + "\n" + qsTr("Click to rename (F2)")
+                    tip: window.editor.filePath + "\n" + qsTr("Click to rename (F2)")
                     problemFor: (name) => window.library.canvasNameProblem(window.library.currentProject, name, window.library.currentCanvas)
                     onRenamed: (name) => window.library.renameCanvas(window.library.currentProject, window.library.currentCanvas, name)
                     onFinished: window.focusCanvas()
@@ -234,8 +248,8 @@ ApplicationWindow {
                 CheckBox {
                     focusPolicy: Qt.NoFocus   // keep keyboard focus on the canvas
                     text: qsTr("Snap to grid")
-                    checked: canvasEditor.snapToGrid
-                    onToggled: canvasEditor.snapToGrid = checked
+                    checked: editorSettings.snapToGrid
+                    onToggled: editorSettings.snapToGrid = checked
                     ToolTip.visible: hovered
                     ToolTip.delay: Motion.tooltipDelay
                     ToolTip.text: qsTr("Hold Alt while dragging to do the opposite")
@@ -251,18 +265,18 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            editor: canvasEditor
-            enabled: canvasEditor.loadError === ""
+            editor: window.editor
+            enabled: window.editor.loadError === ""
         }
 
         SelectionBar {
-            editor: canvasEditor
+            editor: window.editor
             canvas: canvasView
         }
 
         // A Canvas whose file can't be read: say why. It is never saved, so the file stays.
         Floating {
-            visible: canvasEditor.loadError !== ""
+            visible: window.editor.loadError !== ""
             anchors.centerIn: canvasView
             width: Math.min(460, canvasView.width - 2 * Space.xl)
             height: errorColumn.implicitHeight + 2 * Space.xl
@@ -278,7 +292,7 @@ ApplicationWindow {
                 }
                 Label {
                     Layout.fillWidth: true
-                    text: canvasEditor.loadError
+                    text: window.editor.loadError
                     wrapMode: Text.Wrap
                     color: Colors.mutedText
                 }
@@ -340,20 +354,20 @@ ApplicationWindow {
 
     // ---- Keyboard ----
 
-    Shortcut { sequences: [StandardKey.Undo]; enabled: window.canEdit; onActivated: canvasEditor.undo() }
-    Shortcut { sequences: [StandardKey.Redo]; enabled: window.canEdit; onActivated: canvasEditor.redo() }
-    Shortcut { sequences: ["Delete", "Backspace"]; enabled: window.canEdit; onActivated: canvasEditor.deleteSelection() }
-    Shortcut { sequences: [StandardKey.SelectAll]; enabled: window.canEdit; onActivated: canvasEditor.selectAll() }
-    Shortcut { sequences: [StandardKey.Cut]; enabled: window.canEdit; onActivated: canvasEditor.cut() }
-    Shortcut { sequences: [StandardKey.Copy]; enabled: window.canEdit; onActivated: canvasEditor.copy() }
-    Shortcut { sequences: [StandardKey.Paste]; enabled: window.canEdit; onActivated: canvasEditor.paste(canvasView.pointerWorld()) }
-    Shortcut { sequence: "Ctrl+D"; enabled: window.canEdit; onActivated: canvasEditor.duplicate() }
-    Shortcut { sequence: "Ctrl+G"; enabled: window.canEdit; onActivated: canvasView.editingId = canvasEditor.createGroup(canvasView.pointerWorld()) }
+    Shortcut { sequences: [StandardKey.Undo]; enabled: window.canEdit; onActivated: window.editor.undo() }
+    Shortcut { sequences: [StandardKey.Redo]; enabled: window.canEdit; onActivated: window.editor.redo() }
+    Shortcut { sequences: ["Delete", "Backspace"]; enabled: window.canEdit; onActivated: window.editor.deleteSelection() }
+    Shortcut { sequences: [StandardKey.SelectAll]; enabled: window.canEdit; onActivated: window.editor.selectAll() }
+    Shortcut { sequences: [StandardKey.Cut]; enabled: window.canEdit; onActivated: window.editor.cut() }
+    Shortcut { sequences: [StandardKey.Copy]; enabled: window.canEdit; onActivated: window.editor.copy() }
+    Shortcut { sequences: [StandardKey.Paste]; enabled: window.canEdit; onActivated: window.editor.paste(canvasView.pointerWorld()) }
+    Shortcut { sequence: "Ctrl+D"; enabled: window.canEdit; onActivated: window.editor.duplicate() }
+    Shortcut { sequence: "Ctrl+G"; enabled: window.canEdit; onActivated: canvasView.editingId = window.editor.createGroup(canvasView.pointerWorld()) }
     // Arrow keys nudge the selection by one grid step.
-    Shortcut { sequence: "Left"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(-1, 0)) }
-    Shortcut { sequence: "Right"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(1, 0)) }
-    Shortcut { sequence: "Up"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(0, -1)) }
-    Shortcut { sequence: "Down"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(0, 1)) }
+    Shortcut { sequence: "Left"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(-1, 0)) }
+    Shortcut { sequence: "Right"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(1, 0)) }
+    Shortcut { sequence: "Up"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(0, -1)) }
+    Shortcut { sequence: "Down"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(0, 1)) }
     Shortcut { sequence: "Ctrl+0"; onActivated: canvasView.resetZoom() }
     Shortcut { sequence: "Ctrl+1"; onActivated: canvasView.userFit() }
 
@@ -383,7 +397,7 @@ ApplicationWindow {
         onActivated: window.startRename(window.library.currentProject, window.library.currentCanvas)
     }
     // Saving is automatic; Ctrl+S just does it now.
-    Shortcut { sequences: [StandardKey.Save]; onActivated: { window.focusCanvas(); canvasEditor.save() } }
+    Shortcut { sequences: [StandardKey.Save]; onActivated: { window.focusCanvas(); window.editor.save() } }
 
     // ---- File dialogs ----
 
@@ -399,8 +413,8 @@ ApplicationWindow {
         id: exportDialog
         fileMode: FileDialog.SaveFile
         onAccepted: {
-            const written = defaultSuffix === "canvas" ? canvasEditor.exportCanvas(selectedFile)
-                                                       : canvasEditor.exportImage(selectedFile, Colors.forPainter)
+            const written = defaultSuffix === "canvas" ? window.editor.exportCanvas(selectedFile)
+                                                       : window.editor.exportImage(selectedFile, Colors.forPainter)
             const file = written.toString()
             if (!file)
                 return   // the Editor has reported why

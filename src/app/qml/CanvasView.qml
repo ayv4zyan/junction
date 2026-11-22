@@ -88,13 +88,13 @@ Item {
             return
         const world = toWorld(screenPoint)
         dropTarget = connectionTarget(world)
-        editor.setPreview(connectFrom, world, dropTarget,
-                          dropTarget ? editor.handleAt(dropTarget, world, handleRadius) : "")
+        editor.setConnectionPreview(connectFrom, world, dropTarget,
+                                    dropTarget ? editor.handleAt(dropTarget, world, handleRadius) : "")
     }
 
     function finishConnection(screenPoint) {
         const from = connectFrom
-        editor.clearPreview()
+        editor.clearConnectionPreview()
         connectFrom = ""
         dropTarget = ""
         const moved = Math.hypot(screenPoint.x - connectPress.x, screenPoint.y - connectPress.y)
@@ -115,7 +115,7 @@ Item {
         connectFrom = ""
         connectCancelled = true
         dropTarget = ""
-        editor.clearPreview()
+        editor.clearConnectionPreview()
     }
 
     // ---- Connection labels ----

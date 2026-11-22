@@ -1,8 +1,9 @@
 #pragma once
 
-// The bridge between QML and the core: owns the Library, the open Canvas's Document, the undo
-// history and the selection. QML calls these methods in canvas (world) coordinates; it never
-// edits the Document directly, so every change goes through commit() and can be undone.
+// The bridge between QML and the core: owns the Library, the open Canvas and the selection,
+// and turns what the user does into Transactions. QML calls these methods in canvas (world)
+// coordinates; it never edits the Document directly, so every change goes through commit() and
+// can be undone.
 //
 // The Editor always shows the Library's current Canvas: when another one is opened (or the
 // open one is renamed, moved or deleted) the Library says so and the Editor follows.
@@ -12,21 +13,21 @@
 #include "Library.h"
 #include "LibraryModel.h"
 #include "NodeModel.h"
+#include "OpenCanvas.h"
 
-#include <QDateTime>
-#include <QHash>
 #include <QObject>
 #include <QQmlEngine>
 #include <QRectF>
 #include <QTimer>
-#include <QUndoGroup>
-#include <QUndoStack>
 #include <QUrl>
+#include <optional>
+#include <variant>
 
 class Editor : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
+    QML_UNCREATABLE("Created by main.cpp, which decides where the Library is")
 
     Q_PROPERTY(LibraryModel *library READ library CONSTANT)
     Q_PROPERTY(NodeModel *cards READ cards CONSTANT)
@@ -44,21 +45,20 @@ class Editor : public QObject
     Q_PROPERTY(bool snapToGrid READ snapToGrid WRITE setSnapToGrid NOTIFY snapToGridChanged)
 
 public:
-    // The Connection being dragged out of a Handle, drawn by ConnectionLayer.
-    struct Preview
+    // The Connection being dragged out of a Handle, drawn by ConnectionLayer. It ends on
+    // `targetNode` when the pointer is over one, otherwise at the pointer.
+    struct ConnectionPreview
     {
-        bool active = false;
-        QString from;
-        QPointF to;
-        QString target;
-        Side side = Side::None;
+        QString fromNode;
+        QPointF pointer;
+        QString targetNode;
+        Side targetSide = Side::None;
     };
 
-    explicit Editor(QObject *parent = nullptr);
-    ~Editor() override;
+    explicit Editor(const QString &libraryFolder, QObject *parent = nullptr);
 
-    const Document &document() const { return m_document; }
-    const Preview &preview() const { return m_preview; }
+    const Document &document() const { return m_canvas.document(); }
+    const std::optional<ConnectionPreview> &connectionPreview() const { return m_preview; }
     LibraryModel *library() { return &m_libraryModel; }
     NodeModel *cards() { return &m_cards; }
     NodeModel *groups() { return &m_groups; }
@@ -71,11 +71,11 @@ public:
     // The world rectangle around everything selected (empty when nothing is); the floating
     // selection toolbar sits against it.
     QRectF selectionBounds() const;
-    bool isDragging() const { return !m_dragOriginal.isEmpty(); }
-    bool canUndo() const { return m_history.canUndo(); }
-    bool canRedo() const { return m_history.canRedo(); }
-    QString filePath() const { return m_filePath; }
-    QString loadError() const { return m_loadError; }
+    bool isDragging() const { return m_drag.has_value(); }
+    bool canUndo() const { return m_canvas.canUndo(); }
+    bool canRedo() const { return m_canvas.canRedo(); }
+    QString filePath() const { return m_canvas.filePath(); }
+    QString loadError() const { return m_canvas.loadError(); }
     bool snapToGrid() const { return m_snapToGrid; }
     void setSnapToGrid(bool snap);
 
@@ -115,8 +115,9 @@ public:
     {
         return Geometry::floatingPosition(selection, size, view, gap);
     }
-    Q_INVOKABLE void setPreview(const QString &from, QPointF to, const QString &target, const QString &side);
-    Q_INVOKABLE void clearPreview();
+    Q_INVOKABLE void setConnectionPreview(const QString &fromNode, QPointF pointer, const QString &targetNode,
+                                          const QString &targetSide);
+    Q_INVOKABLE void clearConnectionPreview();
     Q_INVOKABLE void connectNodes(const QString &from, const QString &to, const QString &toSide);
     Q_INVOKABLE QString connectToNewCard(const QString &from, QPointF center);
     Q_INVOKABLE void reattach(const QString &connectionId, bool fromEnd, const QString &nodeId, const QString &side);
@@ -148,8 +149,6 @@ public:
     Q_INVOKABLE QVariantMap savedView() const;
     Q_INVOKABLE void rememberView(QPointF center, qreal zoom);
 
-    static QString libraryFolder();
-
 signals:
     void selectionChanged();
     void selectionDetailsChanged();   // the selection, or something about the selected items
@@ -162,6 +161,29 @@ signals:
     void errorOccurred(const QString &message);
 
 private:
+    // A drag in progress. While it lasts, the Document shows `current` without an undo step;
+    // on release, one Transaction from `original` to `current` goes on the undo stack.
+    struct MoveDrag
+    {
+        QPointF anchor;   // the grabbed node's top-left corner, which snaps to the grid
+    };
+    struct ResizeDrag
+    {
+        int horizontal;   // which sides follow the mouse, see beginResize()
+        int vertical;
+    };
+    struct WaypointDrag
+    {
+        int index;        // of the Waypoint in the Connection
+        QPointF anchor;   // where it was, which snaps to the grid
+    };
+    struct Drag
+    {
+        QVector<Item> original;
+        QVector<Item> current;
+        std::variant<MoveDrag, ResizeDrag, WaypointDrag> kind;
+    };
+
     void commit(const Transaction &transaction, const QString &text);
     void setSelection(const QStringList &ids);
     void pruneSelection();
@@ -169,44 +191,25 @@ private:
 
     Node newCard(QPointF center, const QString &text = {}) const;
     QVector<Item> itemsMovingWithSelection() const;
-    void beginDrag(const QVector<Item> &items);
-    void previewDrag(const QVector<Item> &items);
+    template <typename Kind>
+    const Kind *activeDrag() const;   // the drag in progress, if it is of that kind
+    void beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &kind);
+    void showDrag(const QVector<Item> &items);
     void endDrag(const QString &text);
 
     QVector<Connection> selectedConnections() const;
-    QJsonObject selectionToJson() const;
-    void insertJson(const QJsonObject &json, QPointF offset);
+    void insertFragment(const QJsonObject &fragment, QPointF offset);
 
-    void setFilePath(const QString &path);
-    void scheduleSave();
-    void saveNow();
     void loadCurrent();
-    void canvasMoved(const QString &oldPath, const QString &newPath);
-    void canvasRemoved(const QString &path);
 
-    Library m_library{libraryFolder()};
+    Library m_library;
     LibraryModel m_libraryModel{&m_library};
-    Document m_document;
-    // One undo history per Canvas, kept while the app runs, so switching Canvases loses nothing.
-    // m_history forwards undo/redo to the open Canvas's stack.
-    QUndoGroup m_history;
-    QHash<QString, QUndoStack *> m_stacks;      // by file path
-    QHash<QString, QDateTime> m_lastWritten;    // when each file was last loaded or saved by us
-    NodeModel m_cards{&m_document, NodeModel::Cards};
-    NodeModel m_groups{&m_document, NodeModel::Groups};
+    OpenCanvas m_canvas;
+    NodeModel m_cards{&m_canvas.document(), NodeModel::Cards};
+    NodeModel m_groups{&m_canvas.document(), NodeModel::Groups};
     QStringList m_selection;
-    Preview m_preview;
+    std::optional<ConnectionPreview> m_preview;
+    std::optional<Drag> m_drag;
     bool m_snapToGrid = true;
-
-    // State of the drag in progress
-    QVector<Item> m_dragOriginal;
-    QVector<Item> m_dragCurrent;
-    QPointF m_dragAnchor;   // the point that snaps to the grid
-    int m_dragWaypoint = -1;
-    QPoint m_resizeSides;   // which sides a resize moves, see beginResize()
-
-    QString m_filePath;
-    QString m_loadError;
-    QTimer m_saveTimer;
     QTimer m_viewSaveTimer;   // writes the index a moment after the view stops moving
 };

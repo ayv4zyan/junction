@@ -1,20 +1,20 @@
 #include "Editor.h"
 
 #include <QClipboard>
-#include <QDir>
 #include <QGuiApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QTest>
 
-// The Editor commands behind the right-click menus. Each test gets an empty Library in
-// Qt's test folder, so the user's real Library is never touched.
+// The Editor commands behind the right-click menus. Each test gets an empty Library in a
+// temporary folder, so the user's real Library is never touched.
 class TestEditor : public QObject
 {
     Q_OBJECT
 
+    std::unique_ptr<QTemporaryDir> m_folder;
     Editor *m_editor = nullptr;
 
     // Two Cards connected A -> B, with a Group around both. Returns {a, b, connection, group}.
@@ -38,12 +38,10 @@ class TestEditor : public QObject
     }
 
 private slots:
-    void initTestCase() { QStandardPaths::setTestModeEnabled(true); }
-
     void init()
     {
-        QDir(Editor::libraryFolder()).removeRecursively();
-        m_editor = new Editor;
+        m_folder = std::make_unique<QTemporaryDir>();
+        m_editor = new Editor(m_folder->filePath("Library"));
         m_editor->start();
         QVERIFY(m_editor->loadError().isEmpty());
     }
@@ -51,7 +49,7 @@ private slots:
     void cleanup()
     {
         delete m_editor;
-        QDir(Editor::libraryFolder()).removeRecursively();
+        m_folder.reset();
     }
 
     void cutGroupTakesItsCards()

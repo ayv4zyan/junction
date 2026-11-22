@@ -57,13 +57,13 @@ void ConnectionLayer::paint(QPainter *painter)
     }
 
     // The Connection being dragged out of a Handle. Without a target it ends at the pointer.
-    const Editor::Preview &preview = m_editor->preview();
-    const Node *from = document.node(preview.from);
-    if (preview.active && from) {
-        const Node *target = document.node(preview.target);
-        const QRectF to = target ? target->rect : QRectF(preview.to, QSizeF(0, 0));
+    const auto &preview = m_editor->connectionPreview();
+    const Node *from = preview ? document.node(preview->fromNode) : nullptr;
+    if (from) {
+        const Node *target = document.node(preview->targetNode);
+        const QRectF to = target ? target->rect : QRectF(preview->pointer, QSizeF(0, 0));
         Connection c;
-        c.toSide = preview.side;
+        c.toSide = preview->targetSide;
         CanvasPainter::drawConnection(*painter, Geometry::route(from->rect, to, c), c, palette, true);
     }
 }

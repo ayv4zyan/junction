@@ -1,0 +1,74 @@
+#pragma once
+
+// The Canvas being edited: its Document, the file it is saved to, and its undo history.
+//
+// Every change is a Transaction pushed here; it goes on the undo stack and the file is saved
+// shortly afterwards. Each file keeps its undo history while the app runs, so switching to
+// another Canvas and back loses nothing, unless the file was changed outside the app meanwhile.
+// A file that can't be read is shown as an empty Canvas with a load error, and is never
+// written to, so it stays as it was.
+
+#include "Document.h"
+
+#include <QDateTime>
+#include <QHash>
+#include <QObject>
+#include <QTimer>
+#include <QUndoGroup>
+
+class QUndoStack;
+
+class OpenCanvas : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit OpenCanvas(QObject *parent = nullptr);
+    ~OpenCanvas() override;   // saves what is still waiting to be saved
+
+    const Document &document() const { return m_document; }
+    QString filePath() const { return m_filePath; }
+    QString loadError() const { return m_loadError; }   // "" while the Canvas can be edited
+    bool canUndo() const { return m_history.canUndo(); }
+    bool canRedo() const { return m_history.canRedo(); }
+
+    // Saves the Canvas open so far, then shows the one in `path`.
+    void open(const QString &path);
+    // Shows no file at all: an empty Canvas that can't be edited, with `reason` as the load error.
+    void openNothing(const QString &reason);
+
+    // Puts the Transaction on the undo stack (changes that change nothing are left out) and
+    // schedules a save. Ignored while there is a load error.
+    void push(const Transaction &transaction, const QString &text);
+    void undo();
+    void redo();
+
+    // Shows the items as they are without an undo step, for the drag in progress. Its final
+    // state must then be pushed as a Transaction from where the drag began.
+    void showUncommitted(const QVector<Item> &items);
+
+    void save();          // now
+    void savePending();   // now, if a change is waiting to be saved
+
+    // The Library renamed, moved or deleted a file: the history and the open file follow.
+    void fileMoved(const QString &oldPath, const QString &newPath);
+    void fileRemoved(const QString &path);
+
+signals:
+    void opened();   // another file is shown (or none); the Document was replaced
+    void filePathChanged();
+    void historyChanged();
+    void errorOccurred(const QString &message);
+
+private:
+    void setFilePath(const QString &path);
+    void activateHistory(const QString &path);
+
+    Document m_document;
+    QString m_filePath;
+    QString m_loadError;
+    QUndoGroup m_history;                      // forwards undo/redo to the open file's stack
+    QHash<QString, QUndoStack *> m_stacks;     // by file path
+    QHash<QString, QDateTime> m_lastWritten;   // when each file was last loaded or saved by us
+    QTimer m_saveTimer;
+};

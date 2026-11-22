@@ -7,6 +7,8 @@ endfunction()
 junction_test(tst_document)
 junction_test(tst_geometry)
 junction_test(tst_library)
+junction_test(tst_open_canvas)
+junction_test(tst_fragment)
 
 # The Editor lives in the app, so its test builds the Editor's sources too.
 qt_add_executable(tst_editor tst_editor.cpp

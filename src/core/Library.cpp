@@ -575,29 +575,50 @@ bool Library::deleteProject(const QString &projectName)
     if (i < 0)
         return false;
     emit aboutToChange();
-    // There is always a Project: the last one is replaced by a new empty one. It is made first,
-    // so that where the folder can't be written nothing is deleted.
-    const bool last = m_projects.size() == 1;
-    if (last && addProject(i + 1).isEmpty())
+    if (m_projects.size() == 1)
+        return replaceLastProject();
+    if (!trashProject(i))
+        return false;
+    if (m_currentProject == projectName) {   // the Project that took its place, or the one before
+        const ProjectEntry &next = m_projects[qMin(i, m_projects.size() - 1)];
+        setCurrent(next.name, next.canvases.first().name);
+    }
+    saveAndAnnounce();
+    return true;
+}
+
+// There is always a Project, so the last one is replaced by a new empty one. That one is made
+// first, so that where the folder can't be written nothing is deleted. It gets a free name
+// ("Untitled 2"), and takes "Untitled" once the old one is gone, if it can.
+bool Library::replaceLastProject()
+{
+    const QString replacement = addProject(1);
+    if (replacement.isEmpty())
         return false;   // errorOccurred has said why
-    const QString path = projectPath(projectName);
-    if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
-        emit errorOccurred(tr("Could not move “%1” to the trash.").arg(projectName));
-        if (last)
-            QDir(projectPath(m_projects.takeAt(i + 1).name)).removeRecursively();
+    if (!trashProject(0)) {
+        QDir(projectPath(replacement)).removeRecursively();
+        m_projects.removeLast();
         return false;
     }
-    const ProjectEntry removed = m_projects.takeAt(i);
-    for (const CanvasEntry &c : removed.canvases)
-        emit canvasRemoved(canvasPath(projectName, c.name));
-    // The replacement got a free name ("Untitled 2"); now "Untitled" may be free again.
-    ProjectEntry &next = m_projects[qMin(i, m_projects.size() - 1)];
-    if (last && next.name != NewName && projectIndex(NewName) < 0
-        && renamePath(projectPath(next.name), projectPath(NewName)))
-        next.name = NewName;
-    if (m_currentProject == projectName)
-        setCurrent(next.name, next.canvases.first().name);
+    ProjectEntry &project = m_projects.first();
+    if (project.name != NewName && renamePath(projectPath(project.name), projectPath(NewName)))
+        project.name = NewName;
+    setCurrent(project.name, project.canvases.first().name);
     saveAndAnnounce();
+    return true;
+}
+
+// Moves the Project's folder to the trash and takes it out of the list.
+bool Library::trashProject(int index)
+{
+    const QString name = m_projects[index].name;
+    const QString path = projectPath(name);
+    if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
+        emit errorOccurred(tr("Could not move “%1” to the trash.").arg(name));
+        return false;
+    }
+    for (const CanvasEntry &c : m_projects.takeAt(index).canvases)
+        emit canvasRemoved(canvasPath(name, c.name));
     return true;
 }
 

@@ -122,6 +122,8 @@ private:
     void saveAndAnnounce();
     void announceCurrent();
     QString addCanvas(ProjectEntry *project, int at, const CanvasEntry &entry);
+    bool replaceLastProject();
+    bool trashProject(int index);
     QString addProject(int at);
 
     QString m_root;

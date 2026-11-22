@@ -8,7 +8,8 @@ import Junction
 // Coordinates: "world" coordinates are canvas units stored in the file; "screen" coordinates
 // are pixels in this item. screen = world * zoom + pan.
 //
-// Layers, bottom to top: grid, Groups, Connections, Cards, selected Connection handles.
+// Layers, bottom to top: grid, Groups, Connections, Cards, selected Connection handles,
+// the label editor.
 Item {
     id: view
     required property Editor editor
@@ -16,6 +17,7 @@ Item {
     property real zoom: 1
     property point pan: Qt.point(0, 0)
     property string editingId: ""        // Card or Group whose text is being edited
+    property string labelingId: ""       // Connection whose label is being edited
     property string connectFrom: ""      // Card a new Connection is being dragged from
     property string dropTarget: ""       // node under the pointer while dragging a Connection
     property bool connectCancelled: false
@@ -115,15 +117,13 @@ Item {
 
     // ---- Connection labels ----
 
+    // Opens the LabelEditor on a Connection.
     function editLabel(connectionId) {
+        if (labelingId === connectionId)
+            return              // already open: keep what has been typed
+        forceActiveFocus()      // first ends any other text editing
         editor.select(connectionId)
-        const info = editor.selectedConnection
-        labelEditor.connectionId = connectionId
-        labelEditor.worldPosition = info.labelPosition
-        labelEditor.text = info.label
-        labelEditor.visible = true
-        labelEditor.forceActiveFocus()
-        labelEditor.selectAll()
+        labelingId = connectionId
     }
 
     Keys.onPressed: (event) => {
@@ -186,6 +186,10 @@ Item {
         target: view.editor
         function onDocumentLoaded() {
             view.editingId = ""
+            if (view.labelingId) {   // the Connection belonged to the Canvas shown before
+                view.labelingId = ""
+                view.forceActiveFocus()
+            }
             const saved = view.editor.savedView()
             if (saved.zoom) {
                 view.autoFit = false
@@ -322,6 +326,7 @@ Item {
     ConnectionLayer {
         anchors.fill: parent
         editor: view.editor
+        hiddenLabel: view.labelingId
         zoom: view.zoom
         pan: view.pan
         colors: Theme.palette
@@ -338,6 +343,7 @@ Item {
             delegate: CardItem { canvas: view }
         }
         ConnectionOverlay { canvas: view }
+        LabelEditor { canvas: view }
     }
 
     Rectangle {
@@ -345,26 +351,6 @@ Item {
         visible: false
         color: Qt.alpha(Theme.selection, 0.12)
         border.color: Theme.selection
-    }
-
-    TextField {
-        id: labelEditor
-        property string connectionId
-        property point worldPosition   // follows pan and zoom while open
-        visible: false
-        x: view.toScreen(worldPosition).x - width / 2
-        y: view.toScreen(worldPosition).y - height / 2
-        width: 200
-        placeholderText: qsTr("Label")
-        horizontalAlignment: TextInput.AlignHCenter
-        onAccepted: view.forceActiveFocus()
-        onActiveFocusChanged: {
-            if (!activeFocus && visible) {
-                view.editor.setConnectionLabel(connectionId, text)
-                visible = false
-            }
-        }
-        Keys.onEscapePressed: view.forceActiveFocus()
     }
 
     Menu {

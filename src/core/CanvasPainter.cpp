@@ -1,6 +1,7 @@
 #include "CanvasPainter.h"
 
 #include <QAbstractTextDocumentLayout>
+#include <QFontMetricsF>
 #include <QImage>
 #include <QPainter>
 #include <QSvgGenerator>
@@ -12,6 +13,9 @@ constexpr qreal CardRadius = 8;
 constexpr qreal CardPadding = 12;
 constexpr qreal ArrowLength = 12;
 constexpr qreal LineWidth = 2;
+constexpr int LabelFontSize = 13;      // LabelEditor.qml uses the same sizes
+constexpr qreal LabelPaddingX = 6;
+constexpr qreal LabelPaddingY = 3;
 
 // The application font at a pixel size, matching the sizes used in QML.
 QFont font(int pixelSize, QFont::Weight weight = QFont::Normal)
@@ -104,7 +108,7 @@ void drawGrid(QPainter &painter, const QTransform &view, const QSizeF &screenSiz
 }
 
 void drawConnection(QPainter &painter, const Geometry::Route &route, const Connection &connection,
-                    const Palette &palette, bool selected)
+                    const Palette &palette, bool selected, bool showLabel)
 {
     const QColor color = selected ? palette.selection : palette.resolve(connection.color, palette.line);
 
@@ -117,16 +121,24 @@ void drawConnection(QPainter &painter, const Geometry::Route &route, const Conne
     if (connection.fromArrow)
         drawArrowhead(painter, route.start, route.startDirection, color);
 
-    if (!connection.label.isEmpty()) {
-        painter.setFont(font(13));
-        const QRectF textRect = painter.fontMetrics().boundingRect(connection.label).adjusted(-6, -3, 6, 3);
-        const QRectF box(route.labelPosition - textRect.center(), textRect.size());
+    if (showLabel && !connection.label.isEmpty()) {
+        const QRectF box = labelRect(route, connection.label);
         painter.setPen(Qt::NoPen);
         painter.setBrush(palette.background);
         painter.drawRoundedRect(box, 4, 4);
+        painter.setFont(font(LabelFontSize));
         painter.setPen(palette.text);
         painter.drawText(box, Qt::AlignCenter, connection.label);
     }
+}
+
+QRectF labelRect(const Geometry::Route &route, const QString &label)
+{
+    if (label.isEmpty())
+        return {};
+    const QSizeF text = QFontMetricsF(font(LabelFontSize)).boundingRect(QRectF(), Qt::AlignCenter, label).size();
+    const QSizeF box = text + QSizeF(2 * LabelPaddingX, 2 * LabelPaddingY);
+    return QRectF(route.labelPosition - QPointF(box.width() / 2, box.height() / 2), box);
 }
 
 void drawNode(QPainter &painter, const Node &node, const Palette &palette)

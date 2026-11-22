@@ -34,9 +34,14 @@ namespace CanvasPainter {
 void drawGrid(QPainter &painter, const QTransform &view, const QSizeF &screenSize, const Palette &palette);
 
 // These draw in world coordinates (set the painter's transform first).
+// `showLabel` is false while the label is being edited: the editor takes its place.
 void drawConnection(QPainter &painter, const Geometry::Route &route, const Connection &connection,
-                    const Palette &palette, bool selected);
+                    const Palette &palette, bool selected, bool showLabel = true);
 void drawNode(QPainter &painter, const Node &node, const Palette &palette);
+
+// The box a Connection's label is drawn in, centred on the route's label position (world
+// coordinates). Empty when there is no label.
+QRectF labelRect(const Geometry::Route &route, const QString &label);
 
 // Writes PNG or SVG depending on the file extension. Empty `onlyIds` means the whole Canvas.
 bool exportCanvas(const Document &document, const QStringList &onlyIds, const QString &path,

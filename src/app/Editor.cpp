@@ -217,6 +217,7 @@ QVariantMap Editor::selectedConnection() const
         {"start", route.start},
         {"end", route.end},
         {"labelPosition", route.labelPosition},
+        {"labelRect", CanvasPainter::labelRect(route, c->label)},
     };
 }
 
@@ -531,7 +532,11 @@ QString Editor::connectionAt(QPointF point, qreal tolerance) const
     for (auto it = connections.crbegin(); it != connections.crend(); ++it) {
         const Node *from = m_document.node(it->fromNode);
         const Node *to = m_document.node(it->toNode);
-        if (from && to && Geometry::hits(Geometry::route(from->rect, to->rect, *it), point, tolerance))
+        if (!from || !to)
+            continue;
+        // The label counts too: it can stick out far from the line.
+        const Geometry::Route route = Geometry::route(from->rect, to->rect, *it);
+        if (Geometry::hits(route, point, tolerance) || CanvasPainter::labelRect(route, it->label).contains(point))
             return it->id;
     }
     return {};
@@ -629,10 +634,11 @@ void Editor::setArrows(bool fromArrow, bool toArrow)
 void Editor::setConnectionLabel(const QString &connectionId, const QString &label)
 {
     const Connection *existing = m_document.connection(connectionId);
-    if (!existing || existing->label == label)
+    const QString trimmed = label.trimmed();   // a label of only spaces would be an empty box
+    if (!existing || existing->label == trimmed)
         return;
     Connection c = *existing;
-    c.label = label;
+    c.label = trimmed;
     commit({{*existing, c}}, tr("Edit label"));
 }
 

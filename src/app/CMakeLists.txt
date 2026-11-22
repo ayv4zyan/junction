@@ -11,6 +11,7 @@ qt_add_qml_module(junction
         qml/CardItem.qml
         qml/GroupItem.qml
         qml/ConnectionOverlay.qml
+        qml/LabelEditor.qml
         qml/SelectionBar.qml
         qml/DragArea.qml
         qml/Dot.qml

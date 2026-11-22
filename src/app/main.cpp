@@ -1,11 +1,9 @@
 #include "Editor.h"
 #include "LibraryRows.h"
+#include "SingleInstance.h"
 #include "JunctionDesign.h"
 
-#include <QCryptographicHash>
 #include <QGuiApplication>
-#include <QLocalServer>
-#include <QLocalSocket>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQuickWindow>
@@ -14,6 +12,19 @@
 #include <QtQml/qqmlextensionplugin.h>
 
 Q_IMPORT_QML_PLUGIN(JunctionDesignPlugin)
+
+// Brings the window forward for a later launch. Qt's Wayland support takes the launch's
+// activation token from XDG_ACTIVATION_TOKEN when the window asks to be activated.
+static void bringForward(QQuickWindow *window, const QByteArray &activationToken)
+{
+    if (!activationToken.isEmpty())
+        qputenv("XDG_ACTIVATION_TOKEN", activationToken);
+    window->setWindowStates(window->windowStates() & ~Qt::WindowMinimized);
+    window->show();
+    window->raise();
+    window->requestActivate();
+    window->alert(0);   // where focus can't be taken, at least ask for attention
+}
 
 int main(int argc, char *argv[])
 {
@@ -26,25 +37,11 @@ int main(int argc, char *argv[])
     JunctionDesign::installFonts();
     QQuickStyle::setStyle("JunctionDesign");   // plain Button, Menu, ... get the design system's look
 
-    // One running app per Library: two would overwrite each other's index. A second launch
-    // connects to the first, which brings its window forward, and then quits. The message is
-    // the launcher's activation token (Wayland only lets a window take focus with one).
     const QString libraryFolder = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/Library";
-    const QByteArray libraryHash = QCryptographicHash::hash(libraryFolder.toUtf8(), QCryptographicHash::Sha1);
-    const QString serverName = "junction-" + QString::fromLatin1(libraryHash.toHex().left(12));
-    {
-        QLocalSocket running;
-        running.connectToServer(serverName);
-        if (running.waitForConnected(500)) {
-            running.write(qgetenv("XDG_ACTIVATION_TOKEN"));
-            running.waitForBytesWritten(500);
-            return 0;
-        }
-    }
-    QLocalServer::removeServer(serverName);   // a socket left behind by a crash
-    QLocalServer server;
-    if (!server.listen(serverName))
-        qWarning("Junction: %s; a second launch will not find this one", qPrintable(server.errorString()));
+    SingleInstance instance(libraryFolder);
+    if (instance.handOverToRunning())
+        return 0;
+    instance.listen();
 
     // These outlive the engine, which is destroyed first.
     Library library(libraryFolder);
@@ -60,22 +57,9 @@ int main(int argc, char *argv[])
     });
     engine.loadFromModule("Junction", "Main");
 
-    QObject::connect(&server, &QLocalServer::newConnection, &app, [&] {
-        while (QLocalSocket *socket = server.nextPendingConnection()) {
-            QObject::connect(socket, &QLocalSocket::disconnected, socket, [&engine, socket] {
-                const QByteArray token = socket->readAll();
-                if (!token.isEmpty())
-                    qputenv("XDG_ACTIVATION_TOKEN", token);
-                if (auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0))) {
-                    window->setWindowStates(window->windowStates() & ~Qt::WindowMinimized);
-                    window->show();
-                    window->raise();
-                    window->requestActivate();
-                    window->alert(0);   // where focus can't be taken, at least ask for attention
-                }
-                socket->deleteLater();
-            });
-        }
+    QObject::connect(&instance, &SingleInstance::activated, &app, [&engine](const QByteArray &token) {
+        if (auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0)))
+            bringForward(window, token);
     });
     return app.exec();
 }

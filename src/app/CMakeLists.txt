@@ -36,6 +36,7 @@ qt_add_qml_module(junction
         Editor.h Editor.cpp
         LibraryRows.h LibraryRows.cpp
         CoreTypes.h
+        SingleInstance.h SingleInstance.cpp
         NodeModel.h NodeModel.cpp
         CanvasLayers.h CanvasLayers.cpp
 )

@@ -249,6 +249,7 @@ private:
     template <typename Moved>
     void showDrag(Moved moved);   // every dragged item becomes moved(item as the drag began)
     void endDrag(const QString &text);
+    void cancelDrag();
     void showDraggedWaypointAt(QPointF point);
 
     template <typename EditNode, typename EditConnection>

@@ -45,8 +45,11 @@ Editor::Editor(Library *library, QObject *parent)
     : QObject(parent), m_library(library)
 {
     // The open Canvas follows the Library. Before the Library changes files or opens another
-    // Canvas, the open one is saved.
-    connect(m_library, &Library::aboutToChange, &m_canvas, &OpenCanvas::savePending);
+    // Canvas, the open one is saved, without a drag still in progress.
+    connect(m_library, &Library::aboutToChange, this, [this] {
+        cancelDrag();
+        m_canvas.savePending();
+    });
     connect(m_library, &Library::currentChanged, this, &Editor::loadCurrent);
     connect(m_library, &Library::canvasMoved, &m_canvas, &OpenCanvas::fileMoved);
     connect(m_library, &Library::canvasRemoved, &m_canvas, &OpenCanvas::fileRemoved);
@@ -367,6 +370,19 @@ void Editor::showDrag(Moved moved)
         items.append(*change.after);
     }
     m_canvas.showUncommitted(items);
+}
+
+// Puts the dragged items back where the drag began, without an undo step.
+void Editor::cancelDrag()
+{
+    if (!m_drag)
+        return;
+    QVector<Item> originals;
+    for (const Change &change : std::as_const(m_drag->changes))
+        originals.append(*change.before);
+    m_canvas.showUncommitted(originals);
+    m_drag.reset();
+    emit draggingChanged();
 }
 
 void Editor::endDrag(const QString &text)
@@ -726,6 +742,7 @@ void Editor::loadCurrent()
     const QString path = m_library->currentPath();
     if (path == m_canvas.filePath() && !path.isEmpty())
         return;   // the open file was only renamed or moved; OpenCanvas::fileMoved() has followed it
+    cancelDrag();
     setSelection({});
     clearConnectionPreview();
     if (path.isEmpty())

@@ -265,6 +265,20 @@ private slots:
         QCOMPARE(errors.size(), 1);
     }
 
+    // A Project remembers the Canvas last open in it; one that moved away is no longer it.
+    void movingTheOpenCanvasUpdatesBothProjects()
+    {
+        Library library(m_root);
+        library.load();
+        library.createCanvas("Untitled");   // Untitled 2, open
+        library.createProject();            // Untitled 2 (Project)
+        library.open("Untitled", "Untitled 2");
+        QCOMPARE(library.moveCanvas("Untitled", "Untitled 2", "Untitled 2", 0), QString("Untitled 2"));
+        QCOMPARE(library.lastCanvas("Untitled 2"), QString("Untitled 2"));
+        QCOMPARE(library.lastCanvas("Untitled"), QString("Untitled"));
+        QCOMPARE(library.currentProject(), QString("Untitled 2"));
+    }
+
     void reorderingCountsPositionsBeforeTheMove()
     {
         Library library(m_root);

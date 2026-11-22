@@ -1,6 +1,7 @@
 #include "Editor.h"
 
 #include <QClipboard>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -206,6 +207,24 @@ private slots:
         m_editor->deleteSelection();
         QVERIFY(m_editor->document().node(a));
         m_editor->endMove();
+    }
+
+    // Opening another Canvas mid-drag drops the drag: its release must not commit the old
+    // Canvas's items into the new one.
+    void openingAnotherCanvasCancelsTheDrag()
+    {
+        const QString a = m_editor->createCard({0, 0});
+        const QString first = m_library->currentPath();
+        m_editor->beginMove(a);
+        m_editor->updateMove({200, 0}, false);
+        m_library->createCanvas(m_library->currentProject());
+        QVERIFY(!m_editor->isDragging());
+        m_editor->endMove();
+        QVERIFY(m_editor->document().nodes().isEmpty());
+        QVERIFY(!m_editor->canUndo());
+
+        m_library->open(m_library->currentProject(), QFileInfo(first).completeBaseName());
+        QCOMPARE(m_editor->document().node(a)->rect.left(), -120.0);   // where it was before the drag
     }
 
     void resizingKeepsAMinimumSize()

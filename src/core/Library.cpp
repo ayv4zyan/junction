@@ -154,10 +154,9 @@ QJsonObject Library::readIndex()
         return json.object();
     file.close();
     const QString broken = path + QStringLiteral(".broken");
-    QFile::remove(broken);
-    QFile::copy(path, broken);
-    emit errorOccurred(tr("The library index couldn't be read, so the order of projects and canvases was reset. "
-                          "The old index was kept as %1.").arg(broken));
+    const bool kept = (!QFile::exists(broken) || QFile::remove(broken)) && QFile::copy(path, broken);
+    const QString reset = tr("The library index couldn't be read, so the order of projects and canvases was reset.");
+    emit errorOccurred(kept ? reset + ' ' + tr("The old index was kept as %1.").arg(broken) : reset);
     return {};
 }
 
@@ -591,24 +590,28 @@ bool Library::deleteProject(const QString &projectName)
     if (i < 0)
         return false;
     emit aboutToChange();
+    // There is always a Project: the last one is replaced by a new empty one. It is made first,
+    // so that where the folder can't be written nothing is deleted.
+    const bool last = m_projects.size() == 1;
+    if (last && addProject(i + 1).isEmpty())
+        return false;   // errorOccurred has said why
     const QString path = projectPath(projectName);
     if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
         emit errorOccurred(tr("Could not move “%1” to the trash.").arg(projectName));
+        if (last)
+            QDir(projectPath(m_projects.takeAt(i + 1).name)).removeRecursively();
         return false;
     }
     const ProjectEntry removed = m_projects.takeAt(i);
     for (const CanvasEntry &c : removed.canvases)
         emit canvasRemoved(canvasPath(projectName, c.name));
-    if (m_projects.isEmpty() && addProject(0).isEmpty()) {
-        m_currentProject.clear();
-        m_currentCanvas.clear();
-        saveAndAnnounce();
-        return true;
-    }
-    if (m_currentProject == projectName) {
-        const ProjectEntry &next = m_projects[qMin(i, m_projects.size() - 1)];
+    // The replacement got a free name ("Untitled 2"); now "Untitled" may be free again.
+    ProjectEntry &next = m_projects[qMin(i, m_projects.size() - 1)];
+    if (last && next.name != NewName && projectIndex(NewName) < 0
+        && renamePath(projectPath(next.name), projectPath(NewName)))
+        next.name = NewName;
+    if (m_currentProject == projectName)
         setCurrent(next.name, next.canvases.first().name);
-    }
     saveAndAnnounce();
     return true;
 }
@@ -661,11 +664,11 @@ QString Library::moveCanvas(const QString &projectName, const QString &canvas, c
     entry.name = name;
     target->canvases.insert(qBound(0, toIndex, target->canvases.size()), entry);
     target->expanded = true;
+    if (source->lastCanvas == canvas)
+        source->lastCanvas.clear();   // lastCanvas() falls back to its first Canvas
     emit canvasMoved(oldPath, newPath);
-    if (m_currentProject == projectName && m_currentCanvas == canvas) {
-        m_currentProject = toProject;
-        m_currentCanvas = name;
-    }
+    if (m_currentProject == projectName && m_currentCanvas == canvas)
+        setCurrent(toProject, name);   // also the target's lastCanvas
     saveAndAnnounce();
     return name;
 }

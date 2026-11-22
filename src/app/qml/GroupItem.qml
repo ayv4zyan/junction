@@ -3,30 +3,12 @@ import QtQuick
 import QtQuick.Controls
 import Junction
 import JunctionDesign
-import "CanvasColors.js" as CanvasColors
 
 // One Group: a tinted area with a label above it. Drag the label to move the Group together
 // with every Card inside it; double-click the label to rename it.
-Item {
+NodeItem {
     id: group
-    required property CanvasView canvasView
-    required property string nodeId
-    required property real nodeX
-    required property real nodeY
-    required property real nodeWidth
-    required property real nodeHeight
     required property string nodeLabel
-    required property string nodeColor
-
-    readonly property Editor editor: canvasView.editor
-    readonly property bool selected: editor.selection.includes(nodeId)
-    readonly property bool editing: canvasView.editingId === nodeId
-    readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
-
-    x: nodeX
-    y: nodeY
-    width: nodeWidth
-    height: nodeHeight
 
     function finishEditing(text) {
         editor.setLabel(nodeId, text)
@@ -37,8 +19,8 @@ Item {
         anchors.fill: parent
         radius: Sizes.radius
         color: Qt.alpha(group.accent, Colors.groupTint)
-        border.color: group.selected ? Colors.selection : group.accent
-        border.width: group.selected ? 2 : 1.5
+        border.color: group.borderColor
+        border.width: group.borderWidth
     }
 
     Rectangle {

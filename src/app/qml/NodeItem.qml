@@ -1,0 +1,29 @@
+import QtQuick
+import Junction
+import JunctionDesign
+import "CanvasColors.js" as CanvasColors
+
+// What every Card and Group on the canvas has: it sits at its node's rectangle, can be
+// selected and edited in place, and has its color. CardItem and GroupItem build on it.
+Item {
+    required property CanvasView canvasView
+    required property string nodeId
+    required property real nodeX
+    required property real nodeY
+    required property real nodeWidth
+    required property real nodeHeight
+    required property string nodeColor
+
+    readonly property Editor editor: canvasView.editor
+    readonly property bool selected: editor.selection.includes(nodeId)
+    readonly property bool editing: canvasView.editingId === nodeId
+    readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
+    // The outline: the selection color while selected, otherwise the node's own.
+    readonly property color borderColor: selected ? Colors.selection : accent
+    readonly property real borderWidth: selected ? 2 : 1.5
+
+    x: nodeX
+    y: nodeY
+    width: nodeWidth
+    height: nodeHeight
+}

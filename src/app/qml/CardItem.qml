@@ -3,36 +3,19 @@ import QtQuick
 import QtQuick.Controls
 import Junction
 import JunctionDesign
-import "CanvasColors.js" as CanvasColors
 
 // One Card: Markdown text, Handles on hover, drag to move, double-click to edit.
-Item {
+NodeItem {
     id: card
-    required property CanvasView canvasView
-    required property string nodeId
     required property int nodeKind   // a CanvasEnums.NodeKind
-    required property real nodeX
-    required property real nodeY
-    required property real nodeWidth
-    required property real nodeHeight
     required property string nodeText          // the Markdown, as typed
     required property string nodeDisplayText   // what the card shows (see NodeModel)
-    required property string nodeColor
 
-    readonly property Editor editor: canvasView.editor
     readonly property bool isText: nodeKind === CanvasEnums.NodeKind.Text   // otherwise Unsupported: shown, never edited
-    readonly property bool selected: editor.selection.includes(nodeId)
-    readonly property bool editing: canvasView.editingId === nodeId
-    readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
     property int hoveredHandles: 0
     readonly property bool showHandles: !editing && (body.containsMouse || resizeEdges.hovered || hoveredHandles > 0
                                                      || canvasView.connectFrom === nodeId
                                                      || canvasView.dropTarget === nodeId)
-
-    x: nodeX
-    y: nodeY
-    width: nodeWidth
-    height: nodeHeight
 
     function finishEditing(text) {
         editor.setCardText(nodeId, text)
@@ -43,8 +26,8 @@ Item {
         anchors.fill: parent
         radius: Sizes.radius
         color: card.nodeColor ? Qt.tint(Colors.cardFill, Qt.alpha(card.accent, Colors.cardTint)) : Colors.cardFill
-        border.color: card.selected ? Colors.selection : card.accent
-        border.width: card.selected ? 2 : 1.5
+        border.color: card.borderColor
+        border.width: card.borderWidth
     }
 
     // While editing, a click in the card's padding keeps the cursor in the text, and a
@@ -170,15 +153,15 @@ Item {
 
     // Handles: drag from one to create a Connection.
     Repeater {
-        model: ["top", "right", "bottom", "left"]
+        // Where each Handle sits, as a fraction of the card's size: top, right, bottom, left.
+        model: [Qt.point(0.5, 0), Qt.point(1, 0.5), Qt.point(0.5, 1), Qt.point(0, 0.5)]
         delegate: Dot {
             id: handle
-            required property string modelData
+            required property point modelData
             canvasView: card.canvasView
             visible: card.showHandles
             filled: handleMouse.containsMouse
-            center: Qt.point(modelData === "left" ? 0 : modelData === "right" ? card.width : card.width / 2,
-                             modelData === "top" ? 0 : modelData === "bottom" ? card.height : card.height / 2)
+            center: Qt.point(modelData.x * card.width, modelData.y * card.height)
 
             MouseArea {
                 id: handleMouse

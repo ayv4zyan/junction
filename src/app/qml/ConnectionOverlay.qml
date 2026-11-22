@@ -4,7 +4,8 @@ import Junction
 
 // Handles of the selected Connection, in canvas coordinates:
 //  - hollow dots in the middle of each span: drag to create a Waypoint there,
-//    double-click to edit the label
+//    double-click to edit the label. A dot under the label would cover its text, so there
+//    the label itself is the handle and the dot is not shown.
 //  - filled dots on Waypoints: drag to move, double-click to remove
 //  - dots on both ends: drag onto a card to re-attach (onto a Handle to pin that side)
 Item {
@@ -32,6 +33,13 @@ Item {
         }
     }
 
+    // Whether a point is on the label (empty when there is none).
+    function onLabel(x, y) {
+        const r = info.labelRect
+        return r !== undefined && r.width > 0
+               && x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height
+    }
+
     onInfoChanged: {
         sync(midpoints, info.midpoints)
         sync(waypoints, info.waypoints)
@@ -44,16 +52,21 @@ Item {
             required property int index
             required property real px
             required property real py
+            readonly property bool onLabel: overlay.onLabel(px, py)
             canvas: overlay.canvas
             center: Qt.point(px, py)
             filled: false
             screenRadius: 5
-            opacity: overlay.draggingWaypoint ? 0 : 1
+            opacity: overlay.draggingWaypoint || onLabel ? 0 : 1   // still takes the mouse
 
             DragArea {
+                readonly property real margin: 4 / overlay.canvas.zoom
                 canvas: overlay.canvas
-                anchors.fill: parent
-                anchors.margins: -4 / overlay.canvas.zoom
+                // the dot plus a margin, or the whole label (in the dot's coordinates)
+                x: midpoint.onLabel ? overlay.info.labelRect.x - midpoint.x : -margin
+                y: midpoint.onLabel ? overlay.info.labelRect.y - midpoint.y : -margin
+                width: midpoint.onLabel ? overlay.info.labelRect.width : midpoint.width + 2 * margin
+                height: midpoint.onLabel ? overlay.info.labelRect.height : midpoint.height + 2 * margin
                 cursorShape: Qt.SizeAllCursor   // dragging it adds a Waypoint
                 onDragStarted: { overlay.draggingWaypoint = true; overlay.editor.beginWaypointDrag(overlay.info.id, midpoint.index, true) }
                 onDragged: (delta, invertSnap) => overlay.editor.updateWaypointDrag(delta, invertSnap)

@@ -26,9 +26,6 @@ struct Route
 QPointF sidePoint(const QRectF &rect, Side side);
 QPointF sideNormal(Side side);   // unit vector pointing out of the card
 
-// The side of `rect` that faces `toward`.
-Side facingSide(const QRectF &rect, QPointF toward);
-
 // Where the line from the centre of `rect` towards `toward` crosses its border.
 QPointF borderPoint(const QRectF &rect, QPointF toward);
 

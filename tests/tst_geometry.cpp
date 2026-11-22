@@ -25,6 +25,18 @@ class TestGeometry : public QObject
         return true;
     }
 
+    // Whether a path turns right round somewhere and runs back along itself.
+    static bool doublesBack(const QPainterPath &path)
+    {
+        for (int i = 2; i < path.elementCount(); ++i) {
+            const QPointF a = path.elementAt(i - 2), b = path.elementAt(i - 1), c = path.elementAt(i);
+            const QPointF ab = b - a, bc = c - b;
+            if (ab.x() * bc.x() + ab.y() * bc.y() < 0)
+                return true;
+        }
+        return false;
+    }
+
 private slots:
     void floatingEndsFaceEachOther()
     {
@@ -87,6 +99,8 @@ private slots:
         QTest::newRow("side by side") << QRectF(300, 40, 100, 50) << QVector<QPointF>{};
         QTest::newRow("diagonal") << QRectF(300, 300, 100, 50) << QVector<QPointF>{};
         QTest::newRow("waypoints") << QRectF(300, 300, 100, 50) << QVector<QPointF>{{150, -100}, {500, 100}};
+        QTest::newRow("waypoint below the gap") << QRectF(300, 0, 100, 50) << QVector<QPointF>{{200, 300}};
+        QTest::newRow("waypoint above, then below") << QRectF(400, 0, 100, 50) << QVector<QPointF>{{200, -200}, {300, 300}};
     }
 
     void elbowIsOrthogonal()
@@ -95,6 +109,7 @@ private slots:
         QFETCH(QVector<QPointF>, waypoints);
         const auto route = Geometry::route({0, 0, 100, 50}, to, connection(PathStyle::Elbow, waypoints));
         QVERIFY(isOrthogonal(route.path));
+        QVERIFY(!doublesBack(route.path));
         QCOMPARE(route.midpoints.size(), waypoints.size() + 1);
     }
 
@@ -151,6 +166,17 @@ private slots:
             // both ends use the same side, so the line leaves and arrives in the same direction
             const auto [fromSide, toSide] = Geometry::resolveSides(card, to, connection(style));
             QCOMPARE(fromSide, toSide);
+        }
+    }
+
+    // Adding a Waypoint, wherever it is dragged, must not move a Floating End to another side.
+    void waypointsDontChangeFloatingSides()
+    {
+        const QRectF left(0, 0, 100, 50), right(400, 0, 100, 50);
+        for (QPointF waypoint : {QPointF(250, 300), QPointF(250, -300), QPointF(-200, 25)}) {
+            const auto [fromSide, toSide] = Geometry::resolveSides(left, right, connection(PathStyle::Elbow, {waypoint}));
+            QCOMPARE(fromSide, Side::Right);
+            QCOMPARE(toSide, Side::Left);
         }
     }
 

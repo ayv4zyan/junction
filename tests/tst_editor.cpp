@@ -122,6 +122,25 @@ private slots:
         QCOMPARE(info["labelTargets"].toStringList(), (QStringList{ids[2], ids[3]}));
         QCOMPARE(info["sharedLabel"].toString(), QString());   // "" and "Group" differ
     }
+
+    // What the floating selection toolbar is placed against, in world coordinates.
+    // Cards are 240x80 around where they were created.
+    void selectionBoundsCoverTheSelectedItems()
+    {
+        const QStringList ids = makeGroupedPair();
+        m_editor->clearSelection();
+        QVERIFY(m_editor->selectionBounds().isEmpty());
+
+        m_editor->select(ids[0]);
+        m_editor->select(ids[1], true);
+        QCOMPARE(m_editor->selectionBounds(), QRectF(-120, -40, 640, 80));
+
+        // a Connection alone: its line, from A's right side to B's left side
+        m_editor->select(ids[2]);
+        const QRectF line = m_editor->selectionBounds();
+        QCOMPARE(line.left(), 120.0);
+        QCOMPARE(line.right(), 280.0);
+    }
 };
 
 QTEST_MAIN(TestEditor)

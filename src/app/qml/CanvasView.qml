@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Junction
+import JunctionDesign
 
 // The unbounded canvas: pan and zoom, the layers, and background mouse input.
 //
@@ -24,6 +25,7 @@ Item {
     property point connectPress
     property bool spaceHeld: false
     readonly property real handleRadius: 14 / zoom   // how close to a Handle counts as "on" it
+    readonly property bool panning: background.mode === "pan"   // dragging the canvas around
 
     focus: true
     clip: true
@@ -148,7 +150,9 @@ Item {
         const info = editor.selectionInfo
         const targets = info.labelTargets
         if (targets.length > 1)
-            labelDialog.ask(targets.length, info.sharedLabel, (text) => editor.setLabels(text))
+            ask.text({ title: qsTr("Edit %1 labels").arg(targets.length), text: info.sharedLabel,
+                       placeholder: qsTr("Label"), action: qsTr("Save"),
+                       onAccepted: (text) => editor.setLabels(text) })
         else if (info.connections === 1)
             editLabel(targets[0])
         else
@@ -242,14 +246,14 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: Theme.background
+        color: Colors.background
     }
 
     GridLayer {
         anchors.fill: parent
         zoom: view.zoom
         pan: view.pan
-        colors: Theme.palette
+        colors: Colors.forPainter
     }
 
     // Clicks that hit no Card: pan, rubber-band selection, selecting Connections,
@@ -368,7 +372,7 @@ Item {
         hiddenLabel: view.labelingId
         zoom: view.zoom
         pan: view.pan
-        colors: Theme.palette
+        colors: Colors.forPainter
     }
 
     Item {
@@ -388,8 +392,8 @@ Item {
     Rectangle {
         id: rubberBand
         visible: false
-        color: Qt.alpha(Theme.selection, 0.12)
-        border.color: Theme.selection
+        color: Qt.alpha(Colors.selection, 0.12)
+        border.color: Colors.selection
     }
 
     // Right-click on empty space: make something here.
@@ -425,7 +429,7 @@ Item {
             onTriggered: view.editingId = view.editor.createGroup(view.pointerWorld())
         }
         MenuSeparator {}
-        MenuEntry { text: qsTr("Delete"); hint: "Del"; onTriggered: view.editor.deleteSelection() }
+        MenuEntry { text: qsTr("Delete"); hint: "Del"; destructive: true; onTriggered: view.editor.deleteSelection() }
     }
 
     // Right-click on a selection of only Connections.
@@ -445,10 +449,10 @@ Item {
             onTriggered: view.editor.removeConnectionLabels()
         }
         MenuSeparator {}
-        MenuEntry { text: qsTr("Delete"); hint: "Del"; onTriggered: view.editor.deleteSelection() }
+        MenuEntry { text: qsTr("Delete"); hint: "Del"; destructive: true; onTriggered: view.editor.deleteSelection() }
     }
 
-    LabelDialog { id: labelDialog }
+    AskDialog { id: ask }
 
     HoverHandler { id: hover }
 
@@ -462,7 +466,7 @@ Item {
         anchors.centerIn: parent
         visible: cardRepeater.count === 0 && groupRepeater.count === 0
         text: qsTr("Double-click anywhere to add a card")
-        color: Theme.mutedText
-        font.pixelSize: 16
+        color: Colors.mutedText
+        font.pixelSize: Fonts.title
     }
 }

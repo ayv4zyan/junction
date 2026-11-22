@@ -270,6 +270,22 @@ QVariantMap Editor::selectionInfo() const
     };
 }
 
+QRectF Editor::selectionBounds() const
+{
+    QRectF bounds;
+    for (const QString &id : m_selection) {
+        if (const Node *n = m_document.node(id)) {
+            bounds = bounds.united(n->rect);
+        } else if (const Connection *c = m_document.connection(id)) {
+            const Node *from = m_document.node(c->fromNode);
+            const Node *to = m_document.node(c->toNode);
+            if (from && to)
+                bounds = bounds.united(Geometry::route(from->rect, to->rect, *c).path.boundingRect());
+        }
+    }
+    return bounds;
+}
+
 // ---- Creating and editing ----
 
 Node Editor::newCard(QPointF center, const QString &text) const
@@ -378,6 +394,7 @@ void Editor::beginDrag(const QVector<Item> &items)
 {
     m_dragOriginal = items;
     m_dragCurrent = items;
+    emit draggingChanged();
 }
 
 void Editor::previewDrag(const QVector<Item> &items)
@@ -396,6 +413,7 @@ void Editor::endDrag(const QString &text)
     }
     m_dragOriginal.clear();
     m_dragCurrent.clear();
+    emit draggingChanged();
     commit(t, text);
 }
 
@@ -897,14 +915,17 @@ void Editor::save()
     saveNow();
 }
 
-void Editor::exportCanvas(const QUrl &url)
+bool Editor::exportCanvas(const QUrl &url)
 {
     QString path = url.toLocalFile();
     if (!path.endsWith(".canvas"))
         path += ".canvas";
     QString error;
-    if (!m_document.save(path, &error))
+    if (!m_document.save(path, &error)) {
         emit errorOccurred(tr("Could not save %1: %2").arg(path, error));
+        return false;
+    }
+    return true;
 }
 
 QVariantMap Editor::savedView() const
@@ -921,7 +942,7 @@ void Editor::rememberView(QPointF center, qreal zoom)
     m_viewSaveTimer.start();
 }
 
-void Editor::exportImage(const QUrl &url, const QVariantMap &palette)
+bool Editor::exportImage(const QUrl &url, const QVariantMap &palette)
 {
     // Exports the selection, or the whole Canvas when nothing is selected.
     QStringList ids;
@@ -933,8 +954,11 @@ void Editor::exportImage(const QUrl &url, const QVariantMap &palette)
         }
     }
     QString error;
-    if (!CanvasPainter::exportCanvas(m_document, ids, url.toLocalFile(), Palette::fromVariantMap(palette), &error))
+    if (!CanvasPainter::exportCanvas(m_document, ids, url.toLocalFile(), Palette::fromVariantMap(palette), &error)) {
         emit errorOccurred(error);
+        return false;
+    }
+    return true;
 }
 
 QRectF Editor::contentBounds() const

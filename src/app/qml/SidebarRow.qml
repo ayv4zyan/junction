@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Controls.impl
 import QtQuick.Layouts
 import Junction
+import JunctionDesign
 
 // One row of the sidebar: a Project (chevron, name, number of Canvases) or one of its Canvases.
 //   click: a Canvas opens; a Project opens the Canvas last open in it (and expands)
@@ -41,19 +42,25 @@ Item {
     Rectangle {
         id: background
         anchors.fill: parent
-        anchors.leftMargin: 6
-        anchors.rightMargin: 6
-        anchors.topMargin: 1
-        anchors.bottomMargin: 1
-        radius: 5
-        color: !row.isProject && row.current ? Theme.rowCurrent
+        anchors.leftMargin: row.sidebar.rowInset
+        anchors.rightMargin: row.sidebar.rowInset
+        color: !row.isProject && row.current ? Colors.current
              // a collapsed Project holding the open Canvas
-             : row.isProject && row.current && !row.expanded ? Qt.alpha(Theme.selection, 0.10)
-             : (row.hovered && !row.sidebar.dragging) || row.sidebar.menuRow === row.index ? Theme.rowHover
+             : row.isProject && row.current && !row.expanded ? Qt.alpha(Colors.selection, 0.10)
+             : (row.hovered && !row.sidebar.dragging) || row.sidebar.menuRow === row.index ? Colors.hover
              : "transparent"
+        Behavior on color { ColorAnimation { duration: Motion.fast } }
         // a collapsed Project a Canvas is being dropped into
         border.width: row.sidebar.drop && row.sidebar.drop.intoRow === row.index ? 1.5 : 0
-        border.color: Theme.selection
+        border.color: Colors.selection
+
+        // The open Canvas: an accent edge on the left, so "where am I" reads at a glance.
+        Rectangle {
+            visible: !row.isProject && row.current
+            width: 2
+            height: parent.height
+            color: Colors.selection
+        }
     }
 
     MouseArea {
@@ -103,39 +110,39 @@ Item {
     }
 
     RowLayout {
-        anchors.fill: background
-        anchors.leftMargin: row.isProject ? 2 : 22
-        anchors.rightMargin: 4
-        spacing: 4
+        anchors.fill: parent
+        anchors.leftMargin: row.isProject ? row.sidebar.rowInset + Space.xs : row.sidebar.canvasIndent
+        anchors.rightMargin: row.sidebar.rowInset + Space.xs / 2
+        spacing: Space.xs
 
         // Expands or collapses without opening anything.
         AbstractButton {
             id: chevronButton
             visible: row.isProject
-            implicitWidth: 20
-            implicitHeight: 20
+            implicitWidth: row.sidebar.chevronSize
+            implicitHeight: row.sidebar.chevronSize
             focusPolicy: Qt.NoFocus
             enabled: row.sidebar.library.filter === ""
             onClicked: row.sidebar.library.setExpanded(row.project, !row.expanded)
             contentItem: IconImage {
                 source: "../icons/chevron.svg"
-                sourceSize: Qt.size(14, 14)
-                color: Theme.mutedText
+                sourceSize: Qt.size(Sizes.iconSmall, Sizes.iconSmall)
+                fillMode: Image.Pad
+                color: Colors.mutedText
                 rotation: row.expanded ? 90 : 0
-                Behavior on rotation { NumberAnimation { duration: 120 } }
+                Behavior on rotation { NumberAnimation { duration: Motion.normal; easing.type: Motion.enter } }
             }
             background: Rectangle {
-                radius: 4
-                color: chevronButton.hovered ? Theme.rowHover : "transparent"
+                color: chevronButton.hovered ? Colors.hover : "transparent"
             }
         }
 
         IconImage {
             visible: !row.isProject
             source: "../icons/canvas.svg"
-            sourceSize: Qt.size(15, 15)
-            color: row.current ? Theme.selection : Theme.mutedText
-            Layout.rightMargin: 3
+            sourceSize: Qt.size(Sizes.icon, Sizes.icon)
+            color: row.current ? Colors.accentText : Colors.mutedText
+            Layout.rightMargin: Space.xs
         }
 
         InlineName {
@@ -144,7 +151,7 @@ Item {
             text: row.name
             richText: row.sidebar.highlight(row.name)
             font.weight: row.isProject ? Font.DemiBold : Font.Normal
-            color: Theme.text
+            color: Colors.text
             problemFor: (name) => row.isProject
                 ? row.sidebar.library.projectNameProblem(name, row.name)
                 : row.sidebar.library.canvasNameProblem(row.project, name, row.name)
@@ -160,9 +167,10 @@ Item {
         Label {
             visible: row.isProject && !row.hovered && row.sidebar.menuRow !== row.index && !nameLabel.editing
             text: row.canvasCount
-            color: Theme.mutedText
-            font.pixelSize: 11
-            Layout.rightMargin: 6
+            color: Colors.mutedText
+            font.pixelSize: Fonts.small
+            font.features: { "tnum": 1 }   // digits of equal width, so counts line up
+            Layout.rightMargin: Space.sm
         }
 
         RowButton {
@@ -185,20 +193,10 @@ Item {
         }
     }
 
-    component RowButton: ToolButton {
-        property string iconName
-        property string tip
-        implicitWidth: 22
-        implicitHeight: 22
-        padding: 0
-        focusPolicy: Qt.NoFocus
-        display: AbstractButton.IconOnly
-        icon.source: "../icons/" + iconName + ".svg"
-        icon.width: 15
-        icon.height: 15
-        icon.color: Theme.mutedText
-        ToolTip.visible: hovered
-        ToolTip.delay: 500
-        ToolTip.text: tip
+    component RowButton: IconButton {
+        implicitWidth: Sizes.control - Space.xs
+        implicitHeight: Sizes.control - Space.xs
+        padding: (implicitWidth - Sizes.icon) / 2
+        icon.color: Colors.mutedText
     }
 }

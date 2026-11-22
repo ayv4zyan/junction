@@ -9,7 +9,6 @@
 
 namespace {
 
-constexpr qreal CardRadius = 8;
 constexpr qreal CardPadding = 12;
 constexpr qreal ArrowLength = 12;
 constexpr qreal LineWidth = 2;
@@ -17,7 +16,8 @@ constexpr int LabelFontSize = 13;      // LabelEditor.qml uses the same sizes
 constexpr qreal LabelPaddingX = 6;
 constexpr qreal LabelPaddingY = 3;
 
-// The application font at a pixel size, matching the sizes used in QML.
+// The application font (Geist, see JunctionDesign::installFonts) at a pixel size, matching the
+// sizes used in QML.
 QFont font(int pixelSize, QFont::Weight weight = QFont::Normal)
 {
     QFont f;
@@ -83,6 +83,8 @@ Palette Palette::fromVariantMap(const QVariantMap &map)
     read("mutedText", p.mutedText);
     read("line", p.line);
     read("selection", p.selection);
+    if (map.contains("radius"))
+        p.radius = map["radius"].toReal();
     for (const QVariant &preset : map["presets"].toList())
         p.presets.append(preset.value<QColor>());
     return p;
@@ -125,7 +127,7 @@ void drawConnection(QPainter &painter, const Geometry::Route &route, const Conne
         const QRectF box = labelRect(route, connection.label);
         painter.setPen(Qt::NoPen);
         painter.setBrush(palette.background);
-        painter.drawRoundedRect(box, 4, 4);
+        painter.drawRoundedRect(box, palette.radius, palette.radius);
         painter.setFont(font(LabelFontSize));
         painter.setPen(palette.text);
         painter.drawText(box, Qt::AlignCenter, connection.label);
@@ -150,7 +152,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
         QColor fill = node.color.isEmpty() ? palette.cardBorder : accent;
         fill.setAlphaF(0.08);
         painter.setBrush(fill);
-        painter.drawRoundedRect(node.rect, CardRadius, CardRadius);
+        painter.drawRoundedRect(node.rect, palette.radius, palette.radius);
         painter.setFont(font(15, QFont::Bold));
         painter.setPen(palette.text);
         painter.drawText(node.rect.topLeft() + QPointF(4, -8), node.label);
@@ -158,12 +160,12 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
     }
 
     painter.setBrush(palette.cardFill);
-    painter.drawRoundedRect(node.rect, CardRadius, CardRadius);
+    painter.drawRoundedRect(node.rect, palette.radius, palette.radius);
     if (!node.color.isEmpty()) {   // colored cards get a light tint of their color
         QColor tint = accent;
         tint.setAlphaF(0.12);
         painter.setBrush(tint);
-        painter.drawRoundedRect(node.rect, CardRadius, CardRadius);
+        painter.drawRoundedRect(node.rect, palette.radius, palette.radius);
     }
 
     const QRectF content = node.rect.adjusted(CardPadding, CardPadding, -CardPadding, -CardPadding);

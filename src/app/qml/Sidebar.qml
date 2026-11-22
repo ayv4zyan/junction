@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Controls.impl
 import QtQuick.Layouts
 import Junction
+import JunctionDesign
 
 // The Library: a search box, then every Project with its Canvases (see SidebarRow).
 // Rows can be dragged: a Project among Projects, a Canvas within its Project or into another.
@@ -11,11 +12,16 @@ Rectangle {
     id: sidebar
 
     required property LibraryModel library
-    required property ConfirmDialog confirm
+    required property AskDialog ask
     property real headerHeight: 40
     property alias list: list
 
-    readonly property int rowHeight: 30
+    readonly property int rowHeight: Sizes.control
+    // Row layout, shared with SidebarRow: a highlight inset from the sides, then a Project's
+    // chevron; a Canvas row starts where the Project's name does.
+    readonly property int rowInset: Space.sm
+    readonly property int chevronSize: Sizes.icon + Space.xs
+    readonly property int canvasIndent: rowInset + Space.xs + chevronSize + Space.xs
     property int menuRow: -1               // the row whose menu is open
     property var menuData: ({})
 
@@ -53,7 +59,7 @@ Rectangle {
         if (!query || at < 0)
             return ""
         const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        return escape(name.slice(0, at)) + "<b><font color=\"" + Theme.selection + "\">"
+        return escape(name.slice(0, at)) + "<b><font color=\"" + Colors.accentText + "\">"
              + escape(name.slice(at, at + query.length)) + "</font></b>" + escape(name.slice(at + query.length))
     }
 
@@ -69,24 +75,33 @@ Rectangle {
     }
 
     function askToDeleteProject(project, count) {
-        confirm.ask(qsTr("Delete “%1”?").arg(project),
-                    count === 1 ? qsTr("“%1” and its canvas will be moved to the trash.").arg(project)
-                                : qsTr("“%1” and its %2 canvases will be moved to the trash.").arg(project).arg(count),
-                    () => library.deleteProject(project))
+        ask.confirm({
+            title: qsTr("Delete “%1”?").arg(project),
+            message: count === 1 ? qsTr("“%1” and its canvas will be moved to the trash.").arg(project)
+                                 : qsTr("“%1” and its %2 canvases will be moved to the trash.").arg(project).arg(count),
+            action: qsTr("Delete"), destructive: true,
+            onAccepted: () => library.deleteProject(project)
+        })
     }
 
     // A Project keeps at least one Canvas, so deleting its only one deletes the Project.
     function askToDeleteCanvas(project, canvas, count) {
         if (count === 1) {
-            confirm.ask(qsTr("Delete project “%1”?").arg(project),
-                        qsTr("“%1” is the only canvas in “%2”, so the project will be moved to the trash with it.")
-                            .arg(canvas).arg(project),
-                        () => library.deleteProject(project))
+            ask.confirm({
+                title: qsTr("Delete project “%1”?").arg(project),
+                message: qsTr("“%1” is the only canvas in “%2”, so the project will be moved to the trash with it.")
+                             .arg(canvas).arg(project),
+                action: qsTr("Delete"), destructive: true,
+                onAccepted: () => library.deleteProject(project)
+            })
             return
         }
-        confirm.ask(qsTr("Delete “%1”?").arg(canvas),
-                    qsTr("“%1” will be moved to the trash.").arg(canvas),
-                    () => library.deleteCanvas(project, canvas))
+        ask.confirm({
+            title: qsTr("Delete “%1”?").arg(canvas),
+            message: qsTr("“%1” will be moved to the trash.").arg(canvas),
+            action: qsTr("Delete"), destructive: true,
+            onAccepted: () => library.deleteCanvas(project, canvas)
+        })
     }
 
     // ---- Dragging rows ----
@@ -176,7 +191,7 @@ Rectangle {
         return target
     }
 
-    color: Theme.sidebar
+    color: Colors.sidebar
 
     // ---- Search and new Project ----
 
@@ -187,20 +202,17 @@ Rectangle {
 
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.rightMargin: 4
-            spacing: 2
+            anchors.leftMargin: Space.sm
+            anchors.rightMargin: Space.sm
+            spacing: Space.xs
 
             TextField {
                 id: search
                 Layout.fillWidth: true
-                Layout.rightMargin: 2
+                Layout.rightMargin: Space.xs
                 placeholderText: qsTr("Search")
-                leftPadding: 28
-                rightPadding: clearButton.visible ? 26 : 8
-                topPadding: 5
-                bottomPadding: 5
-                selectByMouse: true
+                leftPadding: Space.sm + Sizes.icon + Space.sm   // room for the magnifier
+                rightPadding: clearButton.visible ? clearButton.width + Space.xs : Space.sm
                 onTextChanged: sidebar.library.filter = text
                 // Enter opens the first Canvas found; Esc gives up.
                 function openFirst() {
@@ -215,39 +227,32 @@ Rectangle {
                     text = ""
                     sidebar.focusCanvas()
                 }
-                background: Rectangle {
-                    radius: 6
-                    color: Theme.cardFill
-                    border.width: search.activeFocus ? 1.5 : 1
-                    border.color: search.activeFocus ? Theme.selection : Theme.divider
-                }
                 ToolTip.visible: hovered && !activeFocus && text === ""
-                ToolTip.delay: 600
                 ToolTip.text: qsTr("Search canvases and projects (Ctrl+F)")
 
                 IconImage {
                     anchors.left: parent.left
-                    anchors.leftMargin: 8
+                    anchors.leftMargin: Space.sm
                     anchors.verticalCenter: parent.verticalCenter
                     source: "../icons/search.svg"
-                    sourceSize: Qt.size(14, 14)
-                    color: Theme.mutedText
+                    sourceSize: Qt.size(Sizes.icon, Sizes.icon)
+                    color: Colors.mutedText
                 }
                 ToolButton {
                     id: clearButton
                     visible: search.text !== ""
                     anchors.right: parent.right
-                    anchors.rightMargin: 2
+                    anchors.rightMargin: Space.xs / 2
                     anchors.verticalCenter: parent.verticalCenter
-                    implicitWidth: 22
-                    implicitHeight: 22
-                    padding: 0
+                    implicitWidth: Sizes.control - Space.xs
+                    implicitHeight: Sizes.control - Space.xs
+                    padding: (implicitWidth - Sizes.iconSmall) / 2
                     focusPolicy: Qt.NoFocus
                     display: AbstractButton.IconOnly
                     icon.source: "../icons/close.svg"
-                    icon.width: 14
-                    icon.height: 14
-                    icon.color: Theme.mutedText
+                    icon.width: Sizes.iconSmall
+                    icon.height: Sizes.iconSmall
+                    icon.color: Colors.mutedText
                     onClicked: search.text = ""
                 }
             }
@@ -271,7 +276,7 @@ Rectangle {
         anchors.top: top.bottom
         width: parent.width
         height: 1
-        color: Theme.divider
+        color: Colors.divider
     }
 
     // ---- The rows ----
@@ -284,7 +289,7 @@ Rectangle {
         function clampY(y) { return Math.max(originY, Math.min(y, originY + contentHeight - height)) }
 
         anchors.top: top.bottom
-        anchors.topMargin: 5
+        anchors.topMargin: Space.xs
         anchors.bottom: parent.bottom
         width: parent.width
         model: sidebar.library
@@ -296,14 +301,15 @@ Rectangle {
         // and the dragged row must survive being scrolled out of view.
         cacheBuffer: sidebar.dragging ? 100000 : 600
         ScrollBar.vertical: ScrollBar {}
-        footer: Item { width: 1; height: 8 }
+        footer: Item { width: 1; height: Space.sm }
 
         delegate: SidebarRow {
             sidebar: sidebar
         }
 
-        add: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 140 } }
-        displaced: Transition { NumberAnimation { property: "y"; duration: 140; easing.type: Easing.OutCubic } }
+        // A new row fades in; rows making room for it slide (continuity).
+        add: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Motion.normal; easing.type: Motion.enter } }
+        displaced: Transition { NumberAnimation { property: "y"; duration: Motion.normal; easing.type: Motion.enter } }
 
         Connections {
             target: sidebar.library
@@ -316,11 +322,11 @@ Rectangle {
 
         Label {
             anchors.centerIn: parent
-            width: parent.width - 32
+            width: parent.width - 2 * Space.lg
             visible: list.count === 0 && sidebar.library.filter !== ""
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
-            color: Theme.mutedText
+            color: Colors.mutedText
             text: qsTr("Nothing matches “%1”").arg(sidebar.library.filter.trim())
         }
 
@@ -343,51 +349,45 @@ Rectangle {
     Rectangle {
         readonly property bool indent: sidebar.dragItem !== null && sidebar.dragItem.kind === "canvas"
         visible: sidebar.dragging && sidebar.drop !== null && !sidebar.drop.noOp && sidebar.drop.lineY !== undefined
-        x: indent ? 30 : 10
+        x: indent ? sidebar.canvasIndent : sidebar.rowInset + Space.xs
         y: list.y + (sidebar.drop ? sidebar.drop.lineY : 0) - list.contentY - 1
-        width: sidebar.width - x - 12
+        width: sidebar.width - x - Space.md
         height: 2
-        radius: 1
-        color: Theme.selection
+        color: Colors.selection
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
-            x: -6
-            width: 7
-            height: 7
-            radius: 3.5
-            color: Theme.sidebar
+            x: -width + 1
+            width: Space.sm
+            height: Space.sm
+            color: Colors.sidebar
             border.width: 2
-            border.color: Theme.selection
+            border.color: Colors.selection
         }
     }
 
-    // The dragged row, following the pointer.
-    Rectangle {
+    // The dragged row, following the pointer (floating: it is lifted off the list).
+    Floating {
         visible: sidebar.dragging
-        x: Math.min(list.x + sidebar.dragPoint.x + 14, sidebar.width - width - 4)
+        x: Math.min(list.x + sidebar.dragPoint.x + Space.md, sidebar.width - width - Space.xs)
         y: list.y + sidebar.dragPoint.y - height / 2
-        width: Math.min(ghostRow.implicitWidth + 20, sidebar.width - 24)
-        height: 26
-        radius: 6
-        color: Theme.panel
-        border.color: Theme.selection
-        opacity: 0.95
+        width: Math.min(ghostRow.implicitWidth + 2 * Space.sm, sidebar.width - Space.xl)
+        height: Sizes.control
+        border.color: Colors.selection
         RowLayout {
             id: ghostRow
             anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.rightMargin: 10
-            spacing: 6
+            anchors.leftMargin: Space.sm
+            anchors.rightMargin: Space.sm
+            spacing: Space.sm
             IconImage {
                 source: sidebar.dragItem && sidebar.dragItem.kind === "canvas" ? "../icons/canvas.svg" : "../icons/project.svg"
-                sourceSize: Qt.size(14, 14)
-                color: Theme.mutedText
+                sourceSize: Qt.size(Sizes.icon, Sizes.icon)
+                color: Colors.mutedText
             }
             Label {
                 Layout.fillWidth: true
                 text: sidebar.dragItem ? sidebar.dragItem.name : ""
                 elide: Text.ElideRight
-                color: Theme.text
             }
         }
     }
@@ -410,8 +410,9 @@ Rectangle {
             onTriggered: Qt.callLater(sidebar.library.duplicateProject, sidebar.menuData.project)
         }
         MenuSeparator {}
-        MenuItem {
+        MenuEntry {
             text: qsTr("Delete…")
+            destructive: true
             onTriggered: sidebar.askToDeleteProject(sidebar.menuData.project, sidebar.menuData.canvasCount)
         }
     }
@@ -449,8 +450,9 @@ Rectangle {
             }
         }
         MenuSeparator {}
-        MenuItem {
+        MenuEntry {
             text: qsTr("Delete…")
+            destructive: true
             onTriggered: sidebar.askToDeleteCanvas(sidebar.menuData.project, sidebar.menuData.name,
                                                    sidebar.menuData.canvasCount)
         }

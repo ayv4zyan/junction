@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Junction
+import JunctionDesign
 
 // Edits a Connection's label in place. It sits in canvas (world) coordinates, so it zooms
 // with the canvas, and looks like the painted label it stands in for (CanvasPainter's font and
@@ -20,9 +21,9 @@ Rectangle {
     height: input.contentHeight + 6
     x: center.x - width / 2
     y: center.y - height / 2
-    radius: 4
-    color: Theme.background
-    border.color: Theme.selection
+    radius: Sizes.radius
+    color: Colors.background
+    border.color: Colors.selection
     border.width: 1.5 / canvas.zoom   // as thin as the Dots at every zoom level
 
     onVisibleChanged: {
@@ -51,11 +52,11 @@ Rectangle {
     TextInput {
         id: input
         anchors.centerIn: parent
-        font.pixelSize: 13
+        font.pixelSize: Fonts.body
         renderType: Text.CurveRendering   // sharp at every zoom level, like the painted label
-        color: Theme.text
-        selectionColor: Theme.selection
-        selectedTextColor: "white"
+        color: Colors.text
+        selectionColor: Colors.accentFill
+        selectedTextColor: Colors.onAccent
         onAccepted: box.canvas.forceActiveFocus()
         onActiveFocusChanged: if (!activeFocus && box.visible && !textMenu.visible) box.finish()
         Keys.onEscapePressed: box.canvas.forceActiveFocus()
@@ -80,8 +81,8 @@ Rectangle {
         anchors.centerIn: parent
         visible: input.text === ""
         text: qsTr("Label")
-        color: Theme.mutedText
-        font.pixelSize: 13
+        color: Colors.mutedText
+        font.pixelSize: Fonts.body
         renderType: Text.CurveRendering
     }
 }

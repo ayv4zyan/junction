@@ -8,6 +8,7 @@
 // open one is renamed, moved or deleted) the Library says so and the Editor follows.
 
 #include "Document.h"
+#include "Geometry.h"
 #include "Library.h"
 #include "LibraryModel.h"
 #include "NodeModel.h"
@@ -34,6 +35,8 @@ class Editor : public QObject
     Q_PROPERTY(QVariantMap selectedConnection READ selectedConnection NOTIFY selectionDetailsChanged)
     Q_PROPERTY(QString selectionColor READ selectionColor NOTIFY selectionDetailsChanged)
     Q_PROPERTY(QVariantMap selectionInfo READ selectionInfo NOTIFY selectionDetailsChanged)
+    Q_PROPERTY(QRectF selectionBounds READ selectionBounds NOTIFY selectionDetailsChanged)
+    Q_PROPERTY(bool dragging READ isDragging NOTIFY draggingChanged)   // moving, resizing, or a Waypoint
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
@@ -65,6 +68,10 @@ public:
     // What the right-click menus need to know about the selection: how many Cards, Groups and
     // Connections it holds, which of them have a Label, and the Label they share (if any).
     QVariantMap selectionInfo() const;
+    // The world rectangle around everything selected (empty when nothing is); the floating
+    // selection toolbar sits against it.
+    QRectF selectionBounds() const;
+    bool isDragging() const { return !m_dragOriginal.isEmpty(); }
     bool canUndo() const { return m_history.canUndo(); }
     bool canRedo() const { return m_history.canRedo(); }
     QString filePath() const { return m_filePath; }
@@ -103,6 +110,11 @@ public:
     Q_INVOKABLE QString cardAt(QPointF point, qreal margin = 0) const;
     Q_INVOKABLE QString handleAt(const QString &nodeId, QPointF point, qreal radius) const;
     Q_INVOKABLE QString connectionAt(QPointF point, qreal tolerance) const;
+    // Where the floating selection toolbar goes (see Geometry::floatingPosition), in view coordinates.
+    Q_INVOKABLE QPointF floatingPosition(const QRectF &selection, const QSizeF &size, const QRectF &view, qreal gap) const
+    {
+        return Geometry::floatingPosition(selection, size, view, gap);
+    }
     Q_INVOKABLE void setPreview(const QString &from, QPointF to, const QString &target, const QString &side);
     Q_INVOKABLE void clearPreview();
     Q_INVOKABLE void connectNodes(const QString &from, const QString &to, const QString &toSide);
@@ -126,8 +138,9 @@ public:
     // Files. Every Canvas is saved automatically, shortly after each change.
     Q_INVOKABLE void start();   // loads the Library and opens what was open last time
     Q_INVOKABLE void save();
-    Q_INVOKABLE void exportCanvas(const QUrl &url);   // a copy of the .canvas file
-    Q_INVOKABLE void exportImage(const QUrl &url, const QVariantMap &palette);
+    // Both return whether the file was written; failures are reported through errorOccurred.
+    Q_INVOKABLE bool exportCanvas(const QUrl &url);   // a copy of the .canvas file
+    Q_INVOKABLE bool exportImage(const QUrl &url, const QVariantMap &palette);
     Q_INVOKABLE QRectF contentBounds() const;
 
     // The part of the Canvas on screen, kept per Canvas so switching back returns to it.
@@ -145,6 +158,7 @@ signals:
     void snapToGridChanged();
     void previewChanged();
     void documentLoaded();
+    void draggingChanged();
     void errorOccurred(const QString &message);
 
 private:
@@ -152,7 +166,6 @@ private:
     void setSelection(const QStringList &ids);
     void pruneSelection();
     bool snapping(bool invert) const { return m_snapToGrid != invert; }
-    bool isDragging() const { return !m_dragOriginal.isEmpty(); }
 
     Node newCard(QPointF center, const QString &text = {}) const;
     QVector<Item> itemsMovingWithSelection() const;

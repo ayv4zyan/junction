@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Junction
+import JunctionDesign
+import "CanvasColors.js" as CanvasColors
 
 // One Card: Markdown text, Handles on hover, drag to move, double-click to edit.
 Item {
@@ -19,7 +21,7 @@ Item {
     readonly property Editor editor: canvas.editor
     readonly property bool selected: editor.selection.includes(nodeId)
     readonly property bool editing: canvas.editingId === nodeId
-    readonly property color accent: Theme.resolve(nodeColor, Theme.cardBorder)
+    readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
     property int hoveredHandles: 0
     readonly property bool showHandles: !editing && (body.containsMouse || resizeEdges.hovered || hoveredHandles > 0
                                                      || canvas.connectFrom === nodeId
@@ -38,9 +40,9 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: 8
-        color: card.nodeColor ? Qt.tint(Theme.cardFill, Qt.alpha(card.accent, 0.12)) : Theme.cardFill
-        border.color: card.selected ? Theme.selection : card.accent
+        radius: Sizes.radius
+        color: card.nodeColor ? Qt.tint(Colors.cardFill, Qt.alpha(card.accent, 0.12)) : Colors.cardFill
+        border.color: card.selected ? Colors.selection : card.accent
         border.width: card.selected ? 2 : 1.5
     }
 
@@ -72,7 +74,7 @@ Item {
         id: scroller
         readonly property bool overflows: contentHeight > height + 1
         anchors.fill: parent
-        anchors.margins: 12
+        anchors.margins: Space.md
         clip: true
         interactive: false
         contentWidth: width
@@ -91,11 +93,11 @@ Item {
             // Two spaces before a newline mark a hard break in Markdown.
             text: card.kind === "text" ? card.text.replace(/\n/g, "  \n") : card.text
             textFormat: card.kind === "text" ? Text.MarkdownText : Text.PlainText
-            color: card.kind === "text" ? Theme.text : Theme.mutedText
+            color: card.kind === "text" ? Colors.text : Colors.mutedText
             horizontalAlignment: card.kind === "text" ? Text.AlignLeft : Text.AlignHCenter
             verticalAlignment: card.kind === "text" ? Text.AlignTop : Text.AlignVCenter
             wrapMode: Text.Wrap
-            font.pixelSize: 15
+            font.pixelSize: Fonts.canvas
         }
 
         TextEdit {
@@ -105,9 +107,10 @@ Item {
             visible: card.editing
             wrapMode: TextEdit.Wrap
             textFormat: TextEdit.PlainText
-            color: Theme.text
-            selectionColor: Theme.selection
-            font.pixelSize: 15
+            color: Colors.text
+            selectionColor: Colors.accentFill
+            selectedTextColor: Colors.onAccent
+            font.pixelSize: Fonts.canvas
             // Shown when editing starts; only a visible item can take keyboard focus.
             onVisibleChanged: {
                 if (visible) {
@@ -137,8 +140,7 @@ Item {
         y: scroller.y + scroller.visibleArea.yPosition * scroller.height
         width: 3
         height: scroller.visibleArea.heightRatio * scroller.height
-        radius: 1.5
-        color: Theme.mutedText
+        color: Colors.mutedText
         opacity: 0.6
     }
 

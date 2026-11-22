@@ -1,8 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 
-// The right-click menu while typing (a Card's text, a Group's or Connection's Label):
-// it acts on the text, not on the Canvas.
+// The right-click menu while typing: it acts on the text, not on what the text belongs to.
 Menu {
     id: menu
     required property Item editor   // a TextEdit, TextInput or TextField

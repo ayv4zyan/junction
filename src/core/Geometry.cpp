@@ -1,5 +1,7 @@
 #include "Geometry.h"
 
+#include <algorithm>
+
 #include <QLineF>
 #include <QPainterPathStroker>
 #include <QtMath>
@@ -286,6 +288,20 @@ qreal snap(qreal value)
 QPointF snap(QPointF point)
 {
     return {snap(point.x()), snap(point.y())};
+}
+
+QPointF floatingPosition(const QRectF &selection, const QSizeF &size, const QRectF &view, qreal gap)
+{
+    // Inside the view on both axes, even when the selection itself is scrolled out of it.
+    const qreal left = view.left() + gap, right = view.right() - gap - size.width();
+    const qreal top = view.top() + gap, bottom = view.bottom() - gap - size.height();
+    const qreal x = std::clamp(selection.center().x() - size.width() / 2, left, std::max(left, right));
+
+    const qreal above = selection.top() - gap - size.height();
+    const qreal below = selection.bottom() + gap;
+    // Above if it fits, otherwise below; when neither fits the selection fills the view: the top.
+    const qreal y = above >= top ? above : below <= bottom ? below : top;
+    return {x, std::clamp(y, top, std::max(top, bottom))};
 }
 
 } // namespace Geometry

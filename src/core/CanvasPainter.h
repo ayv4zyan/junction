@@ -11,7 +11,8 @@
 
 class QPainter;
 
-// Colors come from the QML Theme (the single place colors are defined) as a QVariantMap.
+// Colors and the corner radius come from the design tokens (src/design: Colors.forPainter) as
+// a QVariantMap, so the painted layers and exports match the rest of the UI.
 struct Palette
 {
     QColor background{"#1e1e1e"};
@@ -23,6 +24,7 @@ struct Palette
     QColor line{"#8a8a8a"};
     QColor selection{"#7f6df2"};
     QVector<QColor> presets;   // JSON Canvas colors "1".."6"
+    qreal radius = 0;          // corners of Cards, Groups and Connection labels
 
     QColor resolve(const QString &color, const QColor &fallback) const;
     static Palette fromVariantMap(const QVariantMap &map);

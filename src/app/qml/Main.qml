@@ -5,6 +5,7 @@ import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
 import Junction
+import JunctionDesign
 
 // The window: the sidebar (the Library) on the left, the open Canvas with its toolbar on the
 // right.
@@ -19,39 +20,10 @@ ApplicationWindow {
     // ...and while the Canvas can't be shown (its file can't be read).
     readonly property bool canEdit: !typing && canvasEditor.loadError === ""
 
+    // Colors, font and the controls' look come from the JunctionDesign style (main.cpp).
     width: 1280
     height: 800
     visible: true
-    color: Theme.background
-
-    // The stock controls (toolbar, menus, tooltips, checkboxes, scroll bars) are drawn from the
-    // palette, which otherwise comes from the system (e.g. the GTK theme) and can disagree with
-    // Theme. Every control and popup in the window inherits this one.
-    palette {
-        window: Theme.background
-        windowText: Theme.text
-        base: Theme.panel
-        alternateBase: Theme.cardFill
-        text: Theme.text
-        button: Theme.panel
-        buttonText: Theme.text
-        brightText: "white"
-        placeholderText: Theme.mutedText
-        highlight: Theme.selection
-        highlightedText: "white"
-        link: Theme.selection
-        toolTipBase: Theme.panel
-        toolTipText: Theme.text
-        light: Qt.lighter(Theme.panel, 1.5)
-        midlight: Qt.lighter(Theme.panel, 1.2)
-        mid: Theme.cardBorder
-        dark: Theme.divider
-        shadow: Theme.dark ? "black" : "#b0b0b0"
-
-        disabled.windowText: Theme.mutedText
-        disabled.text: Theme.mutedText
-        disabled.buttonText: Theme.mutedText
-    }
 
     title: (library.currentCanvas ? library.currentCanvas + " · " + library.currentProject + " — " : "") + "Junction"
 
@@ -105,7 +77,7 @@ ApplicationWindow {
     Editor {
         id: canvasEditor
         Component.onCompleted: start()
-        onErrorOccurred: (message) => toast.show(message, true)
+        onErrorOccurred: (message) => toast.show(message, { error: true })
     }
 
     Connections {
@@ -122,9 +94,13 @@ ApplicationWindow {
         anchors.bottom: parent.bottom
         width: settings.sidebarOpen ? settings.sidebarWidth : 0
         clip: true
+        // Continuity: the canvas slides over instead of jumping. Not while dragging the divider.
         Behavior on width {
             enabled: !resizer.pressed
-            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+            NumberAnimation {
+                duration: settings.sidebarOpen ? Motion.slow : Motion.out(Motion.slow)
+                easing.type: settings.sidebarOpen ? Motion.enter : Motion.exit
+            }
         }
 
         Sidebar {
@@ -134,7 +110,7 @@ ApplicationWindow {
             height: parent.height
             visible: sidebarSlot.width > 0
             library: window.library
-            confirm: confirmDialog
+            ask: askDialog
             headerHeight: toolbar.height
             onHideRequested: window.toggleSidebar()
             onCanvasFocusRequested: window.focusCanvas()
@@ -147,7 +123,7 @@ ApplicationWindow {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: sidebarSlot.width > 0 ? 1 : 0
-        color: Theme.divider
+        color: Colors.divider
     }
 
     // Drag the divider to resize the sidebar.
@@ -188,9 +164,7 @@ ApplicationWindow {
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 6
-                anchors.rightMargin: 6
-                spacing: 2
+                spacing: Space.xs
 
                 IconButton {
                     visible: !settings.sidebarOpen
@@ -226,13 +200,13 @@ ApplicationWindow {
                 // while renaming, the field takes the free space.
                 InlineName {
                     id: projectName
-                    Layout.leftMargin: 4
+                    Layout.leftMargin: Space.xs
                     Layout.fillWidth: true
                     Layout.minimumWidth: editing ? 160 : 40
                     Layout.maximumWidth: editing ? 100000 : implicitWidth
                     clickToEdit: true
                     text: window.library.currentProject
-                    color: Theme.mutedText
+                    color: Colors.mutedText
                     tip: qsTr("Project — click to rename")
                     problemFor: (name) => window.library.projectNameProblem(name, window.library.currentProject)
                     onRenamed: (name) => window.library.renameProject(window.library.currentProject, name)
@@ -240,7 +214,7 @@ ApplicationWindow {
                 }
                 Label {
                     text: "/"
-                    color: Theme.mutedText
+                    color: Colors.mutedText
                     visible: !projectName.editing && !canvasName.editing
                 }
                 InlineName {
@@ -281,46 +255,40 @@ ApplicationWindow {
         }
 
         SelectionBar {
-            anchors.top: canvasView.top
-            anchors.topMargin: 12
-            anchors.horizontalCenter: canvasView.horizontalCenter
             editor: canvasEditor
             canvas: canvasView
         }
 
         // A Canvas whose file can't be read: say why. It is never saved, so the file stays.
-        Rectangle {
+        Floating {
             visible: canvasEditor.loadError !== ""
             anchors.centerIn: canvasView
-            width: Math.min(460, canvasView.width - 40)
-            height: errorColumn.implicitHeight + 40
-            radius: 10
-            color: Theme.panel
-            border.color: Theme.cardBorder
+            width: Math.min(460, canvasView.width - 2 * Space.xl)
+            height: errorColumn.implicitHeight + 2 * Space.xl
             ColumnLayout {
                 id: errorColumn
                 anchors.fill: parent
-                anchors.margins: 20
-                spacing: 10
+                anchors.margins: Space.xl
+                spacing: Space.sm
                 Label {
                     text: qsTr("This canvas can't be opened")
-                    font.pixelSize: 16
+                    font.pixelSize: Fonts.title
                     font.weight: Font.DemiBold
-                    color: Theme.text
                 }
                 Label {
                     Layout.fillWidth: true
                     text: canvasEditor.loadError
                     wrapMode: Text.Wrap
-                    color: Theme.mutedText
+                    color: Colors.mutedText
                 }
                 Label {
                     Layout.fillWidth: true
                     text: qsTr("Junction won't change the file. Fix it in another editor, or delete the canvas from the sidebar.")
                     wrapMode: Text.Wrap
-                    color: Theme.mutedText
+                    color: Colors.mutedText
                 }
                 Button {
+                    Layout.topMargin: Space.md
                     text: qsTr("Open library folder")
                     onClicked: Qt.openUrlExternally(window.library.folder)
                 }
@@ -331,7 +299,7 @@ ApplicationWindow {
             id: toast
             anchors.horizontalCenter: canvasView.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 24
+            anchors.bottomMargin: Space.xl
             z: 2
         }
     }
@@ -354,21 +322,20 @@ ApplicationWindow {
         Rectangle {
             anchors.fill: parent
             visible: fileDrop.containsDrag
-            color: Qt.alpha(Theme.selection, 0.10)
-            border.color: Theme.selection
+            color: Qt.alpha(Colors.selection, 0.10)
+            border.color: Colors.selection
             border.width: 2
             Label {
                 anchors.centerIn: parent
-                padding: 14
+                padding: Space.lg
                 text: qsTr("Drop to add to “%1”").arg(window.library.currentProject)
-                font.pixelSize: 16
-                color: Theme.text
-                background: Rectangle { radius: 8; color: Theme.panel; border.color: Theme.cardBorder }
+                font.pixelSize: Fonts.title
+                background: Floating { }
             }
         }
     }
 
-    ConfirmDialog { id: confirmDialog }
+    AskDialog { id: askDialog }
 
     // ---- Keyboard ----
 
@@ -431,10 +398,14 @@ ApplicationWindow {
         id: exportDialog
         fileMode: FileDialog.SaveFile
         onAccepted: {
-            if (defaultSuffix === "canvas")
-                canvasEditor.exportCanvas(selectedFile)
-            else
-                canvasEditor.exportImage(selectedFile, Theme.palette)
+            const written = defaultSuffix === "canvas" ? canvasEditor.exportCanvas(selectedFile)
+                                                       : canvasEditor.exportImage(selectedFile, Colors.forPainter)
+            if (!written)
+                return   // the Editor has reported why
+            const file = selectedFile.toString()
+            const folder = file.slice(0, file.lastIndexOf("/"))
+            toast.show(qsTr("Exported “%1”").arg(decodeURIComponent(file.slice(file.lastIndexOf("/") + 1))),
+                       { action: qsTr("Show in folder"), onAction: () => Qt.openUrlExternally(folder) })
         }
     }
 }

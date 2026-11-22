@@ -56,7 +56,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette);
 QRectF labelRect(const Geometry::Route &route, const QString &label);
 
 // Writes PNG or SVG depending on the file extension. Empty `onlyIds` means the whole Canvas.
-bool exportCanvas(const Document &document, const QSet<QString> &onlyIds, const QString &path,
+bool exportImage(const Document &document, const QSet<QString> &onlyIds, const QString &path,
                   const Palette &palette, QString *error);
 
 } // namespace CanvasPainter

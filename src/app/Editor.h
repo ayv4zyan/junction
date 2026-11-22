@@ -96,7 +96,7 @@ class Editor : public QObject
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
-    Q_PROPERTY(QString loadError READ loadError NOTIFY canvasOpened)   // why the Canvas can't be shown
+    Q_PROPERTY(QString loadError READ loadError NOTIFY loadErrorChanged)   // why the Canvas can't be shown
     Q_PROPERTY(bool snapToGrid READ snapToGrid WRITE setSnapToGrid NOTIFY snapToGridChanged)
 
 public:
@@ -179,7 +179,7 @@ public:
     // Files. Every Canvas is saved automatically, shortly after each change.
     Q_INVOKABLE void save();
     // Both return the file written, or an empty URL when that failed (errorOccurred says why).
-    Q_INVOKABLE QUrl exportCanvas(const QUrl &url);   // a copy of the .canvas file
+    Q_INVOKABLE QUrl exportCanvasFile(const QUrl &url);   // a copy of the .canvas file
     Q_INVOKABLE QUrl exportImage(const QUrl &url, const QVariantMap &palette);
     Q_INVOKABLE QRectF contentBounds() const;
 
@@ -190,6 +190,7 @@ signals:
     void filePathChanged();
     void snapToGridChanged();
     void canvasOpened();   // another Canvas is shown; the Document was replaced
+    void loadErrorChanged();
     void draggingChanged();
     void errorOccurred(const QString &message);
 
@@ -216,9 +217,10 @@ private:
         std::variant<MoveDrag, ResizeDrag, WaypointDrag> kind;
     };
 
-    void commit(const Transaction &transaction, const QString &text);
+    bool commit(const Transaction &transaction, const QString &text);
+    QString addAndSelect(const Transaction &transaction, const QString &text, const QString &selected);
     void setSelection(const QStringList &ids);
-    void pruneSelection();
+    void followDocument();
     // `point` on the grid when snapping (inverted while Alt is held), otherwise as it is.
     QPointF snapped(QPointF point, bool invert = false) const { return m_snapToGrid != invert ? Geometry::snap(point) : point; }
     qreal snapped(qreal value, bool invert) const { return m_snapToGrid != invert ? Geometry::snap(value) : value; }

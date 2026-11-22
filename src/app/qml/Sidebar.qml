@@ -69,7 +69,7 @@ Rectangle {
 
     function openMenu(row, item, x, y) {
         menuRow = row.index
-        menuRowData = row.rowData()
+        menuRowData = libraryRows.rowAt(row.index)
         if (row.isProject)
             projectMenu.popup(item, x, y)
         else

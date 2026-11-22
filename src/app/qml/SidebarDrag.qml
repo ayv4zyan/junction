@@ -23,7 +23,7 @@ Item {
     required property real canvasIndent   // where a Canvas row's name starts (see Sidebar)
     required property real projectIndent  // ...and a Project row's
 
-    property var draggedRow: null   // the dragged row's data (SidebarRow.rowData())
+    property var draggedRow: null   // the dragged row's roles (LibraryRows.rowAt())
     readonly property bool active: draggedRow !== null
     property var drop: null
     property point point      // the pointer, in list coordinates
@@ -31,9 +31,9 @@ Item {
     function start(rowData) { draggedRow = rowData }
 
     // For drawing the rows: the one being dragged, and a collapsed Project it would go into.
-    function isDragged(rowData) {
-        return draggedRow !== null && draggedRow.isProject === rowData.isProject
-            && draggedRow.project === rowData.project && draggedRow.name === rowData.name
+    function isDragged(isProject, project, name) {
+        return draggedRow !== null && draggedRow.isProject === isProject
+            && draggedRow.project === project && draggedRow.name === name
     }
     function dropsInto(rowIndex) { return drop !== null && drop.intoRow === rowIndex }
 

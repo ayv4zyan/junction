@@ -174,7 +174,6 @@ ApplicationWindow {
             width: parent.width
             z: 1
             library: window.library
-            libraryRows: window.libraryRows
             editor: window.editor
             canvasView: canvasView
             sidebarOpen: settings.sidebarOpen

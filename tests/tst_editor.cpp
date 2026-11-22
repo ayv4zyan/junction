@@ -227,6 +227,18 @@ private slots:
         QCOMPARE(m_editor->document().node(a)->rect.left(), -120.0);   // where it was before the drag
     }
 
+    // A command that can't be done (here: during a drag) neither selects nor returns an item
+    // that was never added.
+    void creatingDuringADragAddsAndSelectsNothing()
+    {
+        const QString a = m_editor->createCard({0, 0});
+        m_editor->beginMove(a);
+        QCOMPARE(m_editor->createCard({400, 0}), QString());
+        QCOMPARE(m_editor->selection(), QStringList{a});
+        m_editor->endMove();
+        QCOMPARE(m_editor->document().nodes().size(), 1);
+    }
+
     void resizingKeepsAMinimumSize()
     {
         const QString a = m_editor->createCard({0, 0});

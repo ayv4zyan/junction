@@ -26,9 +26,9 @@ void OpenCanvas::open(const QString &path)
     QString error;
     if (!m_document.load(path, &error)) {
         m_document.clear();
-        m_loadError = tr("%1 can't be read: %2").arg(QFileInfo(path).fileName(), error);
+        setLoadError(tr("%1 can't be read: %2").arg(QFileInfo(path).fileName(), error));
     } else {
-        m_loadError.clear();
+        setLoadError({});
     }
     setFilePath(path);
     activateHistory(path);
@@ -39,7 +39,7 @@ void OpenCanvas::openNothing(const QString &reason)
 {
     savePending();
     m_document.clear();
-    m_loadError = reason;
+    setLoadError(reason);
     setFilePath({});
     activateHistory({});
     emit opened();
@@ -60,7 +60,7 @@ void OpenCanvas::activateHistory(const QString &path)
     m_history.setActiveStack(stack);
 }
 
-void OpenCanvas::push(const Transaction &transaction, const QString &text)
+bool OpenCanvas::push(const Transaction &transaction, const QString &text)
 {
     Transaction real;
     for (const Change &change : transaction) {
@@ -68,9 +68,10 @@ void OpenCanvas::push(const Transaction &transaction, const QString &text)
             real.append(change);
     }
     if (real.isEmpty() || !m_loadError.isEmpty() || !m_history.activeStack())   // nothing opened yet
-        return;
+        return false;
     m_history.activeStack()->push(new TransactionCommand(&m_document, real, text));
     m_saveTimer.start();
+    return true;
 }
 
 void OpenCanvas::undo()
@@ -133,9 +134,17 @@ void OpenCanvas::fileRemoved(const QString &path)
         // Library opens another Canvas. A new Canvas may later get the same path (delete the
         // only Project, and a new "Untitled" appears): it must be loaded afresh.
         m_saveTimer.stop();
-        m_loadError = tr("%1 was deleted.").arg(QFileInfo(path).fileName());
+        setLoadError(tr("%1 was deleted.").arg(QFileInfo(path).fileName()));
         setFilePath({});
     }
+}
+
+void OpenCanvas::setLoadError(const QString &error)
+{
+    if (error == m_loadError)
+        return;
+    m_loadError = error;
+    emit loadErrorChanged();
 }
 
 void OpenCanvas::setFilePath(const QString &path)

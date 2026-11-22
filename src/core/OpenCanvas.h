@@ -38,8 +38,9 @@ public:
     void openNothing(const QString &reason);
 
     // Puts the Transaction on the undo stack (changes that change nothing are left out) and
-    // schedules a save. Ignored while there is a load error.
-    void push(const Transaction &transaction, const QString &text);
+    // schedules a save. Returns false when nothing went on it: it changed nothing, or the
+    // Canvas can't be edited (a load error, or nothing opened yet).
+    bool push(const Transaction &transaction, const QString &text);
     void undo();
     void redo();
 
@@ -58,11 +59,13 @@ public:
 signals:
     void opened();   // another file is shown (or none); the Document was replaced
     void filePathChanged();
+    void loadErrorChanged();
     void historyChanged();
     void errorOccurred(const QString &message);
 
 private:
     void setFilePath(const QString &path);
+    void setLoadError(const QString &error);
     void activateHistory(const QString &path);
 
     Document m_document;

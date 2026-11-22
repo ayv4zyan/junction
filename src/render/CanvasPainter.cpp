@@ -206,7 +206,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
     }
 }
 
-bool exportCanvas(const Document &document, const QSet<QString> &onlyIds, const QString &path,
+bool exportImage(const Document &document, const QSet<QString> &onlyIds, const QString &path,
                   const Palette &palette, QString *error)
 {
     auto included = [&](const QString &id) { return onlyIds.isEmpty() || onlyIds.contains(id); };

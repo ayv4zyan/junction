@@ -70,7 +70,11 @@ Library::~Library()
 
 void Library::load()
 {
-    QDir().mkpath(m_root);
+    if (!QDir().mkpath(m_root)) {
+        emit errorOccurred(tr("Could not create the library folder %1.").arg(m_root));
+        emit loaded();   // with nothing open
+        return;
+    }
     const LibraryIndex index = readIndex();
 
     m_projects.clear();
@@ -343,7 +347,10 @@ QString Library::lastCanvas(const QString &projectName) const
 
 bool Library::createEmptyCanvasFile(const QString &path)
 {
-    QDir().mkpath(QFileInfo(path).absolutePath());
+    if (!QDir().mkpath(QFileInfo(path).absolutePath())) {
+        emit errorOccurred(tr("Could not create the folder for %1.").arg(path));
+        return false;
+    }
     QSaveFile file(path);
     const QJsonObject empty{{"nodes", QJsonArray()}, {"edges", QJsonArray()}};
     if (file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(empty).toJson()) >= 0 && file.commit())

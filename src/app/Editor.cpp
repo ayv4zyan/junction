@@ -62,24 +62,34 @@ Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
 
     connect(&m_canvas, &OpenCanvas::opened, this, &Editor::canvasOpened);
     connect(&m_canvas, &OpenCanvas::filePathChanged, this, &Editor::filePathChanged);
+    connect(&m_canvas, &OpenCanvas::loadErrorChanged, this, &Editor::loadErrorChanged);
     connect(&m_canvas, &OpenCanvas::historyChanged, this, &Editor::historyChanged);
     connect(&m_canvas, &OpenCanvas::errorOccurred, this, &Editor::errorOccurred);
 
     // Anything that changes in the Document may move the selected Connection's handles.
     const Document *document = &m_canvas.document();
     for (auto signal : {&Document::nodeChanged, &Document::nodeRemoved, &Document::nodeAdded})
-        connect(document, signal, this, &Editor::pruneSelection);
-    connect(document, &Document::connectionsChanged, this, &Editor::pruneSelection);
-    connect(document, &Document::reset, this, &Editor::pruneSelection);
+        connect(document, signal, this, &Editor::followDocument);
+    connect(document, &Document::connectionsChanged, this, &Editor::followDocument);
+    connect(document, &Document::reset, this, &Editor::followDocument);
     connect(m_library, &Library::loaded, this, &Editor::loadCurrent);   // also when nothing could be opened
 }
 
-// Nothing else may change the Document while a drag is in progress: the drag's final
-// Transaction is computed from the state at its start.
-void Editor::commit(const Transaction &transaction, const QString &text)
+// Returns whether it went on the undo stack. Nothing else may change the Document while a drag
+// is in progress: the drag's final Transaction is computed from the state at its start.
+bool Editor::commit(const Transaction &transaction, const QString &text)
 {
-    if (!isDragging())
-        m_canvas.push(transaction, text);
+    return !isDragging() && m_canvas.push(transaction, text);
+}
+
+// Commits a Transaction that adds the item `selected`, and makes that the selection. Returns its
+// id, or "" when it wasn't added (during a drag, or when the Canvas can't be edited).
+QString Editor::addAndSelect(const Transaction &transaction, const QString &text, const QString &selected)
+{
+    if (!commit(transaction, text))
+        return {};
+    setSelection({selected});
+    return selected;
 }
 
 void Editor::undo()
@@ -113,8 +123,9 @@ void Editor::setSelection(const QStringList &ids)
     emit selectedItemsChanged();
 }
 
-// Drops ids of items that no longer exist (deleted, undone) from the selection.
-void Editor::pruneSelection()
+// The Document changed: the selection drops the ids of items that are gone (deleted, undone),
+// and says the selected items themselves may have changed.
+void Editor::followDocument()
 {
     QStringList kept;
     for (const QString &id : m_selection) {
@@ -268,9 +279,7 @@ Node Editor::newCard(QPointF center, const QString &text) const
 QString Editor::createCard(QPointF center)
 {
     const Node card = newCard(center);
-    commit({Change::added(card)}, tr("Add card"));
-    setSelection({card.id});
-    return card.id;
+    return addAndSelect({Change::added(card)}, tr("Add card"), card.id);
 }
 
 // With Cards or Groups selected, the new Group goes around them; otherwise it is an empty
@@ -288,9 +297,7 @@ QString Editor::createGroup(QPointF center)
     group.content = GroupContent{tr("Group")};
     const qreal margin = Geometry::GridSize * 2;
     group.rect = bounds.isEmpty() ? placed(center, GroupSize) : bounds.adjusted(-margin, -margin, margin, margin);
-    commit({Change::added(group)}, tr("Group"));
-    setSelection({group.id});
-    return group.id;
+    return addAndSelect({Change::added(group)}, tr("Group"), group.id);
 }
 
 void Editor::setCardText(const QString &id, const QString &text)
@@ -573,8 +580,7 @@ void Editor::connectNodes(const QString &from, const QString &to, Side toSide)
     if (from == to || !document().node(from) || !document().node(to))
         return;
     const Connection c = newConnection(from, to, toSide);
-    commit({Change::added(c)}, tr("Connect"));
-    setSelection({c.id});
+    addAndSelect({Change::added(c)}, tr("Connect"), c.id);
 }
 
 QString Editor::connectToNewCard(const QString &from, QPointF center)
@@ -582,9 +588,8 @@ QString Editor::connectToNewCard(const QString &from, QPointF center)
     if (!document().node(from))
         return {};
     const Node card = newCard(center);
-    commit({Change::added(card), Change::added(newConnection(from, card.id, Side::Floating))}, tr("Add connected card"));
-    setSelection({card.id});
-    return card.id;
+    const Transaction t{Change::added(card), Change::added(newConnection(from, card.id, Side::Floating))};
+    return addAndSelect(t, tr("Add connected card"), card.id);
 }
 
 void Editor::reattach(const QString &connectionId, bool fromEnd, const QString &nodeId, Side side)
@@ -661,8 +666,8 @@ void Editor::removeConnectionLabels()
 void Editor::insertFragment(const QJsonObject &fragment, QPointF offset)
 {
     const Fragment::Insertion insertion = Fragment::insertion(fragment, offset);
-    commit(insertion.transaction, tr("Paste"));
-    setSelection(insertion.nodeIds);
+    if (commit(insertion.transaction, tr("Paste")))
+        setSelection(insertion.nodeIds);
 }
 
 // Copies, then removes what was copied and every Connection touching it, so a cut Group takes
@@ -695,8 +700,7 @@ void Editor::paste(QPointF center)
     } else if (!text.trimmed().isEmpty()) {
         // Text copied from somewhere else becomes a new card.
         const Node card = newCard(center, text.trimmed());
-        commit({Change::added(card)}, tr("Paste"));
-        setSelection({card.id});
+        addAndSelect({Change::added(card)}, tr("Paste"), card.id);
     }
 }
 
@@ -727,7 +731,7 @@ void Editor::save()
     m_canvas.save();
 }
 
-QUrl Editor::exportCanvas(const QUrl &url)
+QUrl Editor::exportCanvasFile(const QUrl &url)
 {
     QString path = url.toLocalFile();
     if (!path.endsWith(".canvas"))
@@ -749,7 +753,7 @@ QUrl Editor::exportImage(const QUrl &url, const QVariantMap &palette)
         return {};
     }
     QString error;
-    if (!CanvasPainter::exportCanvas(document(), document().nodesWithContents(m_selection), url.toLocalFile(),
+    if (!CanvasPainter::exportImage(document(), document().nodesWithContents(m_selection), url.toLocalFile(),
                                      *colors, &error)) {
         emit errorOccurred(error);
         return {};

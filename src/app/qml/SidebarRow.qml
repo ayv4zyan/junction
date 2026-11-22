@@ -25,13 +25,9 @@ Item {
     required property Sidebar sidebar
 
     readonly property bool hovered: mouse.containsMouse || plusButton.hovered || moreButton.hovered
-    readonly property bool dragged: sidebar.rowDrag.isDragged(rowData())
+    readonly property bool dragged: sidebar.rowDrag.isDragged(isProject, project, name)
 
     function rename() { nameLabel.edit() }
-    function rowData() {
-        return { isProject: isProject, name: name, project: project, projectIndex: projectIndex,
-                 canvasIndex: canvasIndex, canvasCount: canvasCount }
-    }
 
     width: ListView.view.width
     height: sidebar.rowHeight
@@ -87,7 +83,7 @@ Item {
             if (!moved && Math.hypot(event.x - pressPoint.x, event.y - pressPoint.y) > 6
                     && row.sidebar.libraryRows.filter === "") {
                 moved = true
-                row.sidebar.rowDrag.start(row.rowData())
+                row.sidebar.rowDrag.start(row.sidebar.libraryRows.rowAt(row.index))
             }
             if (row.sidebar.rowDrag.active)
                 row.sidebar.rowDrag.move(mapToItem(row.sidebar.list, event.x, event.y))

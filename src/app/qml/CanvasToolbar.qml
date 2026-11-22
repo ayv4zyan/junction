@@ -10,7 +10,6 @@ import JunctionDesign
 ToolBar {
     id: toolbar
     required property Library library
-    required property LibraryRows libraryRows
     required property Editor editor
     required property CanvasView canvasView
     required property bool sidebarOpen

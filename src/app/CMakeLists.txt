@@ -4,6 +4,9 @@ qt_add_qml_module(junction
     URI Junction
     QML_FILES
         qml/Main.qml
+        qml/CanvasToolbar.qml
+        qml/LoadErrorPanel.qml
+        qml/ExportDialog.qml
         qml/CanvasView.qml
         qml/CanvasMenus.qml
         qml/CardItem.qml
@@ -17,6 +20,7 @@ qt_add_qml_module(junction
         qml/ResizeEdges.qml
         qml/IconButton.qml
         qml/InlineName.qml
+        qml/TextEditSession.qml
         qml/Sidebar.qml
         qml/SidebarRow.qml
         qml/SidebarDrag.qml

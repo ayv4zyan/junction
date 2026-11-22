@@ -33,8 +33,8 @@ Item {
     width: nodeWidth
     height: nodeHeight
 
-    function finishEditing() {
-        editor.setCardText(nodeId, textEdit.text)
+    function finishEditing(text) {
+        editor.setCardText(nodeId, text)
         canvas.endTextEditing(nodeId)
     }
 
@@ -57,13 +57,16 @@ Item {
         onPressed: (mouse) => {
             textEdit.forceActiveFocus()
             if (mouse.button === Qt.RightButton)
-                textMenu.popup()
+                textSession.openMenu()
         }
     }
 
-    TextMenu {
-        id: textMenu
+    TextEditSession {
+        id: textSession
         editor: textEdit
+        startText: card.text
+        selectAll: false
+        onFinished: (text) => card.finishEditing(text)
     }
 
     // Cards have a fixed size, so text that doesn't fit scrolls: with the mouse wheel over the
@@ -112,21 +115,12 @@ Item {
             selectedTextColor: Colors.onAccent
             font.pixelSize: Fonts.canvas
             renderType: Text.CurveRendering
-            // Shown when editing starts; only a visible item can take keyboard focus.
-            onVisibleChanged: {
-                if (visible) {
-                    text = card.text
-                    forceActiveFocus()
-                    cursorPosition = length
-                }
-            }
             onCursorRectangleChanged: {
                 if (cursorRectangle.y < scroller.contentY)
                     scroller.contentY = cursorRectangle.y
                 else if (cursorRectangle.y + cursorRectangle.height > scroller.contentY + scroller.height)
                     scroller.contentY = cursorRectangle.y + cursorRectangle.height - scroller.height
             }
-            onActiveFocusChanged: if (!activeFocus && card.editing && !textMenu.visible) card.finishEditing()
             Keys.onEscapePressed: card.canvas.forceActiveFocus()
         }
 

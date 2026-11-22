@@ -28,8 +28,8 @@ Item {
     width: nodeWidth
     height: nodeHeight
 
-    function finishEditing() {
-        editor.setLabel(nodeId, labelInput.text)
+    function finishEditing(text) {
+        editor.setLabel(nodeId, text)
         canvas.endTextEditing(nodeId)
     }
 
@@ -68,31 +68,17 @@ Item {
             font.pixelSize: Fonts.canvas
             renderType: Text.CurveRendering   // sharp at every zoom level, like Card text
             font.bold: true
-            onVisibleChanged: {
-                if (visible) {
-                    text = group.label
-                    forceActiveFocus()
-                    selectAll()
-                }
-            }
             onAccepted: group.canvas.forceActiveFocus()
-            onActiveFocusChanged: if (!activeFocus && group.editing && !textMenu.visible) group.finishEditing()
             Keys.onEscapePressed: group.canvas.forceActiveFocus()
             HoverHandler { cursorShape: Qt.IBeamCursor }   // a plain TextInput sets none
         }
 
-        // While renaming, a right-click on the label opens the text menu. Above the TextInput,
-        // which would take the right-click itself; left clicks still go through to it.
-        MouseArea {
+        // Above the TextInput, which would take the right-click for the text menu itself.
+        TextEditSession {
             anchors.fill: parent
-            visible: group.editing
-            acceptedButtons: Qt.RightButton
-            onPressed: textMenu.popup()
-        }
-
-        TextMenu {
-            id: textMenu
             editor: labelInput
+            startText: group.label
+            onFinished: (text) => group.finishEditing(text)
         }
 
         SelectMoveArea {

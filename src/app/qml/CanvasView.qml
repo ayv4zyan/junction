@@ -15,8 +15,10 @@ Item {
     id: view
     required property Editor editor
 
-    property real zoom: 1
-    property point pan: Qt.point(0, 0)
+    // screen = world * zoom + pan. Read-only outside; the user changes them with panBy() and
+    // zoomAt(), the code with placeView().
+    readonly property alias zoom: camera.zoom
+    readonly property alias pan: camera.pan
     // What the user is doing. Read-only for the items on the canvas: they change it through the
     // functions below (editText(), startConnection(), ...).
     readonly property alias editingId: interaction.editingId       // Card or Group whose text is being edited
@@ -30,6 +32,12 @@ Item {
 
     focus: true
     clip: true
+
+    QtObject {
+        id: camera
+        property real zoom: 1
+        property point pan: Qt.point(0, 0)
+    }
 
     QtObject {
         id: interaction
@@ -57,10 +65,54 @@ Item {
     function toScreen(p) { return Qt.point(p.x * zoom + pan.x, p.y * zoom + pan.y) }
     function pointerWorld() { return toWorld(hover.point.position) }
 
+    // ---- Moving the view ----
+    // After opening a Canvas the view goes back to where the user left it, or fits the content
+    // if it was never moved. Until the user pans or zooms, a resize (tiling window managers
+    // resize right after showing; the sidebar opens and closes) keeps that: it fits again, or
+    // keeps the same point in the middle. Every pan and zoom the user makes is remembered.
+
+    property string keepOnResize: "fit"   // "fit" the content, the "center" point, or "nothing"
+    property point keptCenter             // the world point kept in the middle for "center"
+    onWidthChanged: Qt.callLater(followResize)
+    onHeightChanged: Qt.callLater(followResize)
+
+    function placeView(newZoom, newPan) {
+        camera.zoom = newZoom
+        camera.pan = newPan
+    }
+
+    // The user moved the view.
+    function panBy(dx, dy) {
+        placeView(zoom, Qt.point(pan.x + dx, pan.y + dy))
+        userMoved()
+    }
     function zoomAt(screenPoint, factor) {
         const world = toWorld(screenPoint)
-        zoom = Math.max(0.1, Math.min(4, zoom * factor))
-        pan = Qt.point(screenPoint.x - world.x * zoom, screenPoint.y - world.y * zoom)
+        const newZoom = Math.max(0.1, Math.min(4, zoom * factor))
+        placeView(newZoom, Qt.point(screenPoint.x - world.x * newZoom, screenPoint.y - world.y * newZoom))
+        userMoved()
+    }
+    function userMoved() {
+        keepOnResize = "nothing"
+        rememberView()
+    }
+    function rememberView() {
+        if (width > 0 && height > 0)
+            editor.rememberView(toWorld(Qt.point(width / 2, height / 2)), zoom)
+    }
+
+    function followResize() {
+        if (keepOnResize === "fit")
+            fitToContent()
+        else if (keepOnResize === "center")
+            centerOn(keptCenter)
+    }
+    function centerOn(point) {
+        placeView(zoom, Qt.point(width / 2 - point.x * zoom, height / 2 - point.y * zoom))
+    }
+    function userFit() {   // the Fit button and Ctrl+1
+        fitToContent()
+        rememberView()
     }
 
     // How far a wheel event scrolls, in screen pixels. A mouse wheel has no scroll phase and
@@ -74,16 +126,13 @@ Item {
     function resetZoom() { zoomAt(Qt.point(width / 2, height / 2), 1 / zoom) }
 
     function fitToContent() {
-        fitting = true
         const r = editor.contentBounds()
         if (r.width <= 0) {
-            zoom = 1
-            pan = Qt.point(width / 2, height / 2)
-        } else {
-            zoom = Math.min(width / (r.width + 160), height / (r.height + 160), 1)
-            pan = Qt.point(width / 2 - (r.x + r.width / 2) * zoom, height / 2 - (r.y + r.height / 2) * zoom)
+            placeView(1, Qt.point(width / 2, height / 2))
+            return
         }
-        fitting = false
+        const newZoom = Math.min(width / (r.width + 160), height / (r.height + 160), 1)
+        placeView(newZoom, Qt.point(width / 2 - (r.x + r.width / 2) * newZoom, height / 2 - (r.y + r.height / 2) * newZoom))
     }
 
     // ---- Dragging a new Connection out of a Handle (called by CardItem) ----
@@ -173,45 +222,6 @@ Item {
             interaction.spaceHeld = false
     }
 
-    // After opening a Canvas the view goes back to where the user left it, or fits the content
-    // if it was never moved. Until the user pans or zooms, resizing (tiling window managers
-    // resize right after showing; the sidebar opens and closes) keeps that: it fits again, or
-    // keeps the same point in the middle. Every pan and zoom the user makes is remembered.
-    property bool autoFit: true
-    property var keepCenter: null   // world point kept in the middle, or null
-    property bool fitting: false    // pan and zoom are being set by the code, not the user
-    onPanChanged: viewMoved()
-    onZoomChanged: viewMoved()
-    onWidthChanged: Qt.callLater(followResize)
-    onHeightChanged: Qt.callLater(followResize)
-
-    function viewMoved() {
-        if (fitting)
-            return
-        autoFit = false
-        keepCenter = null
-        rememberView()
-    }
-    function rememberView() {
-        if (width > 0 && height > 0)
-            editor.rememberView(toWorld(Qt.point(width / 2, height / 2)), zoom)
-    }
-    function followResize() {
-        if (autoFit)
-            fitToContent()
-        else if (keepCenter)
-            centerOn(keepCenter)
-    }
-    function centerOn(point) {
-        fitting = true
-        pan = Qt.point(width / 2 - point.x * zoom, height / 2 - point.y * zoom)
-        fitting = false
-    }
-    function userFit() {   // the Fit button and Ctrl+1
-        fitToContent()
-        rememberView()
-    }
-
     Connections {
         target: view.editor
         function onCanvasOpened() {
@@ -222,15 +232,12 @@ Item {
             }
             const saved = view.editor.savedView()
             if (saved.zoom) {
-                view.autoFit = false
-                view.fitting = true
-                view.zoom = saved.zoom
-                view.fitting = false
-                view.keepCenter = Qt.point(saved.x, saved.y)
-                view.centerOn(view.keepCenter)
+                view.keepOnResize = "center"
+                view.keptCenter = Qt.point(saved.x, saved.y)
+                view.placeView(saved.zoom, view.pan)
+                view.centerOn(view.keptCenter)
             } else {
-                view.keepCenter = null
-                view.autoFit = true
+                view.keepOnResize = "fit"
                 Qt.callLater(view.fitToContent)
             }
         }
@@ -298,7 +305,7 @@ Item {
             if (!pressed) {
                 overConnection = view.editor.connectionAt(view.toWorld(Qt.point(mouse.x, mouse.y)), 6 / view.zoom) !== ""
             } else if (mode === "pan") {
-                view.pan = Qt.point(view.pan.x + mouse.x - last.x, view.pan.y + mouse.y - last.y)
+                view.panBy(mouse.x - last.x, mouse.y - last.y)
                 last = Qt.point(mouse.x, mouse.y)
             } else if (mode === "select") {
                 rubberBand.x = Math.min(rubberStart.x, mouse.x)
@@ -341,7 +348,7 @@ Item {
                 dx = dy
                 dy = 0
             }
-            view.pan = Qt.point(view.pan.x + dx, view.pan.y + dy)
+            view.panBy(dx, dy)
         }
     }
 

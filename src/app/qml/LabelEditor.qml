@@ -27,18 +27,10 @@ Rectangle {
     border.color: Colors.selection
     border.width: 1.5 / canvas.zoom   // as thin as the Dots at every zoom level
 
-    onVisibleChanged: {
-        if (visible) {
-            input.text = editor.selectedConnection.label
-            input.forceActiveFocus()
-            input.selectAll()
-        }
-    }
-
-    function finish() {
+    function finish(text) {
         const id = connectionId
         canvas.endLabelEditing()
-        editor.setLabel(id, input.text)
+        editor.setLabel(id, text)
     }
 
     // Selecting something else, or the Connection going away (undo), ends editing, also while
@@ -47,8 +39,8 @@ Rectangle {
         target: box.editor
         function onSelectionChanged() {
             if (box.visible && box.editor.selectedConnection.id !== box.connectionId) {
-                textMenu.close()
-                box.finish()
+                textSession.closeMenu()
+                box.finish(input.text)
                 box.canvas.forceActiveFocus()
             }
         }
@@ -71,22 +63,17 @@ Rectangle {
         selectionColor: Colors.accentFill
         selectedTextColor: Colors.onAccent
         onAccepted: box.canvas.forceActiveFocus()
-        onActiveFocusChanged: if (!activeFocus && box.visible && !textMenu.visible) box.finish()
         Keys.onEscapePressed: box.canvas.forceActiveFocus()
         HoverHandler { cursorShape: Qt.IBeamCursor }   // a plain TextInput sets none
     }
 
-    // A right-click opens the text menu. Above the TextInput, which would take the
-    // right-click itself; left clicks still go through to it.
-    MouseArea {
+    // Above the TextInput, which would take the right-click for the text menu itself.
+    TextEditSession {
+        id: textSession
         anchors.fill: parent
-        acceptedButtons: Qt.RightButton
-        onPressed: textMenu.popup()
-    }
-
-    TextMenu {
-        id: textMenu
         editor: input
+        startText: box.editor.selectedConnection.label
+        onFinished: (text) => box.finish(text)
     }
 
     Text {

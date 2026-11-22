@@ -10,10 +10,11 @@ import JunctionDesign
 // or into another. SidebarRow calls start(), move() and end(). Meanwhile this shows where the
 // row would land and the row itself following the pointer, and scrolls the list near its edges.
 //
-// `drop` describes where the dragged row would land:
-//   a Canvas: {project, index} plus lineY (a line between rows) or intoRow (a collapsed
-//   Project, shown outlined); a Project: {projectIndex, lineY}. lineY is in list content
-//   coordinates. `noOp` drops would put the row back where it is.
+// `drop` is where the dragged row would land, or null, always with the same fields:
+//   lineY    the line drawn between rows (list content coordinates), or -1 for none
+//   intoRow  the collapsed Project row it would go into (shown outlined), or -1
+//   noOp     it would put the row back where it is
+//   move()   moves it there
 Item {
     id: rowDrag
     required property Library library
@@ -35,17 +36,10 @@ Item {
     }
 
     function end() {
-        const dragged = item
         const target = drop
         cancel()
-        if (!dragged || !target || target.noOp)
-            return
-        Qt.callLater(() => {
-            if (dragged.kind === "canvas")
-                library.moveCanvas(dragged.project, dragged.name, target.project, target.index)
-            else
-                library.moveProject(dragged.project, target.projectIndex)
-        })
+        if (target && !target.noOp)
+            Qt.callLater(target.move)
     }
 
     function cancel() {
@@ -73,19 +67,18 @@ Item {
     // A Canvas lands before or after the Canvas row under the pointer, whichever half it is in;
     // on a Project row, at the top of an open Project or the end of a collapsed one.
     function canvasDrop(row, rowIndex, rowItem, y) {
-        let target
-        if (row.kind === "canvas") {
-            const after = y >= rowItem.y + rowItem.height / 2
-            target = { project: row.project, index: row.canvasIndex + (after ? 1 : 0),
-                       lineY: rowItem.y + (after ? rowItem.height : 0) }
-        } else if (row.expanded) {
-            target = { project: row.project, index: 0, lineY: rowItem.y + rowItem.height }
-        } else {
-            target = { project: row.project, index: row.canvasCount, intoRow: rowIndex }
+        const after = y >= rowItem.y + rowItem.height / 2
+        const index = row.kind === "canvas" ? row.canvasIndex + (after ? 1 : 0)
+                    : row.expanded ? 0 : row.canvasCount
+        const lineY = row.kind === "canvas" ? rowItem.y + (after ? rowItem.height : 0)
+                    : row.expanded ? rowItem.y + rowItem.height : -1
+        const dragged = item
+        return {
+            lineY: lineY,
+            intoRow: lineY < 0 ? rowIndex : -1,
+            noOp: row.project === dragged.project && (index === dragged.canvasIndex || index === dragged.canvasIndex + 1),
+            move: () => library.moveCanvas(dragged.project, dragged.name, row.project, index)
         }
-        target.noOp = target.project === item.project
-            && (target.index === item.canvasIndex || target.index === item.canvasIndex + 1)
-        return target
     }
 
     // A Project lands before or after the whole Project under the pointer, whichever half it is in.
@@ -95,10 +88,14 @@ Item {
         if (!top || !bottom)
             return null
         const before = y < (top.y + bottom.y + bottom.height) / 2
-        const target = { projectIndex: row.projectIndex + (before ? 0 : 1),
-                         lineY: before ? top.y : bottom.y + bottom.height }
-        target.noOp = target.projectIndex === item.projectIndex || target.projectIndex === item.projectIndex + 1
-        return target
+        const index = row.projectIndex + (before ? 0 : 1)
+        const dragged = item
+        return {
+            lineY: before ? top.y : bottom.y + bottom.height,
+            intoRow: -1,
+            noOp: index === dragged.projectIndex || index === dragged.projectIndex + 1,
+            move: () => library.moveProject(dragged.project, index)
+        }
     }
 
     // Dragging near the top or bottom edge scrolls.
@@ -119,7 +116,7 @@ Item {
 
     // Where the dragged row would land.
     Rectangle {
-        visible: rowDrag.active && rowDrag.drop !== null && !rowDrag.drop.noOp && rowDrag.drop.lineY !== undefined
+        visible: rowDrag.active && rowDrag.drop !== null && !rowDrag.drop.noOp && rowDrag.drop.lineY >= 0
         x: rowDrag.item && rowDrag.item.kind === "canvas" ? rowDrag.canvasIndent : rowDrag.projectIndent
         y: rowDrag.list.y + (rowDrag.drop ? rowDrag.drop.lineY : 0) - rowDrag.list.contentY - 1
         width: rowDrag.width - x - Space.md

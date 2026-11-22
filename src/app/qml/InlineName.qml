@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls
-import Junction
+import JunctionDesign
 
 // A name shown as text that turns into a text field to rename it, in the toolbar and in the
 // sidebar. While typing, a name that can't be used is outlined in red with the reason below;
@@ -14,7 +14,7 @@ Item {
     property bool clickToEdit: false        // the toolbar: a click renames
     property string tip                     // tooltip while hovering, with clickToEdit
     property alias font: label.font
-    property color color: Theme.text
+    property color color: Colors.text
     property bool editing: false
 
     signal renamed(string name)   // a changed, usable name; sent after editing has ended
@@ -38,7 +38,7 @@ Item {
     }
 
     implicitWidth: Math.ceil(label.implicitWidth)   // layouts round down; a fraction short elides
-    implicitHeight: Math.max(label.implicitHeight, 26)
+    implicitHeight: Math.max(label.implicitHeight, Sizes.control)
 
     Label {
         id: label
@@ -49,15 +49,14 @@ Item {
         textFormat: root.richText ? Text.StyledText : Text.PlainText
         color: root.color
         elide: Text.ElideRight
-        leftPadding: root.clickToEdit ? 6 : 0
-        rightPadding: root.clickToEdit ? 6 : 0
+        leftPadding: root.clickToEdit ? Space.sm : 0
+        rightPadding: root.clickToEdit ? Space.sm : 0
         background: Rectangle {
             visible: root.clickToEdit
-            radius: 4
-            color: mouse.containsMouse ? Theme.rowHover : "transparent"
+            color: mouse.containsMouse ? Colors.hover : "transparent"
         }
         ToolTip.visible: root.clickToEdit && mouse.containsMouse && (root.tip !== "" || label.truncated)
-        ToolTip.delay: 500
+        ToolTip.delay: Motion.tooltipDelay
         ToolTip.text: (label.truncated ? root.text + (root.tip ? "\n" : "") : "") + root.tip
         // `visible`, not `enabled`: Qt shows a disabled MouseArea's cursor all the same.
         // A plain arrow, like the toolbar buttons beside it: the name is a button until clicked.
@@ -77,37 +76,33 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        leftPadding: 5
-        rightPadding: 5
-        topPadding: 3
-        bottomPadding: 3
+        // The text stays where the label's was; the outline is red while the name can't be used.
+        leftPadding: Math.max(label.leftPadding, Space.xs)
+        rightPadding: Math.max(label.rightPadding, Space.xs)
+        topPadding: Space.xs
+        bottomPadding: Space.xs
         font: label.font
-        selectByMouse: true
         background: Rectangle {
-            radius: 4
-            color: Theme.cardFill
+            color: Colors.cardFill
             border.width: 1.5
-            border.color: field.problem ? Theme.danger : Theme.selection
+            border.color: field.problem ? Colors.danger : Colors.selection
         }
         // Its own tooltip rather than the shared ToolTip.visible one, which other hovered
         // controls can take over; shown below the field so it never covers the row above.
         ToolTip {
             parent: field
             x: 0
-            y: field.height + 4
+            y: field.height + Space.xs
             contentItem: Label {
                 text: field.problem
-                color: Theme.text
                 wrapMode: Text.Wrap
             }
-            background: Rectangle {
-                radius: 5
-                color: Theme.panel
-                border.color: Theme.danger
+            background: Floating {
+                border.color: Colors.danger
             }
             visible: field.problem !== ""
             text: field.problem
-            delay: 0
+            delay: 0   // design-exception: why a name can't be used shows at once, while typing
             timeout: -1
             closePolicy: Popup.NoAutoClose
         }

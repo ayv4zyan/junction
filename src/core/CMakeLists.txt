@@ -6,6 +6,7 @@ add_library(junction_core STATIC
     TransactionCommand.h
     Geometry.h Geometry.cpp
     CanvasPainter.h CanvasPainter.cpp
+    DesignValues.h
 )
 
 target_include_directories(junction_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

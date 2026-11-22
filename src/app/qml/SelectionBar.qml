@@ -2,58 +2,88 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Junction
+import JunctionDesign
+import "CanvasColors.js" as CanvasColors
 
-// Floating toolbar for the selection: colors for anything, plus path style, arrows and
-// label when a single Connection is selected.
-Rectangle {
+// The floating toolbar for the Selection: colors for anything, plus Path Style, arrowheads and
+// Label when a single Connection is selected. It sits just above the selection (below it near
+// the top edge, always inside the canvas), so the controls appear next to what they change.
+// It hides while anything is dragged, the canvas is panned, a selection rectangle is drawn or a
+// new Connection is pulled out, so it never chases the pointer.
+Floating {
     id: bar
     required property Editor editor
-    required property var canvas
+    required property var canvas    // the CanvasView
     readonly property var connection: editor.selectedConnection
     readonly property bool isConnection: connection.id !== undefined
+    readonly property bool shown: editor.selection.length > 0 && !editor.dragging && !canvas.manipulating
 
-    visible: editor.selection.length > 0
-    width: row.implicitWidth + 16
-    height: 44
-    radius: 10
-    color: Theme.panel
-    border.color: Theme.cardBorder
+    // The selection on screen, in the canvas's coordinates.
+    readonly property rect target: {
+        const b = editor.selectionBounds
+        const topLeft = canvas.toScreen(Qt.point(b.x, b.y))
+        return Qt.rect(topLeft.x, topLeft.y, b.width * canvas.zoom, b.height * canvas.zoom)
+    }
+    // Where it sits, worked out only while it is shown: when it fades out (nothing selected any
+    // more, or a drag starts) it stays where it was, instead of jumping to wherever an empty
+    // selection would put it.
+    property point position
+    Binding on position {
+        when: bar.shown
+        value: bar.editor.floatingPosition(bar.target, Qt.size(bar.width, bar.height),
+                                           Qt.rect(0, 0, bar.canvas.width, bar.canvas.height), Space.sm)
+        restoreMode: Binding.RestoreNone
+    }
+
+    // Follows the selection 1:1 (also while scrolling the canvas): never animated.
+    x: canvas.x + position.x
+    y: canvas.y + position.y + offset
+    width: row.implicitWidth + 2 * Space.xs
+    height: Sizes.toolbar
+
+    // Layering: it fades in, rising a few pixels, when something gets selected.
+    property real offset: 0
+    state: shown ? "shown" : "hidden"
+    states: [
+        State { name: "shown"; PropertyChanges { bar.opacity: 1; bar.offset: 0; bar.visible: true } },
+        State { name: "hidden"; PropertyChanges { bar.opacity: 0; bar.offset: Space.xs; bar.visible: false } }
+    ]
+    transitions: [
+        Transition {
+            to: "shown"
+            PropertyAction { property: "visible" }
+            NumberAnimation { properties: "opacity,offset"; duration: Motion.normal; easing.type: Motion.enter }
+        },
+        Transition {
+            to: "hidden"
+            SequentialAnimation {
+                NumberAnimation { properties: "opacity,offset"; duration: Motion.out(Motion.normal); easing.type: Motion.exit }
+                PropertyAction { property: "visible" }
+            }
+        }
+    ]
 
     Row {
         id: row
         anchors.centerIn: parent
-        spacing: 6
 
         Repeater {
             model: ["", "1", "2", "3", "4", "5", "6"]
-            delegate: Rectangle {
+            delegate: Swatch {
                 required property string modelData
                 anchors.verticalCenter: parent.verticalCenter
-                width: 22
-                height: 22
-                radius: 11
-                color: modelData ? Theme.resolve(modelData, Theme.line) : Theme.cardFill
-                // a ring around the color the selection already has
-                border.color: bar.editor.selectionColor === modelData ? Theme.text : Theme.cardBorder
-                border.width: bar.editor.selectionColor === modelData ? 2.5 : 1.5
-                ToolTip.visible: swatchMouse.containsMouse && !modelData
-                ToolTip.text: qsTr("Default color")
-                MouseArea {
-                    id: swatchMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: bar.editor.setColor(parent.modelData)
-                }
+                fill: modelData ? CanvasColors.resolve(modelData, Colors.presets, Colors.line) : Colors.cardFill
+                outlined: modelData === ""
+                chosen: bar.editor.selectionColor === modelData
+                tip: [qsTr("Default color"), qsTr("Red"), qsTr("Orange"), qsTr("Yellow"),
+                      qsTr("Green"), qsTr("Cyan"), qsTr("Purple")][modelData ? parseInt(modelData) : 0]
+                onClicked: bar.editor.setColor(modelData)
             }
         }
 
-        Rectangle {
+        Separator {
             visible: bar.isConnection
-            width: 1
-            height: 24
             anchors.verticalCenter: parent.verticalCenter
-            color: Theme.cardBorder
         }
 
         // Path style: one icon button per style; the current one is highlighted.
@@ -70,12 +100,9 @@ Rectangle {
             }
         }
 
-        Rectangle {
+        Separator {
             visible: bar.isConnection
-            width: 1
-            height: 24
             anchors.verticalCenter: parent.verticalCenter
-            color: Theme.cardBorder
         }
 
         // Arrowheads: [name, arrow at start, arrow at end, tooltip]

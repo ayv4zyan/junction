@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Junction
+import JunctionDesign
 
 // Edits a Connection's label in place. It sits in canvas (world) coordinates, so it zooms
 // with the canvas, and looks like the painted label it stands in for (CanvasPainter's font and
@@ -16,13 +17,14 @@ Rectangle {
     readonly property point center: editor.selectedConnection.labelPosition ?? Qt.point(0, 0)
 
     visible: connectionId !== ""
-    width: Math.max(input.contentWidth, placeholder.implicitWidth) + 12
-    height: input.contentHeight + 6
+    // The painted Label's padding (DesignValues::LabelPadding*, copies of these tokens).
+    width: Math.max(input.contentWidth, placeholder.implicitWidth) + 2 * Space.sm
+    height: input.contentHeight + 2 * Space.xs
     x: center.x - width / 2
     y: center.y - height / 2
-    radius: 4
-    color: Theme.background
-    border.color: Theme.selection
+    radius: Sizes.radius
+    color: Colors.background
+    border.color: Colors.selection
     border.width: 1.5 / canvas.zoom   // as thin as the Dots at every zoom level
 
     onVisibleChanged: {
@@ -39,23 +41,35 @@ Rectangle {
         editor.setConnectionLabel(id, input.text)
     }
 
-    // Selecting something else, or the Connection going away (undo), ends editing.
+    // Selecting something else, or the Connection going away (undo), ends editing, also while
+    // the text menu is open (then losing focus doesn't end it, see the TextInput).
     Connections {
         target: box.editor
         function onSelectionChanged() {
-            if (box.visible && box.editor.selectedConnection.id !== box.connectionId)
+            if (box.visible && box.editor.selectedConnection.id !== box.connectionId) {
+                textMenu.close()
+                box.finish()
                 box.canvas.forceActiveFocus()
+            }
         }
+    }
+
+    // A click in the padding around the text keeps editing (it would otherwise reach the
+    // Connection's handles underneath). Under the TextInput, which takes clicks on the text.
+    MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.IBeamCursor
+        onPressed: input.forceActiveFocus()
     }
 
     TextInput {
         id: input
         anchors.centerIn: parent
-        font.pixelSize: 13
+        font.pixelSize: Fonts.body
         renderType: Text.CurveRendering   // sharp at every zoom level, like the painted label
-        color: Theme.text
-        selectionColor: Theme.selection
-        selectedTextColor: "white"
+        color: Colors.text
+        selectionColor: Colors.accentFill
+        selectedTextColor: Colors.onAccent
         onAccepted: box.canvas.forceActiveFocus()
         onActiveFocusChanged: if (!activeFocus && box.visible && !textMenu.visible) box.finish()
         Keys.onEscapePressed: box.canvas.forceActiveFocus()
@@ -80,8 +94,8 @@ Rectangle {
         anchors.centerIn: parent
         visible: input.text === ""
         text: qsTr("Label")
-        color: Theme.mutedText
-        font.pixelSize: 13
+        color: Colors.mutedText
+        font.pixelSize: Fonts.body
         renderType: Text.CurveRendering
     }
 }

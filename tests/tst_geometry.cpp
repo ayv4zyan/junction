@@ -113,6 +113,17 @@ private slots:
         QCOMPARE(route.midpoints.size(), waypoints.size() + 1);
     }
 
+    // A Waypoint straight behind a pinned start, on the very line the path leaves on: the path
+    // steps aside to reach it instead of running back over itself.
+    void elbowStepsAsideForWaypointBehind()
+    {
+        Connection c = connection(PathStyle::Elbow, {{-80, 25}});
+        c.fromSide = Side::Right;
+        const auto route = Geometry::route({0, 0, 100, 50}, {300, 300, 100, 50}, c);
+        QVERIFY(isOrthogonal(route.path));
+        QVERIFY(!doublesBack(route.path));
+    }
+
     // Pinned sides that face away from each other must route around the cards, not through them.
     void elbowStaysOutOfCards_data()
     {
@@ -194,6 +205,27 @@ private slots:
         const auto route = Geometry::route({0, 0, 100, 50}, {300, 0, 100, 50}, connection(PathStyle::Straight));
         QVERIFY(Geometry::hits(route, {200, 27}, 4));
         QVERIFY(!Geometry::hits(route, {200, 60}, 4));
+    }
+
+    // The selection toolbar: centred above the selection, 8px away, inside an 800x600 view.
+    void floatingPosition_data()
+    {
+        QTest::addColumn<QRectF>("selection");
+        QTest::addColumn<QPointF>("expected");
+        QTest::newRow("centred above") << QRectF(300, 200, 200, 100) << QPointF(300, 152);
+        QTest::newRow("kept off the left edge") << QRectF(0, 200, 100, 60) << QPointF(8, 152);
+        QTest::newRow("kept off the right edge") << QRectF(750, 200, 50, 60) << QPointF(592, 152);
+        QTest::newRow("below when no room above") << QRectF(300, 20, 200, 60) << QPointF(300, 88);
+        QTest::newRow("at the top when the selection fills the view") << QRectF(0, 0, 800, 600) << QPointF(300, 8);
+        QTest::newRow("inside when the selection is scrolled above the view") << QRectF(300, -200, 200, 100) << QPointF(300, 8);
+        QTest::newRow("inside when the selection is scrolled below the view") << QRectF(300, 700, 200, 100) << QPointF(300, 552);
+    }
+
+    void floatingPosition()
+    {
+        QFETCH(QRectF, selection);
+        QFETCH(QPointF, expected);
+        QCOMPARE(Geometry::floatingPosition(selection, QSizeF(200, 40), QRectF(0, 0, 800, 600), 8), expected);
     }
 
     void handles()

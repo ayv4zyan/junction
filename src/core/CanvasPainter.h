@@ -11,7 +11,8 @@
 
 class QPainter;
 
-// Colors come from the QML Theme (the single place colors are defined) as a QVariantMap.
+// Colors and the corner radius come from the design tokens (src/design: Colors.forPainter) as
+// a QVariantMap, so the painted layers and exports match the rest of the UI.
 struct Palette
 {
     QColor background{"#1e1e1e"};
@@ -23,6 +24,7 @@ struct Palette
     QColor line{"#8a8a8a"};
     QColor selection{"#7f6df2"};
     QVector<QColor> presets;   // JSON Canvas colors "1".."6"
+    qreal radius = 0;          // corners of Cards, Groups and Connection labels
 
     QColor resolve(const QString &color, const QColor &fallback) const;
     static Palette fromVariantMap(const QVariantMap &map);
@@ -33,10 +35,17 @@ namespace CanvasPainter {
 // `view` maps world coordinates to the screen; the grid is drawn in screen space.
 void drawGrid(QPainter &painter, const QTransform &view, const QSizeF &screenSize, const Palette &palette);
 
+// The Canvas's color at `point` as drawn: the background, tinted by each of `nodes`' Groups that
+// the point lies in. A Connection's label box is filled with it, so the label sits on the same
+// color as its surroundings (inside a Group too).
+QColor colorUnder(QPointF point, const QVector<Node> &nodes, const Palette &palette);
+
 // These draw in world coordinates (set the painter's transform first).
 // `showLabel` is false while the label is being edited: the editor takes its place.
+// `labelFill` is the label box's color (see colorUnder); the background when not given.
 void drawConnection(QPainter &painter, const Geometry::Route &route, const Connection &connection,
-                    const Palette &palette, bool selected, bool showLabel = true);
+                    const Palette &palette, bool selected, bool showLabel = true,
+                    const QColor &labelFill = QColor());
 void drawNode(QPainter &painter, const Node &node, const Palette &palette);
 
 // The box a Connection's label is drawn in, centred on the route's label position (world

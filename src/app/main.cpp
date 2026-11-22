@@ -1,4 +1,5 @@
 #include "Editor.h"
+#include "JunctionDesign.h"
 
 #include <QCryptographicHash>
 #include <QGuiApplication>
@@ -7,13 +8,21 @@
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QStyleHints>
+#include <QtQml/qqmlextensionplugin.h>
+
+Q_IMPORT_QML_PLUGIN(JunctionDesignPlugin)
 
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
     app.setOrganizationName("Junction");
     app.setApplicationName("Junction");
-    QQuickStyle::setStyle("Fusion");
+    // JUNCTION_COLOR_SCHEME=light|dark overrides the system setting (to check both themes).
+    if (const QByteArray scheme = qgetenv("JUNCTION_COLOR_SCHEME"); !scheme.isEmpty())
+        QGuiApplication::styleHints()->setColorScheme(scheme == "light" ? Qt::ColorScheme::Light : Qt::ColorScheme::Dark);
+    JunctionDesign::installFonts();
+    QQuickStyle::setStyle("JunctionDesign");   // plain Button, Menu, ... get the design system's look
 
     // One running app per Library: two would overwrite each other's index. A second launch
     // connects to the first, which brings its window forward, and then quits. The message is

@@ -9,14 +9,17 @@ in [docs/adr](docs/adr).
 
 ## Build
 
-Requires Qt 6.8+ (Core, Gui, Svg, Network, Quick, QuickControls2, Test), CMake and a C++20 compiler.
+Requires Qt 6.9+ (Core, Gui, Svg, Network, Quick, QuickControls2, Test), CMake and a C++20 compiler.
 
 ```sh
 cmake -S . -B build -G Ninja
 cmake --build build
-ctest --test-dir build          # core unit tests
+ctest --test-dir build          # unit tests
 ./build/src/app/junction
+./build/src/design/gallery/junction-gallery   # the design system: every component, both themes
 ```
+
+`JUNCTION_COLOR_SCHEME=light` (or `dark`) overrides the system theme, to check both.
 
 ## Using it
 
@@ -72,8 +75,14 @@ starting it again brings the window forward.
 ## Code layout
 
 - `src/core` — no QML: the model (`CanvasItems`, `Document`), every edit as a `Change`
-  inside a `Transaction` (undo, and later network sync), connection `Geometry`,
+  inside a `Transaction` (undo, and later network sync), `Geometry` (how Connections run, and
+  where the floating selection toolbar goes),
   `CanvasPainter` for drawing and export, and the `Library` of Projects and Canvases on disk.
+- `src/design` — the design system (`JunctionDesign`): tokens, the Qt Quick Controls style, shared
+  components and the Geist typeface, plus `junction-gallery`. Knows nothing about the app; see
+  [its README](src/design/README.md) for the rules.
 - `src/app` — `Editor` (the object QML talks to), `NodeModel`, `LibraryModel` (the sidebar),
-  the painted grid/connection layers, and the QML UI.
-- `tests` — Qt Test unit tests for the core.
+  the painted grid/connection layers, and the QML screens, built from `src/design`.
+- `tests` — Qt Test unit tests for the core and the Editor, the design check's rules, and that the
+  C++ side's design values match the tokens. CI (`.github/workflows/ci.yml`) builds and tests every
+  pull request; the build itself fails on QML that goes around the design system.

@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Junction
+import JunctionDesign
+import "CanvasColors.js" as CanvasColors
 
 // One Group: a tinted area with a label above it. Drag the label to move the Group together
 // with every Card inside it; double-click the label to rename it.
@@ -19,7 +21,7 @@ Item {
     readonly property Editor editor: canvas.editor
     readonly property bool selected: editor.selection.includes(nodeId)
     readonly property bool editing: canvas.editingId === nodeId
-    readonly property color accent: Theme.resolve(nodeColor, Theme.cardBorder)
+    readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
 
     x: nodeX
     y: nodeY
@@ -34,27 +36,28 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: 8
-        color: Qt.alpha(group.accent, 0.08)
-        border.color: group.selected ? Theme.selection : group.accent
+        radius: Sizes.radius
+        color: Qt.alpha(group.accent, Colors.groupTint)
+        border.color: group.selected ? Colors.selection : group.accent
         border.width: group.selected ? 2 : 1.5
     }
 
     Rectangle {
         id: labelBar
-        y: -height - 6
-        height: 30
-        width: Math.max(labelText.implicitWidth, labelInput.implicitWidth) + 20
-        radius: 6
-        color: group.selected ? Theme.selection : Qt.alpha(group.accent, 0.3)
+        y: -height - Space.xs
+        height: Sizes.control
+        width: Math.max(labelText.implicitWidth, labelInput.implicitWidth) + 2 * Space.md
+        radius: Sizes.radius
+        color: group.selected ? Colors.accentFill : Qt.alpha(group.accent, 0.3)
 
         Text {
             id: labelText
             anchors.centerIn: parent
             visible: !group.editing
             text: group.text || qsTr("Group")
-            color: group.selected ? "white" : Theme.text
-            font.pixelSize: 15
+            color: group.selected ? Colors.onAccent : Colors.text
+            font.pixelSize: Fonts.canvas
+            renderType: Text.CurveRendering   // sharp at every zoom level, like Card text
             font.bold: true
         }
 
@@ -62,8 +65,9 @@ Item {
             id: labelInput
             anchors.centerIn: parent
             visible: group.editing
-            color: Theme.text
-            font.pixelSize: 15
+            color: Colors.text
+            font.pixelSize: Fonts.canvas
+            renderType: Text.CurveRendering   // sharp at every zoom level, like Card text
             font.bold: true
             onVisibleChanged: {
                 if (visible) {

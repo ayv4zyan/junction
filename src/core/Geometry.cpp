@@ -1,5 +1,7 @@
 #include "Geometry.h"
 
+#include <algorithm>
+
 #include <QLineF>
 #include <QPainterPathStroker>
 #include <QtMath>
@@ -105,7 +107,8 @@ void elbowRoute(Route &r, const QVector<QPointF> &controls, Side fromSide, Side 
     lineTo(start + sideNormal(fromSide) * ElbowStub);
 
     // To reach a Waypoint, keep going the way we were and turn once. If keeping going would
-    // run back along the last leg, turn first instead.
+    // run back along the last leg, turn first instead. If the Waypoint is straight behind us
+    // (turning first would go nowhere), step aside by a stub, then come back to it.
     for (int i = 1; i < controls.size() - 1; ++i) {
         const QPointF waypoint = controls[i];
         const QPointF current = points.last();
@@ -113,7 +116,15 @@ void elbowRoute(Route &r, const QVector<QPointF> &controls, Side fromSide, Side 
                                                        : QPointF(current.x(), waypoint.y());
         const QPointF turnFirst = movingHorizontally() ? QPointF(current.x(), waypoint.y())
                                                        : QPointF(waypoint.x(), current.y());
-        lineTo(goesBack(keepGoing) ? turnFirst : keepGoing);
+        if (!goesBack(keepGoing)) {
+            lineTo(keepGoing);
+        } else if (turnFirst != current) {
+            lineTo(turnFirst);
+        } else {
+            const QPointF aside = movingHorizontally() ? QPointF(0, ElbowStub) : QPointF(ElbowStub, 0);
+            lineTo(current + aside);
+            lineTo(waypoint + aside);
+        }
         lineTo(waypoint);
         spanEnds.append(points.size() - 1);
     }
@@ -286,6 +297,20 @@ qreal snap(qreal value)
 QPointF snap(QPointF point)
 {
     return {snap(point.x()), snap(point.y())};
+}
+
+QPointF floatingPosition(const QRectF &selection, const QSizeF &size, const QRectF &view, qreal gap)
+{
+    // Inside the view on both axes, even when the selection itself is scrolled out of it.
+    const qreal left = view.left() + gap, right = view.right() - gap - size.width();
+    const qreal top = view.top() + gap, bottom = view.bottom() - gap - size.height();
+    const qreal x = std::clamp(selection.center().x() - size.width() / 2, left, std::max(left, right));
+
+    const qreal above = selection.top() - gap - size.height();
+    const qreal below = selection.bottom() + gap;
+    // Above if it fits, otherwise below; when neither fits the selection fills the view: the top.
+    const qreal y = above >= top ? above : below <= bottom ? below : top;
+    return {x, std::clamp(y, top, std::max(top, bottom))};
 }
 
 } // namespace Geometry

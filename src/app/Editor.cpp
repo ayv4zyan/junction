@@ -1,6 +1,7 @@
 #include "Editor.h"
 
 #include "CanvasPainter.h"
+#include "DesignValues.h"
 #include "Geometry.h"
 #include "TransactionCommand.h"
 
@@ -270,6 +271,26 @@ QVariantMap Editor::selectionInfo() const
     };
 }
 
+QRectF Editor::selectionBounds() const
+{
+    QRectF bounds;
+    for (const QString &id : m_selection) {
+        if (const Node *n = m_document.node(id)) {
+            const qreal labelSpace = n->kind == NodeKind::Group ? DesignValues::GroupLabelSpace : 0;
+            bounds = bounds.united(n->rect.adjusted(0, -labelSpace, 0, 0));
+        } else if (const Connection *c = m_document.connection(id)) {
+            const Node *from = m_document.node(c->fromNode);
+            const Node *to = m_document.node(c->toNode);
+            if (from && to) {
+                const Geometry::Route route = Geometry::route(from->rect, to->rect, *c);
+                bounds = bounds.united(route.path.boundingRect())
+                               .united(CanvasPainter::labelRect(route, c->label));   // empty without a label
+            }
+        }
+    }
+    return bounds;
+}
+
 // ---- Creating and editing ----
 
 Node Editor::newCard(QPointF center, const QString &text) const
@@ -378,6 +399,7 @@ void Editor::beginDrag(const QVector<Item> &items)
 {
     m_dragOriginal = items;
     m_dragCurrent = items;
+    emit draggingChanged();
 }
 
 void Editor::previewDrag(const QVector<Item> &items)
@@ -396,6 +418,7 @@ void Editor::endDrag(const QString &text)
     }
     m_dragOriginal.clear();
     m_dragCurrent.clear();
+    emit draggingChanged();
     commit(t, text);
 }
 
@@ -678,8 +701,9 @@ void Editor::setConnectionLabel(const QString &connectionId, const QString &labe
     commit({{*existing, c}}, tr("Edit label"));
 }
 
-void Editor::setLabels(const QString &label)
+void Editor::setLabels(const QString &text)
 {
+    const QString label = text.trimmed();   // like setConnectionLabel: only spaces means no label
     Transaction t;
     for (const QString &id : m_selection) {
         if (const Node *n = m_document.node(id); n && n->kind == NodeKind::Group) {
@@ -772,15 +796,17 @@ void Editor::insertJson(const QJsonObject &json, QPointF offset)
 
 // Removes exactly what copy() puts on the clipboard, so a cut Group takes its cards along
 // (Delete removes only the Group).
+// Copies the Cards and Groups, then deletes them, their Connections, and any other
+// selected Connections (a Connection alone can't be pasted, but cutting it still removes it).
 void Editor::cut()
 {
     const QSet<QString> ids = copiedNodeIds();
-    if (ids.isEmpty())
+    if (ids.isEmpty() && selectedConnections().isEmpty())
         return;
     copy();
     Transaction t;
     for (const Connection &c : m_document.connections()) {
-        if (ids.contains(c.fromNode) || ids.contains(c.toNode))
+        if (ids.contains(c.fromNode) || ids.contains(c.toNode) || m_selection.contains(c.id))
             t.append({c, std::nullopt});
     }
     for (const Node &n : m_document.nodes()) {
@@ -897,14 +923,17 @@ void Editor::save()
     saveNow();
 }
 
-void Editor::exportCanvas(const QUrl &url)
+bool Editor::exportCanvas(const QUrl &url)
 {
     QString path = url.toLocalFile();
     if (!path.endsWith(".canvas"))
         path += ".canvas";
     QString error;
-    if (!m_document.save(path, &error))
+    if (!m_document.save(path, &error)) {
         emit errorOccurred(tr("Could not save %1: %2").arg(path, error));
+        return false;
+    }
+    return true;
 }
 
 QVariantMap Editor::savedView() const
@@ -921,7 +950,7 @@ void Editor::rememberView(QPointF center, qreal zoom)
     m_viewSaveTimer.start();
 }
 
-void Editor::exportImage(const QUrl &url, const QVariantMap &palette)
+bool Editor::exportImage(const QUrl &url, const QVariantMap &palette)
 {
     // Exports the selection, or the whole Canvas when nothing is selected.
     QStringList ids;
@@ -933,8 +962,11 @@ void Editor::exportImage(const QUrl &url, const QVariantMap &palette)
         }
     }
     QString error;
-    if (!CanvasPainter::exportCanvas(m_document, ids, url.toLocalFile(), Palette::fromVariantMap(palette), &error))
+    if (!CanvasPainter::exportCanvas(m_document, ids, url.toLocalFile(), Palette::fromVariantMap(palette), &error)) {
         emit errorOccurred(error);
+        return false;
+    }
+    return true;
 }
 
 QRectF Editor::contentBounds() const

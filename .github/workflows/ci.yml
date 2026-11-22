@@ -1,0 +1,37 @@
+# Builds and tests every pull request and every push to main. The build includes the design
+# check (src/design/check), so code that goes around the design system fails here even if
+# nobody ran anything locally.
+name: Build and test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.*'
+          cache: true
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgl1-mesa-dev libxkbcommon-dev libegl1-mesa-dev libvulkan-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (with the design check)
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+        env:
+          QT_QPA_PLATFORM: offscreen

@@ -92,7 +92,7 @@ void OpenCanvas::redo()
 void OpenCanvas::showUncommitted(const QVector<Item> &items)
 {
     for (const Item &item : items)
-        m_document.apply(Change::added(item));   // replaces the item with the same id
+        m_document.put(item);
 }
 
 void OpenCanvas::save()

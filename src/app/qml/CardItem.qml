@@ -100,7 +100,7 @@ Item {
             verticalAlignment: card.isText ? Text.AlignTop : Text.AlignVCenter
             wrapMode: Text.Wrap
             font.pixelSize: Fonts.canvas
-            // Cards are scaled with the canvasView: drawn as curves, the text stays sharp at every zoom.
+            // Cards are scaled with the canvas: drawn as curves, the text stays sharp at every zoom.
             renderType: Text.CurveRendering
         }
 

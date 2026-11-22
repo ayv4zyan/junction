@@ -50,23 +50,24 @@ class ConnectionLayer : public CanvasLayer
     QML_ELEMENT
     Q_PROPERTY(Editor *editor READ editor WRITE setEditor NOTIFY editorChanged)
     // The Connection whose label is being edited: its label is not drawn, LabelEditor shows it.
-    Q_PROPERTY(QString labelEditedOn MEMBER m_labelEditedOn NOTIFY viewChanged)
+    Q_PROPERTY(QString labelEditedOn MEMBER m_labelEditedOn NOTIFY interactionChanged)
     // The new Connection being dragged out of a Handle of the Card `connectFrom` (none while
     // that is ""). It ends on `dropTarget` (at `dropSide`) when the pointer is over a Card,
     // otherwise at `connectPointer` (world coordinates).
-    Q_PROPERTY(QString connectFrom MEMBER m_connectFrom NOTIFY viewChanged)
-    Q_PROPERTY(QPointF connectPointer MEMBER m_connectPointer NOTIFY viewChanged)
-    Q_PROPERTY(QString dropTarget MEMBER m_dropTarget NOTIFY viewChanged)
-    Q_PROPERTY(CanvasEnums::Side dropSide MEMBER m_dropSide NOTIFY viewChanged)
+    Q_PROPERTY(QString connectFrom MEMBER m_connectFrom NOTIFY interactionChanged)
+    Q_PROPERTY(QPointF connectPointer MEMBER m_connectPointer NOTIFY interactionChanged)
+    Q_PROPERTY(QString dropTarget MEMBER m_dropTarget NOTIFY interactionChanged)
+    Q_PROPERTY(CanvasEnums::Side dropSide MEMBER m_dropSide NOTIFY interactionChanged)
 
 public:
-    using CanvasLayer::CanvasLayer;
+    explicit ConnectionLayer(QQuickItem *parent = nullptr);
     Editor *editor() const { return m_editor; }
     void setEditor(Editor *editor);
     void paint(QPainter *painter) override;
 
 signals:
     void editorChanged();
+    void interactionChanged();   // a label is edited or a new Connection dragged out
 
 private:
     Editor *m_editor = nullptr;

@@ -4,7 +4,7 @@ import QtQuick.Controls
 import Junction
 import JunctionDesign
 
-// The unbounded canvasView: pan and zoom, the layers, and background mouse input.
+// The unbounded canvas: pan and zoom, the layers, and background mouse input.
 //
 // Coordinates: "world" coordinates are canvas units stored in the file; "screen" coordinates
 // are pixels in this item. screen = world * zoom + pan.
@@ -21,7 +21,7 @@ Item {
     // zoomAt(), the code with placeView().
     readonly property alias zoom: camera.zoom
     readonly property alias pan: camera.pan
-    // What the user is doing. Read-only for the items on the canvasView: they change it through the
+    // What the user is doing. Read-only for the items on the canvas: they change it through the
     // functions below (editText(), startConnection(), ...).
     readonly property alias editingId: interaction.editingId       // Card or Group whose text is being edited
     readonly property alias labelingId: interaction.labelingId     // Connection whose label is being edited

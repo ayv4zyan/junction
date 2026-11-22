@@ -59,6 +59,9 @@ public:
 
     void apply(const Change &change);
     void apply(const Transaction &transaction);
+    // Inserts the item, or replaces the one with the same id. Without an undo step: for showing
+    // a drag in progress (OpenCanvas::showUncommitted); everything else goes through apply().
+    void put(const Item &item);
 
     QJsonObject toJson() const;
     // Items without an id, or with one already taken, get a fresh id: everything finds items by id.
@@ -79,7 +82,6 @@ signals:
     void reset();
 
 private:
-    void put(const Item &item);
     void remove(const Item &item);
 
     QVector<Node> m_nodes;

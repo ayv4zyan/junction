@@ -23,7 +23,11 @@ void LibraryRows::rebuild()
         QVector<Row> canvases;
         const bool projectMatches = matches(project.name);
         for (int c = 0; c < project.canvases.size(); ++c) {
-            if (m_filter.isEmpty() ? project.expanded : projectMatches || matches(project.canvases[c].name))
+            // Without a search, the open Projects show their Canvases; with one, the matching
+            // Canvases, or all of a matching Project's.
+            const bool shown = m_filter.isEmpty() ? project.expanded
+                                                  : projectMatches || matches(project.canvases[c].name);
+            if (shown)
                 canvases.append({p, c});
         }
         if (m_filter.isEmpty() || projectMatches || !canvases.isEmpty()) {

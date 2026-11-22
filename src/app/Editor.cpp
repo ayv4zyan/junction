@@ -121,8 +121,10 @@ void Editor::pruneSelection()
         if (document().item(id))
             kept.append(id);
     }
-    setSelection(kept);
-    emit selectedItemsChanged();
+    if (kept != m_selection)
+        setSelection(kept);
+    else
+        emit selectedItemsChanged();   // the same items, but something about them changed
 }
 
 void Editor::select(const QString &id, bool toggle)
@@ -251,7 +253,7 @@ QRectF Editor::selectionBounds() const
 QRectF Editor::placed(QPointF center, QSizeF size) const
 {
     const QPointF topLeft = center - QPointF(size.width(), size.height()) / 2;
-    return QRectF(snapping(false) ? Geometry::snap(topLeft) : topLeft, size);
+    return QRectF(snapped(topLeft), size);
 }
 
 Node Editor::newCard(QPointF center, const QString &text) const
@@ -447,10 +449,7 @@ void Editor::updateMove(QPointF delta, bool invertSnap)
     const MoveDrag *move = activeDrag<MoveDrag>();
     if (!move)
         return;
-    QPointF target = move->anchor + delta;
-    if (snapping(invertSnap))
-        target = Geometry::snap(target);
-    const QPointF snappedDelta = target - move->anchor;
+    const QPointF snappedDelta = snapped(move->anchor + delta, invertSnap) - move->anchor;
     showDrag([&](const Item &item) { return translated(item, snappedDelta); });
 }
 
@@ -473,8 +472,7 @@ void Editor::updateResize(QPointF delta, bool invertSnap)
     const ResizeDrag *resize = activeDrag<ResizeDrag>();
     if (!resize)
         return;
-    const bool snap = snapping(invertSnap);
-    auto place = [snap](qreal side) { return snap ? Geometry::snap(side) : side; };
+    auto place = [&](qreal side) { return snapped(side, invertSnap); };
     showDrag([&](const Item &item) {
         Node n = std::get<Node>(item);
         QRectF &r = n.rect;
@@ -516,7 +514,7 @@ void Editor::updateWaypointDrag(QPointF delta, bool invertSnap)
     if (!drag)
         return;
     const QPointF point = drag->anchor + delta;
-    showDraggedWaypointAt(snapping(invertSnap) ? Geometry::snap(point) : point);
+    showDraggedWaypointAt(snapped(point, invertSnap));
 }
 
 void Editor::showDraggedWaypointAt(QPointF point)
@@ -693,7 +691,7 @@ void Editor::paste(QPointF center)
     const QRectF bounds = Fragment::bounds(fragment);
     if (!bounds.isEmpty()) {
         const QPointF offset = center - bounds.center();
-        insertFragment(fragment, snapping(false) ? Geometry::snap(offset) : offset);
+        insertFragment(fragment, snapped(offset));
     } else if (!text.trimmed().isEmpty()) {
         // Text copied from somewhere else becomes a new card.
         const Node card = newCard(center, text.trimmed());

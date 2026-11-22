@@ -219,7 +219,9 @@ private:
     void commit(const Transaction &transaction, const QString &text);
     void setSelection(const QStringList &ids);
     void pruneSelection();
-    bool snapping(bool invert) const { return m_snapToGrid != invert; }
+    // `point` on the grid when snapping (inverted while Alt is held), otherwise as it is.
+    QPointF snapped(QPointF point, bool invert = false) const { return m_snapToGrid != invert ? Geometry::snap(point) : point; }
+    qreal snapped(qreal value, bool invert) const { return m_snapToGrid != invert ? Geometry::snap(value) : value; }
 
     QRectF placed(QPointF center, QSizeF size) const;
     Node newCard(QPointF center, const QString &text = {}) const;

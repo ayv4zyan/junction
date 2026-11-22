@@ -490,8 +490,10 @@ bool Library::renameProject(const QString &projectName, const QString &newName)
 {
     const QString name = newName.trimmed();
     ProjectEntry *p = project(projectName);
-    if (!p || name == projectName)
-        return p != nullptr;
+    if (!p)
+        return false;
+    if (name == projectName)
+        return true;   // nothing to do
     if (QString problem = projectNameProblem(name, projectName); !problem.isEmpty()) {
         emit errorOccurred(problem);
         return false;
@@ -514,8 +516,10 @@ bool Library::renameCanvas(const QString &projectName, const QString &canvas, co
 {
     const QString name = newName.trimmed();
     const int i = canvasIndex(projectName, canvas);
-    if (i < 0 || name == canvas)
-        return i >= 0;
+    if (i < 0)
+        return false;
+    if (name == canvas)
+        return true;   // nothing to do
     if (QString problem = canvasNameProblem(projectName, name, canvas); !problem.isEmpty()) {
         emit errorOccurred(problem);
         return false;

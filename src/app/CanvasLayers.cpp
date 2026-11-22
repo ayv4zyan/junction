@@ -23,6 +23,12 @@ void GridLayer::paint(QPainter *painter)
         CanvasPainter::drawGrid(*painter, view(), size(), *palette());
 }
 
+ConnectionLayer::ConnectionLayer(QQuickItem *parent)
+    : CanvasLayer(parent)
+{
+    connect(this, &ConnectionLayer::interactionChanged, this, [this] { update(); });
+}
+
 void ConnectionLayer::setEditor(Editor *editor)
 {
     if (editor == m_editor)

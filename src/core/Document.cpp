@@ -83,7 +83,6 @@ void Document::apply(const Transaction &transaction)
         apply(change);
 }
 
-// Inserts the item, or replaces the one with the same id.
 void Document::put(const Item &item)
 {
     if (const Node *n = std::get_if<Node>(&item)) {

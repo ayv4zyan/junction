@@ -99,8 +99,8 @@ public:
     // `clipboard` is the system clipboard, for cut, copy and paste.
     Editor(Library *library, QClipboard *clipboard, QObject *parent = nullptr);
 
-    const Document &document() const { return m_canvas.document(); }
-    CanvasSession *canvasSession() { return &m_canvas; }   // its file, history and whether it can be edited
+    const Document &document() const { return m_session.document(); }
+    CanvasSession *canvasSession() { return &m_session; }   // its file, history and whether it can be edited
     NodeModel *cards() { return &m_cards; }
     NodeModel *groups() { return &m_groups; }
     QStringList selection() const { return m_selection; }
@@ -210,7 +210,7 @@ private:
     const Kind *activeDrag() const;   // the drag in progress, if it is of that kind
     bool beginDrag(const QVector<CanvasItem> &items, const decltype(Drag::kind) &kind);
     template <typename Moved>
-    void showDrag(Moved moved);   // every dragged item becomes moved(item as the drag began)
+    void moveDraggedItems(Moved moved);   // every dragged item becomes moved(item as the drag began)
     void endDrag(const QString &text);
     void cancelDrag();
     void showDraggedWaypointAt(QPointF point);
@@ -223,9 +223,9 @@ private:
 
     Library *m_library;
     QClipboard *m_clipboard;
-    CanvasSession m_canvas;
-    NodeModel m_cards{&m_canvas.document(), NodeModel::Cards};
-    NodeModel m_groups{&m_canvas.document(), NodeModel::Groups};
+    CanvasSession m_session;
+    NodeModel m_cards{&m_session.document(), NodeModel::Cards};
+    NodeModel m_groups{&m_session.document(), NodeModel::Groups};
     QStringList m_selection;
     std::optional<Drag> m_drag;
     bool m_snapToGrid = true;

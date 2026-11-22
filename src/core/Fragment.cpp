@@ -3,7 +3,7 @@
 #include <QHash>
 #include <QJsonArray>
 
-Fragment Fragment::copy(const Document &document, const QSet<QString> &nodeIds)
+Fragment Fragment::of(const Document &document, const QSet<QString> &nodeIds)
 {
     Fragment fragment;
     for (const Node &n : document.nodes()) {

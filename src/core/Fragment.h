@@ -14,7 +14,7 @@ struct Fragment
     QVector<Connection> connections;   // each between two of the nodes
 
     // The nodes named in `nodeIds` and the Connections between two of them.
-    static Fragment copy(const Document &document, const QSet<QString> &nodeIds);
+    static Fragment of(const Document &document, const QSet<QString> &nodeIds);
     // From the clipboard; empty when the JSON isn't a Fragment (such as text from elsewhere).
     static Fragment fromJson(const QJsonObject &json);
     QJsonObject toJson() const;

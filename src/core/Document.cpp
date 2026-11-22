@@ -72,7 +72,7 @@ std::optional<Geometry::Route> Document::route(const Connection &connection) con
 void Document::apply(const Change &change)
 {
     if (change.after())
-        put(*change.after());
+        putUncommitted(*change.after());
     else
         remove(*change.before());
 }
@@ -83,7 +83,7 @@ void Document::apply(const Transaction &transaction)
         apply(change);
 }
 
-void Document::put(const CanvasItem &item)
+void Document::putUncommitted(const CanvasItem &item)
 {
     if (const Node *n = std::get_if<Node>(&item))
         putNode(*n);

@@ -87,8 +87,14 @@ QVariant LibraryRows::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.row() >= m_rows.size())
         return {};
+    // The rows are rebuilt on every projectsChanged; one that no longer matches the Library
+    // (which would be a bug) is shown as nothing rather than read out of range.
     const Row row = m_rows[index.row()];
+    if (row.projectIndex >= m_library->projects().size())
+        return {};
     const ProjectEntry &project = m_library->projects()[row.projectIndex];
+    if (row.canvasIndex && *row.canvasIndex >= project.canvases.size())
+        return {};
     const bool isProject = !row.canvasIndex;
     switch (role) {
     case IsProjectRole:

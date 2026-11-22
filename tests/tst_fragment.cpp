@@ -41,7 +41,7 @@ private slots:
     {
         Document doc;
         fill(doc);
-        const Fragment fragment = Fragment::copy(doc, {"a", "b"});
+        const Fragment fragment = Fragment::of(doc, {"a", "b"});
         QCOMPARE(fragment.nodes.size(), 2);
         QCOMPARE(fragment.connections.size(), 1);
         QCOMPARE(fragment.bounds(), QRectF(0, 0, 300, 50));
@@ -55,7 +55,7 @@ private slots:
     {
         Document doc;
         fill(doc);
-        const Fragment::Insertion insertion = Fragment::copy(doc, {"a", "b"}).insertion({10, 20});
+        const Fragment::Insertion insertion = Fragment::of(doc, {"a", "b"}).insertion({10, 20});
         QCOMPARE(insertion.nodeIds.size(), 2);
         QCOMPARE(insertion.transaction.size(), 3);   // two nodes, one Connection
         doc.apply(insertion.transaction);

@@ -248,10 +248,10 @@ private slots:
         Node n;
         n.id = "x";
         n.rect = {0, 0, 100, 50};
-        doc.put(n);
+        doc.putUncommitted(n);
         QCOMPARE(cards.rowCount(), 1);
         n.content = GroupContent{"G"};
-        doc.put(n);
+        doc.putUncommitted(n);
         QCOMPARE(cards.rowCount(), 0);
         QCOMPARE(groups.rowCount(), 1);
     }

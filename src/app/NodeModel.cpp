@@ -24,16 +24,16 @@ NodeModel::NodeModel(const Document *document, Filter filter, QObject *parent)
         if (row >= 0 && accepts(id))
             emit dataChanged(index(row), index(row));
         else if (row >= 0 || accepts(id))
-            rebuildAll();
+            resetFromDocument();
     });
-    connect(document, &Document::reset, this, &NodeModel::rebuildAll);
-    rebuild();
+    connect(document, &Document::reset, this, &NodeModel::resetFromDocument);
+    collectIds();
 }
 
-void NodeModel::rebuildAll()
+void NodeModel::resetFromDocument()
 {
     beginResetModel();
-    rebuild();
+    collectIds();
     endResetModel();
 }
 
@@ -43,7 +43,7 @@ bool NodeModel::accepts(const QString &id) const
     return n && n->isCard() == (m_filter == Cards);
 }
 
-void NodeModel::rebuild()
+void NodeModel::collectIds()
 {
     m_ids.clear();
     for (const Node &n : m_document->nodes()) {

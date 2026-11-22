@@ -35,8 +35,8 @@ public:
 
 private:
     bool accepts(const QString &id) const;
-    void rebuild();
-    void rebuildAll();   // rebuild() as a model reset
+    void collectIds();          // m_ids from the Document, without telling views
+    void resetFromDocument();   // the same, as a model reset that views follow
 
     const Document *m_document;
     Filter m_filter;

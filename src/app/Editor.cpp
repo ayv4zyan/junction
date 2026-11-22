@@ -56,16 +56,16 @@ Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
     // Canvas, the open one is saved, without a drag still in progress.
     connect(m_library, &Library::openCanvasMustBeSaved, this, [this] {
         cancelDrag();
-        m_canvas.savePending();
+        m_session.savePending();
     });
     connect(m_library, &Library::currentChanged, this, &Editor::loadCurrent);
-    connect(m_library, &Library::canvasMoved, &m_canvas, &CanvasSession::fileMoved);
-    connect(m_library, &Library::canvasRemoved, &m_canvas, &CanvasSession::fileRemoved);
+    connect(m_library, &Library::canvasMoved, &m_session, &CanvasSession::fileMoved);
+    connect(m_library, &Library::canvasRemoved, &m_session, &CanvasSession::fileRemoved);
 
-    connect(&m_canvas, &CanvasSession::opened, this, &Editor::canvasOpened);
+    connect(&m_session, &CanvasSession::opened, this, &Editor::canvasOpened);
 
     // Anything that changes in the Document may move the selected Connection's handles.
-    connect(&m_canvas.document(), &Document::changed, this, &Editor::syncSelectionWithDocument);
+    connect(&m_session.document(), &Document::changed, this, &Editor::syncSelectionWithDocument);
     connect(m_library, &Library::loaded, this, &Editor::loadCurrent);   // also when nothing could be opened
 }
 
@@ -73,7 +73,7 @@ Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
 // is in progress: the drag's final Transaction is computed from the state at its start.
 bool Editor::commit(const Transaction &transaction, const QString &text)
 {
-    return !isDragging() && m_canvas.push(transaction, text);
+    return !isDragging() && m_session.push(transaction, text);
 }
 
 // Commits a Transaction that adds the item `selected`, and makes that the selection. Returns its
@@ -89,13 +89,13 @@ QString Editor::addAndSelect(const Transaction &transaction, const QString &text
 void Editor::undo()
 {
     if (!isDragging())
-        m_canvas.undo();
+        m_session.undo();
 }
 
 void Editor::redo()
 {
     if (!isDragging())
-        m_canvas.redo();
+        m_session.redo();
 }
 
 void Editor::setSnapToGrid(bool snap)
@@ -366,7 +366,7 @@ const Kind *Editor::activeDrag() const
 bool Editor::beginDrag(const QVector<CanvasItem> &items, const decltype(Drag::kind) &kind)
 {
     cancelDrag();
-    if (!m_canvas.isEditable())
+    if (!m_session.isEditable())
         return false;
     Transaction changes;
     for (const CanvasItem &item : items)
@@ -377,14 +377,14 @@ bool Editor::beginDrag(const QVector<CanvasItem> &items, const decltype(Drag::ki
 }
 
 template <typename Moved>
-void Editor::showDrag(Moved moved)
+void Editor::moveDraggedItems(Moved moved)
 {
     QVector<CanvasItem> items;
     for (Change &change : m_drag->changes) {
         change = Change::updated(*change.before(), moved(*change.before()));
         items.append(*change.after());
     }
-    m_canvas.showUncommitted(items);
+    m_session.showUncommitted(items);
 }
 
 // Puts the dragged items back where the drag began, without an undo step.
@@ -395,7 +395,7 @@ void Editor::cancelDrag()
     QVector<CanvasItem> originals;
     for (const Change &change : std::as_const(m_drag->changes))
         originals.append(*change.before());
-    m_canvas.showUncommitted(originals);
+    m_session.showUncommitted(originals);
     m_drag.reset();
     emit draggingChanged();
 }
@@ -452,7 +452,7 @@ void Editor::updateMove(QPointF delta, bool invertSnap)
     if (!move)
         return;
     const QPointF snappedDelta = snapped(move->anchor + delta, invertSnap) - move->anchor;
-    showDrag([&](const CanvasItem &item) { return translated(item, snappedDelta); });
+    moveDraggedItems([&](const CanvasItem &item) { return translated(item, snappedDelta); });
 }
 
 void Editor::endMove()
@@ -475,7 +475,7 @@ void Editor::updateResize(QPointF delta, bool invertSnap)
     if (!resize)
         return;
     auto place = [&](qreal side) { return snapped(side, invertSnap); };
-    showDrag([&](const CanvasItem &item) {
+    moveDraggedItems([&](const CanvasItem &item) {
         Node n = std::get<Node>(item);
         QRectF &r = n.rect;
         if (resize->edges & Qt::LeftEdge)
@@ -525,7 +525,7 @@ void Editor::showDraggedWaypointAt(QPointF point)
     const WaypointDrag *drag = activeDrag<WaypointDrag>();
     if (!drag)
         return;
-    showDrag([&](const CanvasItem &item) {
+    moveDraggedItems([&](const CanvasItem &item) {
         Connection c = std::get<Connection>(item);
         if (drag->inserted)
             c.waypoints.insert(drag->index, point);
@@ -643,7 +643,7 @@ void Editor::cut()
 
 void Editor::copy()
 {
-    const Fragment fragment = Fragment::copy(document(), document().nodesWithContents(m_selection));
+    const Fragment fragment = Fragment::of(document(), document().nodesWithContents(m_selection));
     if (!fragment.isEmpty())
         m_clipboard->setText(QString::fromUtf8(QJsonDocument(fragment.toJson()).toJson(QJsonDocument::Compact)));
 }
@@ -666,7 +666,7 @@ void Editor::paste(QPointF center)
 void Editor::duplicate()
 {
     const qreal offset = Geometry::GridSize * 2;
-    insertFragment(Fragment::copy(document(), document().nodesWithContents(m_selection)), QPointF(offset, offset));
+    insertFragment(Fragment::of(document(), document().nodesWithContents(m_selection)), QPointF(offset, offset));
 }
 
 // ---- Files ----
@@ -675,19 +675,19 @@ void Editor::duplicate()
 void Editor::loadCurrent()
 {
     const QString path = m_library->currentPath();
-    if (path == m_canvas.filePath() && !path.isEmpty())
+    if (path == m_session.filePath() && !path.isEmpty())
         return;   // the open file was only renamed or moved; CanvasSession::fileMoved() has followed it
     cancelDrag();
     setSelection({});
     if (path.isEmpty())
-        m_canvas.openNothing(tr("The library folder %1 can't be written to.").arg(m_library->root()));
+        m_session.openNothing(tr("The library folder %1 can't be written to.").arg(m_library->root()));
     else
-        m_canvas.open(path);
+        m_session.open(path);
 }
 
 void Editor::save()
 {
-    m_canvas.save();
+    m_session.save();
 }
 
 QRectF Editor::contentBounds() const

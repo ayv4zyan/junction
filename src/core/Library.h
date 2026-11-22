@@ -126,7 +126,7 @@ private:
     LibraryIndex readIndex();
     std::optional<LibraryIndex> loadProjects();
     bool writeIndex() const;
-    void openRemembered(const QString &project, const QString &canvas);
+    void openWhatWasOpenLastTime(const QString &project, const QString &canvas);
     QStringList canvasFiles(const QString &project) const;   // names of the .canvas files in its folder
     void setCurrent(const QString &project, const QString &canvas);
     bool createEmptyCanvasFile(const QString &path);
@@ -135,11 +135,11 @@ private:
     bool renameFile(const QString &from, const QString &to, const QString &failure);
     void reportRenameFailure(const QString &failure, const QString &stranded);
     bool copyProjectFolder(const QString &from, const QString &to, const QVector<CanvasEntry> &canvases);
-    bool renameChecked(const QString &problem, const QString &from, const QString &to, const QString &failure);
+    bool renameIfNameIsFree(const QString &problem, const QString &from, const QString &to, const QString &failure);
     // Every change ends here: saves the index, emits projectsChanged(), then currentChanged() if
     // currentPath() is no longer the one last announced.
     void saveIndexAndNotify();
-    void announceCurrent();
+    void notifyIfCurrentPathChanged();
     QString addCanvas(ProjectEntry *project, int at, const CanvasEntry &entry);
     void reorderCanvas(ProjectEntry &project, int from, int toIndex);
     QString moveCanvasToProject(ProjectEntry &source, int from, ProjectEntry &target, int toIndex);

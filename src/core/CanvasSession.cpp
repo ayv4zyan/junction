@@ -93,7 +93,7 @@ void CanvasSession::redo()
 void CanvasSession::showUncommitted(const QVector<CanvasItem> &items)
 {
     for (const CanvasItem &item : items)
-        m_document.put(item);
+        m_document.putUncommitted(item);
 }
 
 void CanvasSession::save()

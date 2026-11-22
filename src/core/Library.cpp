@@ -73,7 +73,7 @@ Library::~Library()
 void Library::load()
 {
     if (const std::optional<LibraryIndex> index = loadProjects()) {
-        openRemembered(index->currentProject, index->currentCanvas);
+        openWhatWasOpenLastTime(index->currentProject, index->currentCanvas);
         saveIndexAndNotify();
     }
     emit loaded();
@@ -131,7 +131,7 @@ LibraryIndex Library::readIndex()
 }
 
 // The Canvas open last time; if it is gone, the first of its Project, or else the very first.
-void Library::openRemembered(const QString &project, const QString &canvas)
+void Library::openWhatWasOpenLastTime(const QString &project, const QString &canvas)
 {
     if (canvasIndex(project, canvas) >= 0)
         setCurrent(project, canvas);
@@ -167,10 +167,10 @@ void Library::saveIndexAndNotify()
 {
     saveIndex();
     emit projectsChanged();
-    announceCurrent();
+    notifyIfCurrentPathChanged();
 }
 
-void Library::announceCurrent()
+void Library::notifyIfCurrentPathChanged()
 {
     if (currentPath() == m_lastAnnouncedPath)
         return;
@@ -335,7 +335,7 @@ bool Library::open(const QString &projectName, const QString &canvas)
     saveIndex();
     if (expand)
         emit expandedChanged(projectName);
-    announceCurrent();
+    notifyIfCurrentPathChanged();
     return true;
 }
 
@@ -510,7 +510,7 @@ void Library::importCanvases(const QList<QUrl> &files)
 
 // What renaming a Project and a Canvas share: a name with a `problem` is refused (and said so);
 // otherwise the open Canvas is saved and the folder or file renamed.
-bool Library::renameChecked(const QString &problem, const QString &from, const QString &to, const QString &failure)
+bool Library::renameIfNameIsFree(const QString &problem, const QString &from, const QString &to, const QString &failure)
 {
     if (!problem.isEmpty()) {
         emit errorOccurred(problem);
@@ -563,7 +563,7 @@ bool Library::renameProject(const QString &projectName, const QString &newName)
         return false;
     if (name == projectName)
         return true;   // nothing to do
-    if (!renameChecked(projectNameProblem(name, projectName), projectPath(projectName), projectPath(name),
+    if (!renameIfNameIsFree(projectNameProblem(name, projectName), projectPath(projectName), projectPath(name),
                       tr("Could not rename “%1” to “%2”.").arg(projectName, name)))
         return false;
     p->name = name;
@@ -585,7 +585,7 @@ bool Library::renameCanvas(const QString &projectName, const QString &canvas, co
         return true;   // nothing to do
     const QString from = canvasPath(projectName, canvas);
     const QString to = canvasPath(projectName, name);
-    if (!renameChecked(canvasNameProblem(projectName, name, canvas), from, to,
+    if (!renameIfNameIsFree(canvasNameProblem(projectName, name, canvas), from, to,
                       tr("Could not rename “%1” to “%2”.").arg(canvas, name)))
         return false;
     ProjectEntry &p = m_projects[at->projectIndex];

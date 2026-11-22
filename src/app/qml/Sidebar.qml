@@ -6,8 +6,8 @@ import QtQuick.Layouts
 import Junction
 import JunctionDesign
 
-// The Library: a search box, then every Project with its Canvases (see SidebarRow).
-// Rows can be dragged: a Project among Projects, a Canvas within its Project or into another.
+// The Library: a search box, then every Project with its Canvases (see SidebarRow), and their
+// menus. Rows can be dragged to reorder them (see SidebarDrag).
 Rectangle {
     id: sidebar
 
@@ -22,6 +22,7 @@ Rectangle {
     readonly property int rowInset: Space.sm
     readonly property int chevronSize: Sizes.icon + Space.xs
     readonly property int canvasIndent: rowInset + Space.xs + chevronSize + Space.xs
+    readonly property alias rowDrag: rowDrag   // dragging rows to reorder them
     property int menuRow: -1               // the row whose menu is open
     property var menuData: ({})
 
@@ -102,93 +103,6 @@ Rectangle {
             action: qsTr("Delete"), destructive: true,
             onAccepted: () => library.deleteCanvas(project, canvas)
         })
-    }
-
-    // ---- Dragging rows ----
-    //
-    // `drop` describes where the dragged row would land:
-    //   a Canvas: {project, index} plus lineY (a line between rows) or intoRow (a collapsed
-    //   Project, shown outlined); a Project: {projectIndex, lineY}. lineY is in list content
-    //   coordinates. `noOp` drops would put the row back where it is.
-
-    property var dragItem: null
-    readonly property bool dragging: dragItem !== null
-    property var drop: null
-    property point dragPoint   // in list coordinates
-
-    function startDrag(data) {
-        dragItem = data
-    }
-
-    function moveDrag(point) {
-        dragPoint = point
-        drop = dropAt(point.y + list.contentY)
-    }
-
-    function endDrag() {
-        const item = dragItem
-        const target = drop
-        cancelDrag()
-        if (!item || !target || target.noOp)
-            return
-        Qt.callLater(() => {
-            if (item.kind === "canvas")
-                library.moveCanvas(item.project, item.name, target.project, target.index)
-            else
-                library.moveProject(item.project, target.projectIndex)
-        })
-    }
-
-    function cancelDrag() {
-        dragItem = null
-        drop = null
-    }
-
-    function dropAt(y) {
-        const count = list.count
-        if (count === 0)
-            return null
-        let i = list.indexAt(list.width / 2, y)
-        let fraction = 0
-        if (i < 0) {   // above the first row or below the last one
-            const last = list.itemAtIndex(count - 1)
-            i = last && y >= last.y ? count - 1 : 0
-            fraction = i === 0 ? 0 : 1
-        } else {
-            const item = list.itemAtIndex(i)
-            fraction = (y - item.y) / item.height
-        }
-        const row = library.rowAt(i)
-        const item = list.itemAtIndex(i)
-        if (!item)
-            return null
-
-        let target
-        if (dragItem.kind === "canvas") {
-            if (row.kind === "canvas") {
-                const after = fraction >= 0.5
-                target = { project: row.project, index: row.canvasIndex + (after ? 1 : 0),
-                           lineY: item.y + (after ? item.height : 0) }
-            } else if (row.expanded) {   // a Project row: to the top of its list
-                target = { project: row.project, index: 0, lineY: item.y + item.height }
-            } else {                     // a collapsed Project: to the end of its list
-                target = { project: row.project, index: row.canvasCount, intoRow: i }
-            }
-            target.noOp = target.project === dragItem.project
-                && (target.index === dragItem.canvasIndex || target.index === dragItem.canvasIndex + 1)
-        } else {
-            // Before or after the whole Project under the pointer, whichever half it is in.
-            const top = list.itemAtIndex(library.rowOf(row.project))
-            const bottom = list.itemAtIndex(library.lastRowOf(row.project))
-            if (!top || !bottom)
-                return null
-            const before = y < (top.y + bottom.y + bottom.height) / 2
-            target = { projectIndex: row.projectIndex + (before ? 0 : 1),
-                       lineY: before ? top.y : bottom.y + bottom.height }
-            target.noOp = target.projectIndex === dragItem.projectIndex
-                || target.projectIndex === dragItem.projectIndex + 1
-        }
-        return target
     }
 
     color: Colors.sidebar
@@ -300,7 +214,7 @@ Rectangle {
         currentIndex: -1
         // While dragging every row stays created: the drop position is computed from them,
         // and the dragged row must survive being scrolled out of view.
-        cacheBuffer: sidebar.dragging ? 100000 : 600
+        cacheBuffer: rowDrag.active ? 100000 : 600
         ScrollBar.vertical: ScrollBar {}
         footer: Item { width: 1; height: Space.sm }
 
@@ -330,67 +244,15 @@ Rectangle {
             color: Colors.mutedText
             text: qsTr("Nothing matches “%1”").arg(sidebar.library.filter.trim())
         }
-
-        // Dragging near the top or bottom edge scrolls.
-        Timer {
-            interval: 16
-            repeat: true
-            running: sidebar.dragging && list.contentHeight > list.height
-                     && (sidebar.dragPoint.y < 32 || sidebar.dragPoint.y > list.height - 32)
-            onTriggered: {
-                const y = sidebar.dragPoint.y
-                const speed = y < 32 ? -(32 - y) / 2 : (y - list.height + 32) / 2
-                list.contentY = list.clampY(list.contentY + Math.max(-16, Math.min(16, speed)))
-                sidebar.moveDrag(sidebar.dragPoint)
-            }
-        }
     }
 
-    // Where the dragged row would land.
-    Rectangle {
-        readonly property bool indent: sidebar.dragItem !== null && sidebar.dragItem.kind === "canvas"
-        visible: sidebar.dragging && sidebar.drop !== null && !sidebar.drop.noOp && sidebar.drop.lineY !== undefined
-        x: indent ? sidebar.canvasIndent : sidebar.rowInset + Space.xs
-        y: list.y + (sidebar.drop ? sidebar.drop.lineY : 0) - list.contentY - 1
-        width: sidebar.width - x - Space.md
-        height: 2
-        color: Colors.selection
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            x: -width + 1
-            width: Space.sm
-            height: Space.sm
-            color: Colors.sidebar
-            border.width: 2
-            border.color: Colors.selection
-        }
-    }
-
-    // The dragged row, following the pointer (floating: it is lifted off the list).
-    Floating {
-        visible: sidebar.dragging
-        x: Math.min(list.x + sidebar.dragPoint.x + Space.md, sidebar.width - width - Space.xs)
-        y: list.y + sidebar.dragPoint.y - height / 2
-        width: Math.min(ghostRow.implicitWidth + 2 * Space.sm, sidebar.width - Space.xl)
-        height: Sizes.control
-        border.color: Colors.selection
-        RowLayout {
-            id: ghostRow
-            anchors.fill: parent
-            anchors.leftMargin: Space.sm
-            anchors.rightMargin: Space.sm
-            spacing: Space.sm
-            IconImage {
-                source: sidebar.dragItem && sidebar.dragItem.kind === "canvas" ? "../icons/canvas.svg" : "../icons/project.svg"
-                sourceSize: Qt.size(Sizes.icon, Sizes.icon)
-                color: Colors.mutedText
-            }
-            Label {
-                Layout.fillWidth: true
-                text: sidebar.dragItem ? sidebar.dragItem.name : ""
-                elide: Text.ElideRight
-            }
-        }
+    SidebarDrag {
+        id: rowDrag
+        anchors.fill: parent
+        library: sidebar.library
+        list: list
+        canvasIndent: sidebar.canvasIndent
+        projectIndent: sidebar.rowInset + Space.xs
     }
 
     // ---- Menus ----

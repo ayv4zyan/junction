@@ -26,8 +26,8 @@ Item {
 
     readonly property bool isProject: kind === "project"
     readonly property bool hovered: mouse.containsMouse || plusButton.hovered || moreButton.hovered
-    readonly property bool dragged: sidebar.dragItem !== null && sidebar.dragItem.kind === kind
-                                    && sidebar.dragItem.project === project && sidebar.dragItem.name === name
+    readonly property bool dragged: sidebar.rowDrag.item !== null && sidebar.rowDrag.item.kind === kind
+                                    && sidebar.rowDrag.item.project === project && sidebar.rowDrag.item.name === name
 
     function rename() { nameLabel.edit() }
     function rowData() {
@@ -47,11 +47,11 @@ Item {
         color: !row.isProject && row.current ? Colors.current
              // a collapsed Project holding the open Canvas
              : row.isProject && row.current && !row.expanded ? Qt.alpha(Colors.selection, 0.10)
-             : (row.hovered && !row.sidebar.dragging) || row.sidebar.menuRow === row.index ? Colors.hover
+             : (row.hovered && !row.sidebar.rowDrag.active) || row.sidebar.menuRow === row.index ? Colors.hover
              : "transparent"
         Behavior on color { ColorAnimation { duration: Motion.fast } }
         // a collapsed Project a Canvas is being dropped into
-        border.width: row.sidebar.drop && row.sidebar.drop.intoRow === row.index ? 1.5 : 0
+        border.width: row.sidebar.rowDrag.drop && row.sidebar.rowDrag.drop.intoRow === row.index ? 1.5 : 0
         border.color: Colors.selection
 
         // The open Canvas: an accent edge on the left, so "where am I" reads at a glance.
@@ -72,7 +72,7 @@ Item {
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         enabled: !nameLabel.editing
-        cursorShape: row.sidebar.dragging ? Qt.ClosedHandCursor : Qt.ArrowCursor
+        cursorShape: row.sidebar.rowDrag.active ? Qt.ClosedHandCursor : Qt.ArrowCursor
 
         onPressed: (event) => {
             row.sidebar.focusCanvas()
@@ -85,16 +85,16 @@ Item {
             if (!moved && Math.hypot(event.x - pressPoint.x, event.y - pressPoint.y) > 6
                     && row.sidebar.library.filter === "") {
                 moved = true
-                row.sidebar.startDrag(row.rowData())
+                row.sidebar.rowDrag.start(row.rowData())
             }
-            if (row.sidebar.dragging)
-                row.sidebar.moveDrag(mapToItem(row.sidebar.list, event.x, event.y))
+            if (row.sidebar.rowDrag.active)
+                row.sidebar.rowDrag.move(mapToItem(row.sidebar.list, event.x, event.y))
         }
         onReleased: {
-            if (row.sidebar.dragging)
-                row.sidebar.endDrag()
+            if (row.sidebar.rowDrag.active)
+                row.sidebar.rowDrag.end()
         }
-        onCanceled: row.sidebar.cancelDrag()
+        onCanceled: row.sidebar.rowDrag.cancel()
         onClicked: (event) => {
             if (moved)
                 return

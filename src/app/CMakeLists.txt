@@ -5,6 +5,7 @@ qt_add_qml_module(junction
     QML_FILES
         qml/Main.qml
         qml/CanvasView.qml
+        qml/CanvasMenus.qml
         qml/CardItem.qml
         qml/GroupItem.qml
         qml/ConnectionOverlay.qml
@@ -18,6 +19,7 @@ qt_add_qml_module(junction
         qml/InlineName.qml
         qml/Sidebar.qml
         qml/SidebarRow.qml
+        qml/SidebarDrag.qml
         qml/CanvasColors.js
     RESOURCES
         icons/style-straight.svg icons/style-curved.svg icons/style-elbow.svg

@@ -1,0 +1,109 @@
+pragma ComponentBehavior: Bound
+import QtQuick
+import QtQuick.Controls
+import Junction
+import JunctionDesign
+
+// The Canvas's right-click menus.
+// Right-clicking an item first makes it the selection, unless it is already part of it. Then:
+// only Connections selected -> connectionMenu; any Card or Group -> selectionMenu.
+// Right-clicking empty space opens canvasMenu.
+Item {
+    id: menus
+    required property CanvasView view
+    readonly property Editor editor: view.editor
+
+    function openFor(id, waypointIndex) {
+        if (!editor.selection.includes(id))
+            editor.select(id)
+        const info = editor.selectionInfo
+        if (info.cards + info.groups === 0) {
+            connectionMenu.waypoint = waypointIndex ?? -1
+            connectionMenu.popup()
+        } else {
+            selectionMenu.popup()
+        }
+    }
+
+    // One Label is edited in place, like double-clicking it; several get the dialog.
+    function editLabels() {
+        const info = editor.selectionInfo
+        const targets = info.labelTargets
+        if (targets.length > 1)
+            ask.text({ title: qsTr("Edit %1 labels").arg(targets.length), text: info.sharedLabel,
+                       placeholder: qsTr("Label"), action: qsTr("Save"),
+                       onAccepted: (text) => editor.setLabels(text) })
+        else if (info.connections === 1)
+            view.editLabel(targets[0])
+        else
+            view.editText(targets[0])
+    }
+
+    function labelsText() {
+        const count = editor.selectionInfo.labelTargets.length
+        return count > 1 ? qsTr("Edit %1 labels…").arg(count) : qsTr("Edit label")
+    }
+
+    function openAt(world) {
+        canvasMenu.at = world
+        canvasMenu.popup()
+    }
+
+    // Right-click on empty space: make something here.
+    Menu {
+        id: canvasMenu
+        property point at
+        MenuEntry { text: qsTr("New card"); onTriggered: menus.view.editText(menus.editor.createCard(canvasMenu.at)) }
+        MenuEntry { text: qsTr("New group"); onTriggered: menus.view.editText(menus.editor.createGroup(canvasMenu.at)) }
+        MenuSeparator {}
+        MenuEntry { text: qsTr("Paste"); hint: "Ctrl+V"; onTriggered: menus.editor.paste(canvasMenu.at) }
+    }
+
+    // Right-click on a selection holding a Card or Group.
+    Menu {
+        id: selectionMenu
+        MenuEntry {
+            text: qsTr("Edit text")
+            enabled: menus.editor.selection.length === 1 && menus.editor.selectionInfo.editableCards === 1
+            onTriggered: menus.view.editText(menus.editor.selection[0])
+        }
+        MenuEntry {
+            text: menus.labelsText()
+            enabled: menus.editor.selectionInfo.labelTargets.length > 0
+            onTriggered: menus.editLabels()
+        }
+        MenuSeparator {}
+        MenuEntry { text: qsTr("Cut"); hint: "Ctrl+X"; onTriggered: menus.editor.cut() }
+        MenuEntry { text: qsTr("Copy"); hint: "Ctrl+C"; onTriggered: menus.editor.copy() }
+        MenuEntry { text: qsTr("Duplicate"); hint: "Ctrl+D"; onTriggered: menus.editor.duplicate() }
+        MenuEntry {
+            text: qsTr("Group")
+            hint: "Ctrl+G"
+            onTriggered: menus.view.editText(menus.editor.createGroup(menus.view.pointerWorld()))
+        }
+        MenuSeparator {}
+        MenuEntry { text: qsTr("Delete"); hint: "Del"; destructive: true; onTriggered: menus.editor.deleteSelection() }
+    }
+
+    // Right-click on a selection of only Connections.
+    Menu {
+        id: connectionMenu
+        property int waypoint: -1   // the Waypoint right-clicked, if any; set by openFor()
+        MenuEntry {
+            text: qsTr("Remove waypoint")
+            visible: connectionMenu.waypoint >= 0
+            height: visible ? implicitHeight : 0
+            onTriggered: menus.editor.removeWaypoint(menus.editor.selection[0], connectionMenu.waypoint)
+        }
+        MenuEntry { text: menus.labelsText(); onTriggered: menus.editLabels() }
+        MenuEntry {
+            text: qsTr("Remove label")
+            enabled: menus.editor.selectionInfo.labeledConnections > 0
+            onTriggered: menus.editor.removeConnectionLabels()
+        }
+        MenuSeparator {}
+        MenuEntry { text: qsTr("Delete"); hint: "Del"; destructive: true; onTriggered: menus.editor.deleteSelection() }
+    }
+
+    AskDialog { id: ask }
+}

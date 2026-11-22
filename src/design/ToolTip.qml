@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Templates as T
 
-// A short hint above the hovered control, on the floating surface; it appears after 500ms.
+// A short hint above the hovered control, on the floating surface; it appears after Motion.tooltipDelay.
 T.ToolTip {
     id: control
 
@@ -16,7 +16,7 @@ T.ToolTip {
     margins: Space.sm
     horizontalPadding: Space.sm
     verticalPadding: Space.xs
-    delay: 500
+    delay: Motion.tooltipDelay
 
     closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutsideParent | T.Popup.CloseOnReleaseOutsideParent
 

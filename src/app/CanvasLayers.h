@@ -29,7 +29,7 @@ protected:
 private:
     qreal m_zoom = 1;
     QPointF m_pan;
-    QVariantMap m_colors;   // from Theme.palette
+    QVariantMap m_colors;   // from Colors.forPainter (src/design)
 };
 
 class GridLayer : public CanvasLayer

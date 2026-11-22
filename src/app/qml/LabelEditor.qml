@@ -40,13 +40,25 @@ Rectangle {
         editor.setConnectionLabel(id, input.text)
     }
 
-    // Selecting something else, or the Connection going away (undo), ends editing.
+    // Selecting something else, or the Connection going away (undo), ends editing, also while
+    // the text menu is open (then losing focus doesn't end it, see the TextInput).
     Connections {
         target: box.editor
         function onSelectionChanged() {
-            if (box.visible && box.editor.selectedConnection.id !== box.connectionId)
+            if (box.visible && box.editor.selectedConnection.id !== box.connectionId) {
+                textMenu.close()
+                box.finish()
                 box.canvas.forceActiveFocus()
+            }
         }
+    }
+
+    // A click in the padding around the text keeps editing (it would otherwise reach the
+    // Connection's handles underneath). Under the TextInput, which takes clicks on the text.
+    MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.IBeamCursor
+        onPressed: input.forceActiveFocus()
     }
 
     TextInput {

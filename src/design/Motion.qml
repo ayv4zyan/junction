@@ -11,6 +11,9 @@ QtObject {
     readonly property int enter: Easing.OutCubic
     readonly property int exit: Easing.InCubic
     readonly property real scaleFrom: 0.98   // what dialogs and menus grow from as they appear
+    // How long the pointer rests on a control before its tooltip shows. Set it with each
+    // `ToolTip.visible`: the attached ToolTip.delay defaults to 0 and overrides the style.
+    readonly property int tooltipDelay: 500
 
     function out(duration) { return Math.round(duration * 2 / 3) }   // the exit for an entrance
 }

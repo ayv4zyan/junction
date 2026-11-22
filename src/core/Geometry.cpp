@@ -107,7 +107,8 @@ void elbowRoute(Route &r, const QVector<QPointF> &controls, Side fromSide, Side 
     lineTo(start + sideNormal(fromSide) * ElbowStub);
 
     // To reach a Waypoint, keep going the way we were and turn once. If keeping going would
-    // run back along the last leg, turn first instead.
+    // run back along the last leg, turn first instead. If the Waypoint is straight behind us
+    // (turning first would go nowhere), step aside by a stub, then come back to it.
     for (int i = 1; i < controls.size() - 1; ++i) {
         const QPointF waypoint = controls[i];
         const QPointF current = points.last();
@@ -115,7 +116,15 @@ void elbowRoute(Route &r, const QVector<QPointF> &controls, Side fromSide, Side 
                                                        : QPointF(current.x(), waypoint.y());
         const QPointF turnFirst = movingHorizontally() ? QPointF(current.x(), waypoint.y())
                                                        : QPointF(waypoint.x(), current.y());
-        lineTo(goesBack(keepGoing) ? turnFirst : keepGoing);
+        if (!goesBack(keepGoing)) {
+            lineTo(keepGoing);
+        } else if (turnFirst != current) {
+            lineTo(turnFirst);
+        } else {
+            const QPointF aside = movingHorizontally() ? QPointF(0, ElbowStub) : QPointF(ElbowStub, 0);
+            lineTo(current + aside);
+            lineTo(waypoint + aside);
+        }
         lineTo(waypoint);
         spanEnds.append(points.size() - 1);
     }

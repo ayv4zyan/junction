@@ -237,6 +237,7 @@ ApplicationWindow {
                     checked: canvasEditor.snapToGrid
                     onToggled: canvasEditor.snapToGrid = checked
                     ToolTip.visible: hovered
+                    ToolTip.delay: Motion.tooltipDelay
                     ToolTip.text: qsTr("Hold Alt while dragging to do the opposite")
                 }
                 ToolButton { focusPolicy: Qt.NoFocus; text: Math.round(canvasView.zoom * 100) + "%"; onClicked: canvasView.resetZoom() }
@@ -404,7 +405,10 @@ ApplicationWindow {
                 return   // the Editor has reported why
             const file = selectedFile.toString()
             const folder = file.slice(0, file.lastIndexOf("/"))
-            toast.show(qsTr("Exported “%1”").arg(decodeURIComponent(file.slice(file.lastIndexOf("/") + 1))),
+            let name = decodeURIComponent(file.slice(file.lastIndexOf("/") + 1))
+            if (defaultSuffix === "canvas" && !name.endsWith(".canvas"))
+                name += ".canvas"   // exportCanvas adds it the same way
+            toast.show(qsTr("Exported “%1”").arg(name),
                        { action: qsTr("Show in folder"), onAction: () => Qt.openUrlExternally(folder) })
         }
     }

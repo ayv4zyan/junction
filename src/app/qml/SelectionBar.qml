@@ -8,14 +8,15 @@ import "CanvasColors.js" as CanvasColors
 // The floating toolbar for the Selection: colors for anything, plus Path Style, arrowheads and
 // Label when a single Connection is selected. It sits just above the selection (below it near
 // the top edge, always inside the canvas), so the controls appear next to what they change.
-// It hides while anything is dragged or the canvas is panned, so it never chases the pointer.
+// It hides while anything is dragged, the canvas is panned, a selection rectangle is drawn or a
+// new Connection is pulled out, so it never chases the pointer.
 Floating {
     id: bar
     required property Editor editor
     required property var canvas    // the CanvasView
     readonly property var connection: editor.selectedConnection
     readonly property bool isConnection: connection.id !== undefined
-    readonly property bool shown: editor.selection.length > 0 && !editor.dragging && !canvas.panning
+    readonly property bool shown: editor.selection.length > 0 && !editor.dragging && !canvas.manipulating
 
     // The selection on screen, in the canvas's coordinates.
     readonly property rect target: {

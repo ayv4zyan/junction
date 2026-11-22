@@ -9,7 +9,7 @@ in [docs/adr](docs/adr).
 
 ## Build
 
-Requires Qt 6.8+ (Core, Gui, Svg, Network, Quick, QuickControls2, Test), CMake and a C++20 compiler.
+Requires Qt 6.9+ (Core, Gui, Svg, Network, Quick, QuickControls2, Test), CMake and a C++20 compiler.
 
 ```sh
 cmake -S . -B build -G Ninja

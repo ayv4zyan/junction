@@ -145,7 +145,7 @@ ApplicationWindow {
                 }
                 RowLayout {
                     spacing: Space.xs
-                    ToolButton { icon.source: "qrc:/qt/qml/JunctionDesign/icons/check.svg"; ToolTip.visible: hovered; ToolTip.text: "A tool  Ctrl+T" }
+                    ToolButton { icon.source: "qrc:/qt/qml/JunctionDesign/icons/check.svg"; ToolTip.visible: hovered; ToolTip.delay: Motion.tooltipDelay; ToolTip.text: "A tool  Ctrl+T" }
                     ToolButton { icon.source: "qrc:/qt/qml/JunctionDesign/icons/chevron.svg"; checked: true }
                     ToolButton { icon.source: "qrc:/qt/qml/JunctionDesign/icons/check.svg"; enabled: false }
                     Separator {}

@@ -25,7 +25,8 @@ Item {
     property point connectPress
     property bool spaceHeld: false
     readonly property real handleRadius: 14 / zoom   // how close to a Handle counts as "on" it
-    readonly property bool panning: background.mode === "pan"   // dragging the canvas around
+    // The pointer is directly moving something: panning, a selection rectangle, a new Connection.
+    readonly property bool manipulating: background.mode === "pan" || rubberBand.visible || connectFrom !== ""
 
     focus: true
     clip: true

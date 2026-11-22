@@ -40,5 +40,6 @@ AbstractButton {
     }
 
     ToolTip.visible: hovered && tip !== ""
+    ToolTip.delay: Motion.tooltipDelay
     ToolTip.text: tip
 }

@@ -141,6 +141,44 @@ private slots:
         QCOMPARE(line.left(), 120.0);
         QCOMPARE(line.right(), 280.0);
     }
+
+    // Cut removes the selected Connections too, even without their Cards.
+    void cutRemovesSelectedConnections()
+    {
+        const QStringList ids = makeGroupedPair();
+        m_editor->select(ids[2]);   // only the Connection
+        m_editor->cut();
+        QVERIFY(!m_editor->document().connection(ids[2]));
+        QVERIFY(m_editor->document().node(ids[0]));
+        QVERIFY(m_editor->document().node(ids[1]));
+    }
+
+    // Like a single Connection's label: surrounding spaces go, so "   " means no label.
+    void setLabelsTrimsSpaces()
+    {
+        const QStringList ids = makeGroupedPair();
+        m_editor->select(ids[2]);
+        m_editor->select(ids[3], true);
+        m_editor->setLabels("  calls  ");
+        QCOMPARE(m_editor->document().connection(ids[2])->label, QString("calls"));
+        QCOMPARE(m_editor->document().node(ids[3])->label, QString("calls"));
+        m_editor->setLabels("   ");
+        QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
+    }
+
+    // The toolbar must not cover what belongs to the selection: a Group's label bar sits above
+    // the Group (GroupItem: a 28px bar, 4px up), a Connection's label sticks out of its line.
+    void selectionBoundsIncludeLabels()
+    {
+        const QStringList ids = makeGroupedPair();
+        const QRectF group = m_editor->document().node(ids[3])->rect;
+        m_editor->select(ids[3]);
+        QCOMPARE(m_editor->selectionBounds().top(), group.top() - 32);
+
+        m_editor->setConnectionLabel(ids[2], "verifies");
+        m_editor->select(ids[2]);
+        QVERIFY(m_editor->selectionBounds().top() < -5);   // the line runs at y = 0
+    }
 };
 
 QTEST_MAIN(TestEditor)

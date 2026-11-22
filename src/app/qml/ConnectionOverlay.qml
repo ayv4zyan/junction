@@ -14,6 +14,8 @@ Item {
     readonly property Editor editor: canvas.editor
     readonly property var info: editor.selectedConnection
     readonly property bool active: info.id !== undefined
+    // The label's box, or an empty one (also for a moment while the selection changes).
+    readonly property rect labelBox: info.labelRect ?? Qt.rect(0, 0, 0, 0)
     property bool draggingWaypoint: false
 
     // The dots come from ListModels that are updated in place. Rebuilding a Repeater's model
@@ -35,9 +37,27 @@ Item {
 
     // Whether a point is on the label (empty when there is none).
     function onLabel(x, y) {
-        const r = info.labelRect
-        return r !== undefined && r.width > 0
+        const r = labelBox
+        return r.width > 0
                && x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height
+    }
+
+    // The span whose middle the label sits on (the midpoint on the label nearest its centre), or
+    // -1. Only that span's dot hands its drag to the whole label; a long label can cover the
+    // dots of neighbouring spans too, and those are just hidden.
+    readonly property int labelSpan: {
+        const points = info.midpoints ?? []
+        const centre = info.labelPosition
+        let best = -1
+        let bestDistance = Infinity
+        for (let i = 0; centre && i < points.length; ++i) {
+            const distance = Math.hypot(points[i].x - centre.x, points[i].y - centre.y)
+            if (onLabel(points[i].x, points[i].y) && distance < bestDistance) {
+                best = i
+                bestDistance = distance
+            }
+        }
+        return best
     }
 
     onInfoChanged: {
@@ -52,21 +72,23 @@ Item {
             required property int index
             required property real px
             required property real py
-            readonly property bool onLabel: overlay.onLabel(px, py)
+            readonly property bool covered: overlay.onLabel(px, py)        // under the label's text
+            readonly property bool isLabel: index === overlay.labelSpan   // the label stands in for it
             canvas: overlay.canvas
             center: Qt.point(px, py)
             filled: false
             screenRadius: 5
-            opacity: overlay.draggingWaypoint || onLabel ? 0 : 1   // still takes the mouse
+            opacity: overlay.draggingWaypoint || covered ? 0 : 1   // the label's own dot still takes the mouse
 
             DragArea {
                 readonly property real margin: 4 / overlay.canvas.zoom
                 canvas: overlay.canvas
+                visible: !midpoint.covered || midpoint.isLabel
                 // the dot plus a margin, or the whole label (in the dot's coordinates)
-                x: midpoint.onLabel ? overlay.info.labelRect.x - midpoint.x : -margin
-                y: midpoint.onLabel ? overlay.info.labelRect.y - midpoint.y : -margin
-                width: midpoint.onLabel ? overlay.info.labelRect.width : midpoint.width + 2 * margin
-                height: midpoint.onLabel ? overlay.info.labelRect.height : midpoint.height + 2 * margin
+                x: midpoint.isLabel ? overlay.labelBox.x - midpoint.x : -margin
+                y: midpoint.isLabel ? overlay.labelBox.y - midpoint.y : -margin
+                width: midpoint.isLabel ? overlay.labelBox.width : midpoint.width + 2 * margin
+                height: midpoint.isLabel ? overlay.labelBox.height : midpoint.height + 2 * margin
                 cursorShape: Qt.SizeAllCursor   // dragging it adds a Waypoint
                 onDragStarted: { overlay.draggingWaypoint = true; overlay.editor.beginWaypointDrag(overlay.info.id, midpoint.index, true) }
                 onDragged: (delta, invertSnap) => overlay.editor.updateWaypointDrag(delta, invertSnap)

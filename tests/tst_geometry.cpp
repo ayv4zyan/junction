@@ -113,6 +113,17 @@ private slots:
         QCOMPARE(route.midpoints.size(), waypoints.size() + 1);
     }
 
+    // A Waypoint straight behind a pinned start, on the very line the path leaves on: the path
+    // steps aside to reach it instead of running back over itself.
+    void elbowStepsAsideForWaypointBehind()
+    {
+        Connection c = connection(PathStyle::Elbow, {{-80, 25}});
+        c.fromSide = Side::Right;
+        const auto route = Geometry::route({0, 0, 100, 50}, {300, 300, 100, 50}, c);
+        QVERIFY(isOrthogonal(route.path));
+        QVERIFY(!doublesBack(route.path));
+    }
+
     // Pinned sides that face away from each other must route around the cards, not through them.
     void elbowStaysOutOfCards_data()
     {

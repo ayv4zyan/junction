@@ -228,6 +228,7 @@ Rectangle {
                     sidebar.focusCanvas()
                 }
                 ToolTip.visible: hovered && !activeFocus && text === ""
+                ToolTip.delay: Motion.tooltipDelay
                 ToolTip.text: qsTr("Search canvases and projects (Ctrl+F)")
 
                 IconImage {

@@ -56,6 +56,7 @@ Item {
             color: mouse.containsMouse ? Colors.hover : "transparent"
         }
         ToolTip.visible: root.clickToEdit && mouse.containsMouse && (root.tip !== "" || label.truncated)
+        ToolTip.delay: Motion.tooltipDelay
         ToolTip.text: (label.truncated ? root.text + (root.tip ? "\n" : "") : "") + root.tip
         // `visible`, not `enabled`: Qt shows a disabled MouseArea's cursor all the same.
         // A plain arrow, like the toolbar buttons beside it: the name is a button until clicked.

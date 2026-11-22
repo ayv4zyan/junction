@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import JunctionDesign
 
 // A square tool button showing one of the icons in icons/, with a tooltip. Used by the toolbar,
 // the sidebar and the selection toolbar; its look comes from the style's ToolButton. Where
@@ -13,5 +14,6 @@ ToolButton {
     display: AbstractButton.IconOnly
     icon.source: "../icons/" + iconName + ".svg"
     ToolTip.visible: hovered && tip !== ""
+    ToolTip.delay: Motion.tooltipDelay
     ToolTip.text: tip
 }

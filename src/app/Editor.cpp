@@ -17,6 +17,7 @@ namespace {
 constexpr QSizeF CardSize(240, 80);
 constexpr QSizeF GroupSize(480, 320);
 constexpr QSizeF MinimumSize(80, 40);
+constexpr qreal GroupLabelSpace = 32;   // GroupItem's label bar above a Group: 28px high, 4px up
 
 Item translated(Item item, QPointF delta)
 {
@@ -275,12 +276,16 @@ QRectF Editor::selectionBounds() const
     QRectF bounds;
     for (const QString &id : m_selection) {
         if (const Node *n = m_document.node(id)) {
-            bounds = bounds.united(n->rect);
+            const qreal labelSpace = n->kind == NodeKind::Group ? GroupLabelSpace : 0;
+            bounds = bounds.united(n->rect.adjusted(0, -labelSpace, 0, 0));
         } else if (const Connection *c = m_document.connection(id)) {
             const Node *from = m_document.node(c->fromNode);
             const Node *to = m_document.node(c->toNode);
-            if (from && to)
-                bounds = bounds.united(Geometry::route(from->rect, to->rect, *c).path.boundingRect());
+            if (from && to) {
+                const Geometry::Route route = Geometry::route(from->rect, to->rect, *c);
+                bounds = bounds.united(route.path.boundingRect())
+                               .united(CanvasPainter::labelRect(route, c->label));   // empty without a label
+            }
         }
     }
     return bounds;
@@ -696,8 +701,9 @@ void Editor::setConnectionLabel(const QString &connectionId, const QString &labe
     commit({{*existing, c}}, tr("Edit label"));
 }
 
-void Editor::setLabels(const QString &label)
+void Editor::setLabels(const QString &text)
 {
+    const QString label = text.trimmed();   // like setConnectionLabel: only spaces means no label
     Transaction t;
     for (const QString &id : m_selection) {
         if (const Node *n = m_document.node(id); n && n->kind == NodeKind::Group) {
@@ -790,15 +796,17 @@ void Editor::insertJson(const QJsonObject &json, QPointF offset)
 
 // Removes exactly what copy() puts on the clipboard, so a cut Group takes its cards along
 // (Delete removes only the Group).
+// Copies the Cards and Groups, then deletes them, their Connections, and any other
+// selected Connections (a Connection alone can't be pasted, but cutting it still removes it).
 void Editor::cut()
 {
     const QSet<QString> ids = copiedNodeIds();
-    if (ids.isEmpty())
+    if (ids.isEmpty() && selectedConnections().isEmpty())
         return;
     copy();
     Transaction t;
     for (const Connection &c : m_document.connections()) {
-        if (ids.contains(c.fromNode) || ids.contains(c.toNode))
+        if (ids.contains(c.fromNode) || ids.contains(c.toNode) || m_selection.contains(c.id))
             t.append({c, std::nullopt});
     }
     for (const Node &n : m_document.nodes()) {

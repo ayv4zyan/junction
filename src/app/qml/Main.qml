@@ -23,6 +23,36 @@ ApplicationWindow {
     height: 800
     visible: true
     color: Theme.background
+
+    // The stock controls (toolbar, menus, tooltips, checkboxes, scroll bars) are drawn from the
+    // palette, which otherwise comes from the system (e.g. the GTK theme) and can disagree with
+    // Theme. Every control and popup in the window inherits this one.
+    palette {
+        window: Theme.background
+        windowText: Theme.text
+        base: Theme.panel
+        alternateBase: Theme.cardFill
+        text: Theme.text
+        button: Theme.panel
+        buttonText: Theme.text
+        brightText: "white"
+        placeholderText: Theme.mutedText
+        highlight: Theme.selection
+        highlightedText: "white"
+        link: Theme.selection
+        toolTipBase: Theme.panel
+        toolTipText: Theme.text
+        light: Qt.lighter(Theme.panel, 1.5)
+        midlight: Qt.lighter(Theme.panel, 1.2)
+        mid: Theme.cardBorder
+        dark: Theme.divider
+        shadow: Theme.dark ? "black" : "#b0b0b0"
+
+        disabled.windowText: Theme.mutedText
+        disabled.text: Theme.mutedText
+        disabled.buttonText: Theme.mutedText
+    }
+
     title: (library.currentCanvas ? library.currentCanvas + " · " + library.currentProject + " — " : "") + "Junction"
 
     onClosing: canvasView.forceActiveFocus()   // commits text still being edited

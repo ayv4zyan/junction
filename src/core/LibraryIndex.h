@@ -31,9 +31,15 @@ struct CanvasEntry
 struct ProjectEntry
 {
     QString name;
-    QVector<CanvasEntry> canvases;   // never empty
+    QVector<CanvasEntry> canvases;   // never empty in the Library (it adds one where there is none)
     bool expanded = true;            // shown open in the sidebar
     QString lastCanvas;              // the Canvas last open in this Project
+
+    QString firstCanvas() const
+    {
+        Q_ASSERT(!canvases.isEmpty());
+        return canvases.first().name;
+    }
 };
 
 struct LibraryIndex

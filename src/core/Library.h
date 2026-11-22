@@ -16,6 +16,7 @@
 #include "LibraryIndex.h"
 
 #include <QObject>
+#include <functional>
 #include <QPointF>
 #include <QTimer>
 #include <QUrl>
@@ -113,13 +114,13 @@ signals:
 
 private:
     ProjectEntry *project(const QString &name);
-    // Where a Canvas is: its Project's position in m_projects and its own in that Project.
-    struct CanvasPlace
+    // A Canvas looked up by name: its Project's position in m_projects and its own there.
+    struct FoundCanvas
     {
         int projectIndex;
         int canvasIndex;
     };
-    std::optional<CanvasPlace> place(const QString &project, const QString &canvas) const;
+    std::optional<FoundCanvas> findCanvas(const QString &project, const QString &canvas) const;
     QStringList canvasNames(const QString &project) const;
     LibraryIndex readIndex();
     bool writeIndex() const;
@@ -130,9 +131,13 @@ private:
     bool renamePath(const QString &from, const QString &to);
     // Every change ends here: saves the index, emits projectsChanged(), then currentChanged() if
     // currentPath() is no longer the one last announced.
-    void saveAndAnnounce();
+    void saveIndexAndNotify();
     void announceCurrent();
     QString addCanvas(ProjectEntry *project, int at, const CanvasEntry &entry);
+    void reorderCanvas(ProjectEntry &project, int from, int toIndex);
+    QString moveCanvasToProject(ProjectEntry &source, int from, ProjectEntry &target, int toIndex);
+    static QString nameProblemAmong(const QString &name, const QStringList &existing, const QString &except,
+                                    const std::function<QString(const QString &)> &taken);
     bool replaceLastProject();
     bool trashProject(int index);
     QString addProject(int at);
@@ -141,6 +146,6 @@ private:
     QVector<ProjectEntry> m_projects;
     QString m_currentProject;
     QString m_currentCanvas;
-    QString m_announcedPath;   // currentPath() as of the last currentChanged()
+    QString m_lastAnnouncedPath;   // currentPath() as of the last currentChanged()
     QTimer m_viewSaveTimer;    // saves the index once the view stops changing
 };

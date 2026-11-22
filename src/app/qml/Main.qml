@@ -301,7 +301,7 @@ ApplicationWindow {
         onActivated: window.startRename(window.library.currentProject, window.library.currentCanvas)
     }
     // Saving is automatic; Ctrl+S just does it now.
-    Shortcut { sequences: [StandardKey.Save]; onActivated: { window.focusCanvas(); window.editor.save() } }
+    Shortcut { sequences: [StandardKey.Save]; onActivated: { window.focusCanvas(); window.canvasSession.save() } }
 
     // ---- File dialogs ----
 

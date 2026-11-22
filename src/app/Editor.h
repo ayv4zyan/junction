@@ -50,7 +50,6 @@ struct ConnectionDetails
 {
     Q_GADGET
     QML_VALUE_TYPE(connectionDetails)
-    Q_PROPERTY(bool valid MEMBER valid)
     Q_PROPERTY(QString id MEMBER id)
     Q_PROPERTY(CanvasEnums::PathStyle style MEMBER style)
     Q_PROPERTY(bool fromArrow MEMBER fromArrow)
@@ -64,7 +63,6 @@ struct ConnectionDetails
     Q_PROPERTY(QRectF labelRect MEMBER labelRect)
 
 public:
-    bool valid = false;           // false unless exactly one Connection (with both ends) is selected
     QString id;
     PathStyle style = PathStyle::Elbow;
     bool fromArrow = false;
@@ -87,7 +85,7 @@ class Editor : public QObject
     Q_PROPERTY(NodeModel *cards READ cards CONSTANT)
     Q_PROPERTY(NodeModel *groups READ groups CONSTANT)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
-    Q_PROPERTY(ConnectionDetails selectedConnection READ selectedConnection NOTIFY selectedItemsChanged)
+    Q_PROPERTY(QVariant selectedConnection READ selectedConnection NOTIFY selectedItemsChanged)
     Q_PROPERTY(QString selectionColor READ selectionColor NOTIFY selectedItemsChanged)
     Q_PROPERTY(SelectionSummary selectionSummary READ selectionSummary NOTIFY selectedItemsChanged)
     Q_PROPERTY(QRectF selectionBounds READ selectionBounds NOTIFY selectedItemsChanged)
@@ -104,7 +102,9 @@ public:
     NodeModel *cards() { return &m_cards; }
     NodeModel *groups() { return &m_groups; }
     QStringList selection() const { return m_selection; }
-    ConnectionDetails selectedConnection() const;
+    // The ConnectionDetails of the one selected Connection, or null unless exactly one Connection
+    // (with both ends) is selected.
+    QVariant selectedConnection() const;
     QString selectionColor() const;   // color of the selected items, "" if mixed or default
     SelectionSummary selectionSummary() const;
     // The world rectangle around everything selected (empty when nothing is); the floating
@@ -160,8 +160,6 @@ public:
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
 
-    // Files. Every Canvas is saved automatically, shortly after each change.
-    Q_INVOKABLE void save();
     Q_INVOKABLE QRectF contentBounds() const;
 
 signals:

@@ -14,7 +14,7 @@ Rectangle {
     readonly property Editor editor: canvasView.editor
     readonly property string connectionId: canvasView.editingLabelId
     // The label stays where the Connection's middle is, even when its cards move (undo).
-    readonly property point center: editor.selectedConnection.labelPosition
+    readonly property point center: editor.selectedConnection?.labelPosition ?? Qt.point(0, 0)
 
     visible: connectionId !== ""
     // The painted Label's padding (DesignValues::LabelPadding*, copies of these tokens).
@@ -38,7 +38,7 @@ Rectangle {
     Connections {
         target: box.editor
         function onSelectionChanged() {
-            if (box.visible && box.editor.selectedConnection.id !== box.connectionId) {
+            if (box.visible && box.editor.selectedConnection?.id !== box.connectionId) {
                 textSession.closeMenu()
                 box.finish(input.text)
                 box.canvasView.forceActiveFocus()
@@ -72,7 +72,7 @@ Rectangle {
         id: textSession
         anchors.fill: parent
         field: input
-        startText: box.editor.selectedConnection.label
+        startText: box.editor.selectedConnection?.label ?? ""
         onFinished: (text) => box.finish(text)
     }
 

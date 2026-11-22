@@ -53,19 +53,23 @@ QStringList LibraryFolder::canvasFiles(const QString &project) const
     return names;
 }
 
-LibraryFolder::IndexRead LibraryFolder::readIndex() const
+std::optional<LibraryIndex> LibraryFolder::readIndex() const
+{
+    QFile file(QDir(m_root).filePath(IndexFile));
+    if (!file.exists())
+        return LibraryIndex{};
+    const QJsonDocument json = file.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(file.readAll()) : QJsonDocument();
+    if (!json.isObject())
+        return std::nullopt;
+    return LibraryIndex::fromJson(json.object());
+}
+
+QString LibraryFolder::keepBrokenIndex() const
 {
     const QString path = QDir(m_root).filePath(IndexFile);
-    QFile file(path);
-    if (!file.exists())
-        return {};
-    const QJsonDocument json = file.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(file.readAll()) : QJsonDocument();
-    if (json.isObject())
-        return {LibraryIndex::fromJson(json.object())};
-    file.close();
     const QString broken = path + QStringLiteral(".broken");
     QFile::remove(broken);   // an older broken index, if any
-    return {{}, true, QFile::copy(path, broken) ? broken : QString()};
+    return QFile::copy(path, broken) ? broken : QString();
 }
 
 bool LibraryFolder::writeIndex(const LibraryIndex &index) const
@@ -89,9 +93,9 @@ bool LibraryFolder::createEmptyCanvas(const QString &project, const QString &can
     return Document().save(canvasPath(project, canvas), error);
 }
 
-bool LibraryFolder::copyFile(const QString &from, const QString &to) const
+bool LibraryFolder::copyIn(const QString &file, const QString &project, const QString &canvas) const
 {
-    return QFile::copy(from, to);
+    return QFile::copy(file, canvasPath(project, canvas));
 }
 
 bool LibraryFolder::copyProject(const QString &from, const QString &to, const QStringList &canvases) const
@@ -99,7 +103,7 @@ bool LibraryFolder::copyProject(const QString &from, const QString &to, const QS
     if (!createProject(to))
         return false;
     for (const QString &canvas : canvases) {
-        if (!QFile::copy(canvasPath(from, canvas), canvasPath(to, canvas)))
+        if (!copyIn(canvasPath(from, canvas), to, canvas))
             return false;
     }
     return true;
@@ -124,7 +128,7 @@ bool LibraryFolder::trash(const QString &path) const
     return !QFileInfo::exists(path) || QFile::moveToTrash(path);
 }
 
-void LibraryFolder::removeProject(const QString &project) const
+bool LibraryFolder::removeProject(const QString &project) const
 {
-    QDir(projectPath(project)).removeRecursively();
+    return QDir(projectPath(project)).removeRecursively();
 }

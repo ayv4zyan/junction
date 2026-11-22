@@ -15,8 +15,8 @@ RisingFloating {
     id: bar
     required property Editor editor
     required property CanvasView canvasView
-    readonly property var connection: editor.selectedConnection
-    readonly property bool isConnection: connection.valid
+    readonly property var connection: editor.selectedConnection   // null unless one Connection is selected
+    readonly property bool isConnection: connection !== null
     shown: editor.selection.length > 0 && !editor.dragging && !canvasView.manipulating
 
     // The selection on screen, in the canvas's coordinates.
@@ -80,7 +80,7 @@ RisingFloating {
                 visible: bar.isConnection
                 iconName: modelData.icon
                 tip: modelData.tip
-                checked: bar.connection.style === modelData.style
+                checked: bar.connection?.style === modelData.style
                 onClicked: bar.editor.setConnectionStyle(modelData.style)
             }
         }
@@ -102,7 +102,7 @@ RisingFloating {
                 visible: bar.isConnection
                 iconName: modelData.icon
                 tip: modelData.tip
-                checked: bar.connection.fromArrow === modelData.fromArrow && bar.connection.toArrow === modelData.toArrow
+                checked: bar.connection?.fromArrow === modelData.fromArrow && bar.connection?.toArrow === modelData.toArrow
                 onClicked: bar.editor.setArrows(modelData.fromArrow, modelData.toArrow)
             }
         }

@@ -62,7 +62,7 @@ public:
     // state must then be pushed as a Transaction from where the drag began.
     void showUncommitted(const QVector<CanvasItem> &items);
 
-    void save();          // now
+    Q_INVOKABLE void save();   // now
     void savePending();   // now, if a change is waiting to be saved
 
     // The Library renamed, moved or deleted a file: the history and the open file follow. A

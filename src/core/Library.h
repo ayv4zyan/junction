@@ -125,6 +125,7 @@ private:
     void openWhatWasOpenLastTime(const QString &project, const QString &canvas);
     void setCurrent(const QString &project, const QString &canvas);
     bool createEmptyCanvas(const QString &project, const QString &canvas);
+    void removeUnfinishedProject(const QString &project);
     bool renameFile(const QString &from, const QString &to, const QString &failure);
     bool renameIfNameIsFree(const QString &problem, const QString &from, const QString &to, const QString &failure);
     // Every change ends here: saves the index, emits projectsChanged(), then currentChanged() if

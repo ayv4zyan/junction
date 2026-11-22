@@ -99,14 +99,13 @@ std::optional<LibraryIndex> Library::loadProjects()
 // about to write a new one), the user is told that the order and views were reset.
 LibraryIndex Library::readIndex()
 {
-    const LibraryFolder::IndexRead read = m_folder.readIndex();
-    if (read.unreadable) {
-        QString message = tr("The library index couldn't be read, so the order of projects and canvases was reset.");
-        if (!read.keptAs.isEmpty())
-            message += ' ' + tr("The old index was kept as %1.").arg(read.keptAs);
-        emit errorOccurred(message);
-    }
-    return read.index;
+    if (std::optional<LibraryIndex> index = m_folder.readIndex())
+        return *index;
+    QString message = tr("The library index couldn't be read, so the order of projects and canvases was reset.");
+    if (const QString keptAs = m_folder.keepBrokenIndex(); !keptAs.isEmpty())
+        message += ' ' + tr("The old index was kept as %1.").arg(keptAs);
+    emit errorOccurred(message);
+    return {};
 }
 
 // The Canvas open last time; if it is gone, the first of its Project, or else the very first.
@@ -293,6 +292,13 @@ bool Library::createEmptyCanvas(const QString &project, const QString &canvas)
     return false;
 }
 
+// After a create or copy failed half way: the folder it left goes, or the user hears it is there.
+void Library::removeUnfinishedProject(const QString &project)
+{
+    if (!m_folder.removeProject(project))
+        emit errorOccurred(tr("The unfinished folder %1 could not be removed.").arg(m_folder.projectPath(project)));
+}
+
 // A new Project folder with one empty Canvas, inserted at `at`.
 QString Library::addProject(int at)
 {
@@ -302,7 +308,7 @@ QString Library::addProject(int at)
         return {};
     }
     if (!createEmptyCanvas(name, UntitledName)) {
-        m_folder.removeProject(name);
+        removeUnfinishedProject(name);
         return {};
     }
     m_projects.insert(at, {name, {{UntitledName, std::nullopt}}, true, {}});
@@ -353,7 +359,7 @@ QString Library::duplicateCanvas(const QString &projectName, const QString &canv
         return {};
     emit openCanvasMustBeSaved();   // the open Canvas is saved first, so the copy has its latest state
     const QString name = LibraryNames::unique(tr("%1 copy").arg(canvas), canvasNames(projectName));
-    if (!m_folder.copyFile(canvasPath(projectName, canvas), canvasPath(projectName, name))) {
+    if (!m_folder.copyIn(canvasPath(projectName, canvas), projectName, name)) {
         emit errorOccurred(tr("Could not copy “%1”.").arg(canvas));
         return {};
     }
@@ -373,7 +379,7 @@ QString Library::duplicateProject(const QString &projectName)
     ProjectEntry copy = m_projects[i];
     copy.name = name;
     if (!m_folder.copyProject(projectName, name, canvasNames(projectName))) {
-        m_folder.removeProject(name);
+        removeUnfinishedProject(name);
         emit errorOccurred(tr("Could not copy “%1”.").arg(projectName));
         return {};
     }
@@ -399,7 +405,7 @@ QString Library::importCanvas(const QString &filePath, const QString &projectNam
     if (!LibraryNames::problem(base).isEmpty())
         base = tr("Imported canvas");
     const QString name = LibraryNames::unique(base, canvasNames(projectName));
-    if (!m_folder.copyFile(filePath, canvasPath(projectName, name))) {
+    if (!m_folder.copyIn(filePath, projectName, name)) {
         emit errorOccurred(tr("Could not copy %1 into the project.").arg(filePath));
         return {};
     }
@@ -542,7 +548,7 @@ bool Library::replaceLastProject()
     if (replacement.isEmpty())
         return false;   // errorOccurred has said why
     if (!trashProject(0)) {
-        m_folder.removeProject(replacement);
+        removeUnfinishedProject(replacement);
         m_projects.removeLast();
         return false;
     }

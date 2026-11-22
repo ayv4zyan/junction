@@ -7,6 +7,7 @@
 #include "LibraryIndex.h"
 
 #include <QStringList>
+#include <optional>
 
 class LibraryFolder
 {
@@ -21,27 +22,24 @@ public:
     QStringList projectFolders() const;       // sorted by name
     QStringList canvasFiles(const QString &project) const;   // their names, without ".canvas"
 
-    // The index: empty the first time. One that can't be read is copied to ".junction.broken"
-    // (`keptAs` says where, "" if even that failed) and read as empty.
-    struct IndexRead
-    {
-        LibraryIndex index;
-        bool unreadable = false;
-        QString keptAs;
-    };
-    IndexRead readIndex() const;
+    // The index: empty the first time, nothing when it can't be read.
+    std::optional<LibraryIndex> readIndex() const;
+    // Copies an index that can't be read to ".junction.broken", before a new one replaces it.
+    // Returns that copy's path, or "" if it couldn't be made.
+    QString keepBrokenIndex() const;
     bool writeIndex(const LibraryIndex &index) const;
 
     bool createProject(const QString &project) const;
     bool createEmptyCanvas(const QString &project, const QString &canvas, QString *error) const;
-    bool copyFile(const QString &from, const QString &to) const;   // never replaces a file
+    // Copies `file` into the Project as `canvas`; never replaces one that is there.
+    bool copyIn(const QString &file, const QString &project, const QString &canvas) const;
     bool copyProject(const QString &from, const QString &to, const QStringList &canvases) const;
     // Never replaces an existing file. A change of case only ("auth" -> "Auth") also works where
     // the file system ignores case, through a temporary name. If that can't be put back,
     // `stranded` says where it ended up.
     bool move(const QString &from, const QString &to, QString *stranded) const;
     bool trash(const QString &path) const;   // a path that isn't there counts as trashed
-    void removeProject(const QString &project) const;   // only for undoing a failed create
+    bool removeProject(const QString &project) const;   // only for undoing a failed create
 
 private:
     QString m_root;

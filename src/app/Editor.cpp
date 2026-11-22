@@ -172,14 +172,13 @@ void Editor::clearSelection()
     setSelection({});
 }
 
-ConnectionDetails Editor::selectedConnection() const
+QVariant Editor::selectedConnection() const
 {
     const Connection *c = m_selection.size() == 1 ? document().connection(m_selection.first()) : nullptr;
     const auto route = c ? document().route(*c) : std::nullopt;
     if (!route)
-        return {};
-    return {
-        .valid = true,
+        return QVariant::fromValue(nullptr);
+    return QVariant::fromValue(ConnectionDetails{
         .id = c->id,
         .style = c->style,
         .fromArrow = c->fromArrow,
@@ -191,7 +190,7 @@ ConnectionDetails Editor::selectedConnection() const
         .end = route->end,
         .labelPosition = route->labelPosition,
         .labelRect = CanvasPainter::labelRect(*route, c->label),
-    };
+    });
 }
 
 QString Editor::selectionColor() const
@@ -683,11 +682,6 @@ void Editor::loadCurrent()
         m_session.openNothing(tr("The library folder %1 can't be written to.").arg(m_library->folder().toLocalFile()));
     else
         m_session.open(path);
-}
-
-void Editor::save()
-{
-    m_session.save();
 }
 
 QRectF Editor::contentBounds() const

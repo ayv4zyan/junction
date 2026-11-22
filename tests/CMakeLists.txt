@@ -12,7 +12,7 @@ junction_test(tst_fragment)
 
 # The Editor lives in the app, so its test builds the Editor's sources too.
 qt_add_executable(tst_editor tst_editor.cpp
-    ../src/app/Editor.cpp ../src/app/LibraryRows.cpp ../src/app/NodeModel.cpp)
+    ../src/app/Editor.cpp ../src/app/Selection.cpp ../src/app/LibraryRows.cpp ../src/app/NodeModel.cpp)
 target_include_directories(tst_editor PRIVATE ../src/app)
 target_link_libraries(tst_editor PRIVATE junction_core junction_render Qt6::Test Qt6::Gui Qt6::Qml)
 add_test(NAME tst_editor COMMAND tst_editor)

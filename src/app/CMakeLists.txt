@@ -37,6 +37,7 @@ qt_add_qml_module(junction
         icons/close.svg icons/canvas.svg icons/project.svg
     SOURCES
         Editor.h Editor.cpp
+        Selection.h Selection.cpp
         HitTest.h HitTest.cpp
         Exporter.h Exporter.cpp
         LibraryRows.h LibraryRows.cpp

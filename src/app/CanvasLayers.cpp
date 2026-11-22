@@ -47,7 +47,7 @@ void ConnectionLayer::setEditor(Editor *editor)
     auto repaint = [this] { update(); };
     const Document *document = &editor->document();
     connect(document, &Document::changed, this, repaint);
-    connect(editor, &Editor::selectionChanged, this, repaint);
+    connect(editor->selection(), &Selection::idsChanged, this, repaint);
 }
 
 void ConnectionLayer::paint(QPainter *painter)
@@ -61,7 +61,7 @@ void ConnectionLayer::paint(QPainter *painter)
 
     for (const Connection &c : document.connections()) {
         if (const auto route = document.route(c)) {
-            CanvasPainter::drawConnection(*painter, *route, c, palette, m_editor->selection().contains(c.id),
+            CanvasPainter::drawConnection(*painter, *route, c, palette, m_editor->selection()->ids().contains(c.id),
                                           c.id != m_editedLabelConnection,
                                           CanvasPainter::colorUnder(route->labelPosition, document.nodes(), palette));
         }

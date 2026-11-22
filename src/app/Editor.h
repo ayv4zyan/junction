@@ -1,6 +1,6 @@
 #pragma once
 
-// The bridge between QML and the open Canvas: owns it and the selection, and turns what the
+// The bridge between QML and the open Canvas: owns it and the Selection, and turns what the
 // user does on the Canvas into Transactions. QML calls these methods in canvas (world)
 // coordinates; it never edits the Document directly, so every change goes through commit() and
 // can be undone.
@@ -13,6 +13,7 @@
 #include "Geometry.h"
 #include "Library.h"
 #include "NodeModel.h"
+#include "Selection.h"
 #include "CanvasSession.h"
 
 #include <QClipboard>
@@ -22,60 +23,6 @@
 #include <optional>
 #include <variant>
 
-// What the right-click menus need to know about the selection.
-struct SelectionSummary
-{
-    Q_GADGET
-    QML_VALUE_TYPE(selectionSummary)
-    Q_PROPERTY(int cards MEMBER cards)
-    Q_PROPERTY(int editableCards MEMBER editableCards)
-    Q_PROPERTY(int groups MEMBER groups)
-    Q_PROPERTY(int connections MEMBER connections)
-    Q_PROPERTY(int labeledConnections MEMBER labeledConnections)
-    Q_PROPERTY(QStringList labelTargets MEMBER labelTargets)
-    Q_PROPERTY(QString sharedLabel MEMBER sharedLabel)
-
-public:
-    int cards = 0;
-    int editableCards = 0;        // Text Cards; an Unsupported Card can't be edited
-    int groups = 0;
-    int connections = 0;
-    int labeledConnections = 0;
-    QStringList labelTargets;     // the selected items that have a Label: Groups and Connections
-    QString sharedLabel;          // the Label they all have, or "" when they differ
-};
-
-// Everything the overlay and the toolbar need to edit the one selected Connection.
-struct ConnectionDetails
-{
-    Q_GADGET
-    QML_VALUE_TYPE(connectionDetails)
-    Q_PROPERTY(QString id MEMBER id)
-    Q_PROPERTY(CanvasEnums::PathStyle style MEMBER style)
-    Q_PROPERTY(bool fromArrow MEMBER fromArrow)
-    Q_PROPERTY(bool toArrow MEMBER toArrow)
-    Q_PROPERTY(QString label MEMBER label)
-    Q_PROPERTY(QList<QPointF> waypoints MEMBER waypoints)
-    Q_PROPERTY(QList<QPointF> midpoints MEMBER midpoints)
-    Q_PROPERTY(QPointF start MEMBER start)
-    Q_PROPERTY(QPointF end MEMBER end)
-    Q_PROPERTY(QPointF labelPosition MEMBER labelPosition)
-    Q_PROPERTY(QRectF labelRect MEMBER labelRect)
-
-public:
-    QString id;
-    PathStyle style = PathStyle::Elbow;
-    bool fromArrow = false;
-    bool toArrow = false;
-    QString label;
-    QList<QPointF> waypoints;
-    QList<QPointF> midpoints;     // one per span between its ends and Waypoints
-    QPointF start;
-    QPointF end;
-    QPointF labelPosition;
-    QRectF labelRect;             // empty without a label
-};
-
 class Editor : public QObject
 {
     Q_OBJECT
@@ -84,11 +31,7 @@ class Editor : public QObject
 
     Q_PROPERTY(NodeModel *cards READ cards CONSTANT)
     Q_PROPERTY(NodeModel *groups READ groups CONSTANT)
-    Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
-    Q_PROPERTY(QVariant selectedConnection READ selectedConnection NOTIFY selectionDetailsChanged)
-    Q_PROPERTY(QString selectionColor READ selectionColor NOTIFY selectionDetailsChanged)
-    Q_PROPERTY(SelectionSummary selectionSummary READ selectionSummary NOTIFY selectionDetailsChanged)
-    Q_PROPERTY(QRectF selectionBounds READ selectionBounds NOTIFY selectionDetailsChanged)
+    Q_PROPERTY(Selection *selection READ selection CONSTANT)
     Q_PROPERTY(bool dragging READ isDragging NOTIFY draggingChanged)   // moving, resizing, or a Waypoint
     Q_PROPERTY(bool snapToGrid READ snapToGrid WRITE setSnapToGrid NOTIFY snapToGridChanged)
 
@@ -101,25 +44,10 @@ public:
     CanvasSession *canvasSession() { return &m_session; }   // its file, history and whether it can be edited
     NodeModel *cards() { return &m_cards; }
     NodeModel *groups() { return &m_groups; }
-    QStringList selection() const { return m_selection; }
-    // The ConnectionDetails of the one selected Connection, or null unless exactly one Connection
-    // (with both ends) is selected.
-    QVariant selectedConnection() const;
-    QString selectionColor() const;   // color of the selected items, "" if mixed or default
-    SelectionSummary selectionSummary() const;
-    // The world rectangle around everything selected (empty when nothing is); the floating
-    // selection toolbar sits against it.
-    QRectF selectionBounds() const;
+    Selection *selection() { return &m_selection; }   // what the commands below act on
     bool isDragging() const { return m_drag.has_value(); }
     bool snapToGrid() const { return m_snapToGrid; }
     void setSnapToGrid(bool snap);
-
-    // Selection
-    Q_INVOKABLE void select(const QString &id, bool toggle = false);
-    // The selection becomes `base` plus what the rectangle catches; called while it is dragged.
-    Q_INVOKABLE void selectInRect(const QRectF &rect, const QStringList &base);
-    Q_INVOKABLE void selectAll();
-    Q_INVOKABLE void clearSelection();
 
     // Creating and editing
     Q_INVOKABLE QString createCard(QPointF center);
@@ -163,8 +91,6 @@ public:
     Q_INVOKABLE QRectF contentBounds() const;
 
 signals:
-    void selectionChanged();
-    void selectionDetailsChanged();   // the selection, or something about the selected items changed
     void snapToGridChanged();
     void canvasOpened();   // another Canvas is shown; the Document was replaced
     void draggingChanged();
@@ -194,8 +120,6 @@ private:
 
     bool commit(const Transaction &transaction, const QString &text);
     QString addAndSelect(const Transaction &transaction, const QString &text, const QString &selected);
-    void setSelection(const QStringList &ids);
-    void syncSelectionWithDocument();
     // `point` on the grid when snapping (inverted while Alt is held), otherwise as it is.
     QPointF snapped(QPointF point, bool invert = false) const { return m_snapToGrid != invert ? Geometry::snap(point) : point; }
     qreal snapped(qreal value, bool invert) const { return m_snapToGrid != invert ? Geometry::snap(value) : value; }
@@ -224,7 +148,7 @@ private:
     CanvasSession m_session;
     NodeModel m_cards{&m_session.document(), NodeModel::Cards};
     NodeModel m_groups{&m_session.document(), NodeModel::Groups};
-    QStringList m_selection;
+    Selection m_selection{&m_session.document()};
     std::optional<Drag> m_drag;
     bool m_snapToGrid = true;
 };

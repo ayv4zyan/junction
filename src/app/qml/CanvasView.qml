@@ -206,7 +206,7 @@ Item {
         if (editingLabelId === connectionId)
             return              // already open: keep what has been typed
         forceActiveFocus()      // first ends any other text editing
-        editor.select(connectionId)
+        editor.selection.select(connectionId)
         interaction.editingLabelId = connectionId
     }
     function endLabelEditing() { interaction.editingLabelId = "" }
@@ -226,7 +226,7 @@ Item {
             if (connectFrom)
                 cancelConnection()
             else
-                editor.clearSelection()
+                editor.selection.clear()
             event.accepted = true
         }
     }

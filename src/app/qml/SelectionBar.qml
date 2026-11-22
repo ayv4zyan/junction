@@ -15,13 +15,13 @@ RisingFloating {
     id: bar
     required property Editor editor
     required property CanvasView canvasView
-    readonly property var connection: editor.selectedConnection   // null unless one Connection is selected
+    readonly property var connection: editor.selection.connection   // null unless one Connection is selected
     readonly property bool isConnection: connection !== null
-    shown: editor.selection.length > 0 && !editor.dragging && !canvasView.manipulating
+    shown: editor.selection.ids.length > 0 && !editor.dragging && !canvasView.manipulating
 
     // The selection on screen, in the canvas's coordinates.
     readonly property rect target: {
-        const b = editor.selectionBounds
+        const b = editor.selection.bounds
         const topLeft = canvasView.toScreen(Qt.point(b.x, b.y))
         return Qt.rect(topLeft.x, topLeft.y, b.width * canvasView.zoom, b.height * canvasView.zoom)
     }
@@ -58,7 +58,7 @@ RisingFloating {
                 anchors.verticalCenter: parent.verticalCenter
                 fill: modelData.color ? CanvasColors.resolve(modelData.color, Colors.presets, Colors.line) : Colors.cardFill
                 outlined: modelData.color === ""
-                chosen: bar.editor.selectionColor === modelData.color
+                chosen: bar.editor.selection.color === modelData.color
                 tip: modelData.tip
                 onClicked: bar.editor.setColor(modelData.color)
             }

@@ -15,7 +15,7 @@ Item {
     required property real nodeHeight
     required property string nodeColor
 
-    readonly property bool selected: editor.selection.includes(nodeId)
+    readonly property bool selected: editor.selection.ids.includes(nodeId)
     readonly property bool editing: canvasView.editingNodeId === nodeId
     readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
     // The outline: the selection color while selected, otherwise the node's own.

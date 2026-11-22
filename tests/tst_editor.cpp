@@ -26,9 +26,9 @@ class TestEditor : public QObject
         const QString a = e.createCard({0, 0});
         const QString b = e.createCard({400, 0});
         e.connectNodes(a, b, {});
-        const QString connection = e.selection().first();
-        e.select(a);
-        e.select(b, true);
+        const QString connection = e.selection()->ids().first();
+        e.selection()->select(a);
+        e.selection()->select(b, true);
         const QString group = e.createGroup({});
         return {a, b, connection, group};
     }
@@ -59,7 +59,7 @@ private slots:
     void cutGroupTakesItsCards()
     {
         const QStringList ids = makeGroupedPair();
-        m_editor->select(ids[3]);   // only the Group
+        m_editor->selection()->select(ids[3]);   // only the Group
         m_editor->cut();
 
         QCOMPARE(clipboardNodeCount(), 3);   // the Group and both Cards
@@ -74,7 +74,7 @@ private slots:
     void deleteGroupKeepsItsCards()
     {
         const QStringList ids = makeGroupedPair();
-        m_editor->select(ids[3]);
+        m_editor->selection()->select(ids[3]);
         m_editor->deleteSelection();
         QCOMPARE(m_editor->document().nodes().size(), 2);
     }
@@ -82,15 +82,15 @@ private slots:
     void setLabelsOnGroupsAndConnections()
     {
         const QStringList ids = makeGroupedPair();
-        m_editor->select(ids[0]);              // a Card: has no Label, stays as it is
-        m_editor->select(ids[2], true);        // the Connection
-        m_editor->select(ids[3], true);        // the Group
-        m_editor->setLabels(m_editor->selection(), "Backend");
+        m_editor->selection()->select(ids[0]);              // a Card: has no Label, stays as it is
+        m_editor->selection()->select(ids[2], true);        // the Connection
+        m_editor->selection()->select(ids[3], true);        // the Group
+        m_editor->setLabels(m_editor->selection()->ids(), "Backend");
 
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString("Backend"));
         QCOMPARE(m_editor->document().node(ids[3])->label(), QString("Backend"));
         QCOMPARE(m_editor->document().node(ids[0])->text(), QString());
-        QCOMPARE(m_editor->selectionSummary().sharedLabel, QString("Backend"));
+        QCOMPARE(m_editor->selection()->summary().sharedLabel, QString("Backend"));
 
         m_editor->undo();   // one step for all of them
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
@@ -100,23 +100,23 @@ private slots:
     void removeConnectionLabels()
     {
         const QStringList ids = makeGroupedPair();
-        m_editor->select(ids[2]);
-        m_editor->select(ids[3], true);
-        m_editor->setLabels(m_editor->selection(), "calls");
+        m_editor->selection()->select(ids[2]);
+        m_editor->selection()->select(ids[3], true);
+        m_editor->setLabels(m_editor->selection()->ids(), "calls");
         m_editor->removeConnectionLabels();
 
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
         QCOMPARE(m_editor->document().node(ids[3])->label(), QString("calls"));   // Groups keep theirs
-        QCOMPARE(m_editor->selectionSummary().labeledConnections, 0);
+        QCOMPARE(m_editor->selection()->summary().labeledConnections, 0);
     }
 
     void selectionSummaryCounts()
     {
         const QStringList ids = makeGroupedPair();
-        m_editor->select(ids[0]);
-        m_editor->select(ids[2], true);
-        m_editor->select(ids[3], true);
-        const SelectionSummary summary = m_editor->selectionSummary();
+        m_editor->selection()->select(ids[0]);
+        m_editor->selection()->select(ids[2], true);
+        m_editor->selection()->select(ids[3], true);
+        const SelectionSummary summary = m_editor->selection()->summary();
         QCOMPARE(summary.cards, 1);
         QCOMPARE(summary.editableCards, 1);
         QCOMPARE(summary.groups, 1);
@@ -130,16 +130,16 @@ private slots:
     void selectionBoundsCoverTheSelectedItems()
     {
         const QStringList ids = makeGroupedPair();
-        m_editor->clearSelection();
-        QVERIFY(m_editor->selectionBounds().isEmpty());
+        m_editor->selection()->clear();
+        QVERIFY(m_editor->selection()->bounds().isEmpty());
 
-        m_editor->select(ids[0]);
-        m_editor->select(ids[1], true);
-        QCOMPARE(m_editor->selectionBounds(), QRectF(-120, -40, 640, 80));
+        m_editor->selection()->select(ids[0]);
+        m_editor->selection()->select(ids[1], true);
+        QCOMPARE(m_editor->selection()->bounds(), QRectF(-120, -40, 640, 80));
 
         // a Connection alone: its line, from A's right side to B's left side
-        m_editor->select(ids[2]);
-        const QRectF line = m_editor->selectionBounds();
+        m_editor->selection()->select(ids[2]);
+        const QRectF line = m_editor->selection()->bounds();
         QCOMPARE(line.left(), 120.0);
         QCOMPARE(line.right(), 280.0);
     }
@@ -148,7 +148,7 @@ private slots:
     void cutRemovesSelectedConnections()
     {
         const QStringList ids = makeGroupedPair();
-        m_editor->select(ids[2]);   // only the Connection
+        m_editor->selection()->select(ids[2]);   // only the Connection
         m_editor->cut();
         QVERIFY(!m_editor->document().connection(ids[2]));
         QVERIFY(m_editor->document().node(ids[0]));
@@ -159,12 +159,12 @@ private slots:
     void setLabelsTrimsSpaces()
     {
         const QStringList ids = makeGroupedPair();
-        m_editor->select(ids[2]);
-        m_editor->select(ids[3], true);
-        m_editor->setLabels(m_editor->selection(), "  calls  ");
+        m_editor->selection()->select(ids[2]);
+        m_editor->selection()->select(ids[3], true);
+        m_editor->setLabels(m_editor->selection()->ids(), "  calls  ");
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString("calls"));
         QCOMPARE(m_editor->document().node(ids[3])->label(), QString("calls"));
-        m_editor->setLabels(m_editor->selection(), "   ");
+        m_editor->setLabels(m_editor->selection()->ids(), "   ");
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
     }
 
@@ -174,12 +174,12 @@ private slots:
     {
         const QStringList ids = makeGroupedPair();
         const QRectF group = m_editor->document().node(ids[3])->rect;
-        m_editor->select(ids[3]);
-        QCOMPARE(m_editor->selectionBounds().top(), group.top() - 32);
+        m_editor->selection()->select(ids[3]);
+        QCOMPARE(m_editor->selection()->bounds().top(), group.top() - 32);
 
         m_editor->setLabels({ids[2]}, "verifies");
-        m_editor->select(ids[2]);
-        QVERIFY(m_editor->selectionBounds().top() < -5);   // the line runs at y = 0
+        m_editor->selection()->select(ids[2]);
+        QVERIFY(m_editor->selection()->bounds().top() < -5);   // the line runs at y = 0
     }
 
     // A drag shows every step on the Canvas but is one undo step, and snaps to the grid.
@@ -234,7 +234,7 @@ private slots:
         const QString a = m_editor->createCard({0, 0});
         m_editor->beginMove(a);
         QCOMPARE(m_editor->createCard({400, 0}), QString());
-        QCOMPARE(m_editor->selection(), QStringList{a});
+        QCOMPARE(m_editor->selection()->ids(), QStringList{a});
         m_editor->endMove();
         QCOMPARE(m_editor->document().nodes().size(), 1);
     }

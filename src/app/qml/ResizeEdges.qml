@@ -36,7 +36,7 @@ Item {
                        : vertical === 0 ? Qt.SizeHorCursor
                        : horizontal === vertical ? Qt.SizeFDiagCursor : Qt.SizeBDiagCursor
 
-            onTapped: (modifiers) => edges.editor.select(edges.nodeId, edges.canvasView.isToggle(modifiers))
+            onTapped: (modifiers) => edges.editor.selection.select(edges.nodeId, edges.canvasView.isToggle(modifiers))
             onDragStarted: edges.editor.beginResize(edges.nodeId, strip.sides)
             onDragged: (delta, invertSnap) => edges.editor.updateResize(delta, invertSnap)
             onDragFinished: edges.editor.endResize()

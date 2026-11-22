@@ -27,7 +27,7 @@ FileDialog {
     fileMode: FileDialog.SaveFile
     onAccepted: {
         const written = defaultSuffix === "canvas" ? exporter.exportCanvasFile(selectedFile)
-                                                   : exporter.exportImage(selectedFile, Colors.forPainter, editor.selection)
+                                                   : exporter.exportImage(selectedFile, Colors.forPainter, editor.selection.ids)
         if (written.toString() !== "")
             exported(written)
     }

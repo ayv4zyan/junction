@@ -261,7 +261,7 @@ ApplicationWindow {
     Shortcut { sequences: [StandardKey.Undo]; enabled: window.canEdit; onActivated: window.editor.undo() }
     Shortcut { sequences: [StandardKey.Redo]; enabled: window.canEdit; onActivated: window.editor.redo() }
     Shortcut { sequences: ["Delete", "Backspace"]; enabled: window.canEdit; onActivated: window.editor.deleteSelection() }
-    Shortcut { sequences: [StandardKey.SelectAll]; enabled: window.canEdit; onActivated: window.editor.selectAll() }
+    Shortcut { sequences: [StandardKey.SelectAll]; enabled: window.canEdit; onActivated: window.editor.selection.selectAll() }
     Shortcut { sequences: [StandardKey.Cut]; enabled: window.canEdit; onActivated: window.editor.cut() }
     Shortcut { sequences: [StandardKey.Copy]; enabled: window.canEdit; onActivated: window.editor.copy() }
     Shortcut { sequences: [StandardKey.Paste]; enabled: window.canEdit; onActivated: window.editor.paste(canvasView.pointerWorld()) }

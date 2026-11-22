@@ -12,7 +12,7 @@ Item {
     id: overlay
     required property CanvasView canvasView
     required property Editor editor
-    readonly property var connection: editor.selectedConnection   // null unless one Connection is selected
+    readonly property var connection: editor.selection.connection   // null unless one Connection is selected
     readonly property bool active: connection !== null
     readonly property string connectionId: connection?.id ?? ""
     readonly property rect labelBox: connection?.labelRect ?? Qt.rect(0, 0, 0, 0)   // empty without a label

@@ -15,9 +15,9 @@ Item {
     required property AskDialog ask   // for editing several Labels at once
 
     function openFor(id, waypointIndex) {
-        if (!editor.selection.includes(id))
-            editor.select(id)
-        const summary = editor.selectionSummary
+        if (!editor.selection.ids.includes(id))
+            editor.selection.select(id)
+        const summary = editor.selection.summary
         if (summary.cards + summary.groups === 0) {
             connectionMenu.waypoint = waypointIndex ?? -1
             connectionMenu.popup()
@@ -28,7 +28,7 @@ Item {
 
     // One Label is edited in place, like double-clicking it; several get the dialog.
     function editLabels() {
-        const summary = editor.selectionSummary
+        const summary = editor.selection.summary
         const targets = summary.labelTargets
         if (targets.length > 1)
             menus.ask.forText({ title: qsTr("Edit %1 labels").arg(targets.length), text: summary.sharedLabel,
@@ -41,7 +41,7 @@ Item {
     }
 
     function labelsText() {
-        const count = editor.selectionSummary.labelTargets.length
+        const count = editor.selection.summary.labelTargets.length
         return count > 1 ? qsTr("Edit %1 labels…").arg(count) : qsTr("Edit label")
     }
 
@@ -65,12 +65,12 @@ Item {
         id: selectionMenu
         MenuEntry {
             text: qsTr("Edit text")
-            enabled: menus.editor.selection.length === 1 && menus.editor.selectionSummary.editableCards === 1
-            onTriggered: menus.canvasView.editInPlace(menus.editor.selection[0])
+            enabled: menus.editor.selection.ids.length === 1 && menus.editor.selection.summary.editableCards === 1
+            onTriggered: menus.canvasView.editInPlace(menus.editor.selection.ids[0])
         }
         MenuEntry {
             text: menus.labelsText()
-            enabled: menus.editor.selectionSummary.labelTargets.length > 0
+            enabled: menus.editor.selection.summary.labelTargets.length > 0
             onTriggered: menus.editLabels()
         }
         MenuSeparator {}
@@ -94,12 +94,12 @@ Item {
             text: qsTr("Remove waypoint")
             visible: connectionMenu.waypoint >= 0
             height: visible ? implicitHeight : 0
-            onTriggered: menus.editor.removeWaypoint(menus.editor.selection[0], connectionMenu.waypoint)
+            onTriggered: menus.editor.removeWaypoint(menus.editor.selection.ids[0], connectionMenu.waypoint)
         }
         MenuEntry { text: menus.labelsText(); onTriggered: menus.editLabels() }
         MenuEntry {
             text: qsTr("Remove label")
-            enabled: menus.editor.selectionSummary.labeledConnections > 0
+            enabled: menus.editor.selection.summary.labeledConnections > 0
             onTriggered: menus.editor.removeConnectionLabels()
         }
         MenuSeparator {}

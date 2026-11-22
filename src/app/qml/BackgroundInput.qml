@@ -37,23 +37,23 @@ MouseArea {
             if (hit) {
                 canvasView.openMenuFor(hit)
             } else {
-                editor.clearSelection()
+                editor.selection.clear()
                 background.menus.openAt(canvasView.toWorld(last))
             }
             return
         }
         const additive = canvasView.isToggle(mouse.modifiers)
         if (hit) {
-            editor.select(hit, additive)
+            editor.selection.select(hit, additive)
             mode = BackgroundInput.Idle
             return
         }
         if (!additive)
-            editor.clearSelection()
+            editor.selection.clear()
         mode = BackgroundInput.Selecting
         selectionRect = Qt.rect(last.x, last.y, 0, 0)
         selectionDragStart = last
-        selectionBeforeDrag = editor.selection
+        selectionBeforeDrag = editor.selection.ids
     }
 
     onPositionChanged: (mouse) => {
@@ -67,7 +67,7 @@ MouseArea {
                                     Math.abs(mouse.x - selectionDragStart.x), Math.abs(mouse.y - selectionDragStart.y))
             // The selection follows the rectangle as it is dragged, not only on release.
             const a = canvasView.toWorld(Qt.point(selectionRect.x, selectionRect.y))
-            editor.selectInRect(Qt.rect(a.x, a.y, selectionRect.width / canvasView.zoom,
+            editor.selection.selectInRect(Qt.rect(a.x, a.y, selectionRect.width / canvasView.zoom,
                                                    selectionRect.height / canvasView.zoom), selectionBeforeDrag)
         }
     }

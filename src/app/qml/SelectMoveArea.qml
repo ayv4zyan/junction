@@ -9,14 +9,14 @@ DragArea {
     id: area
     required property Editor editor
     required property string nodeId
-    readonly property bool selected: editor.selection.includes(nodeId)
+    readonly property bool selected: editor.selection.ids.includes(nodeId)
     property bool moving: false
 
     onGrabbed: (mouse) => {
         if (area.canvasView.isToggle(mouse.modifiers))
-            editor.select(nodeId, true)
+            editor.selection.select(nodeId, true)
         else if (!selected)
-            editor.select(nodeId)
+            editor.selection.select(nodeId)
     }
     onDragStarted: {
         moving = selected
@@ -31,7 +31,7 @@ DragArea {
     }
     onTapped: (modifiers) => {
         if (!area.canvasView.isToggle(modifiers))
-            editor.select(nodeId)
+            editor.selection.select(nodeId)
     }
     onMenuRequested: area.canvasView.openMenuFor(nodeId)
 }

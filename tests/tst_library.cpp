@@ -250,7 +250,7 @@ private slots:
 
         QSignalSpy moved(&library, &Library::canvasMoved);
         // The name is taken in B, so it becomes "Untitled 2"; it lands at the top.
-        QCOMPARE(library.moveCanvas("A", "Untitled", "B", 0), "Untitled 2");
+        QCOMPARE(library.moveCanvas("A", "Untitled", "B", 0), QString("Untitled 2"));
         QCOMPARE(canvases(library, 0), QStringList{"Untitled 2"});
         QCOMPARE(canvases(library, 1), (QStringList{"Untitled 2", "Untitled"}));
         QCOMPARE(moved.size(), 1);
@@ -261,7 +261,7 @@ private slots:
 
         // A's only Canvas has to stay.
         QSignalSpy errors(&library, &Library::errorOccurred);
-        QCOMPARE(library.moveCanvas("A", "Untitled 2", "B", 0), QString());
+        QCOMPARE(library.moveCanvas("A", "Untitled 2", "B", 0), std::nullopt);
         QCOMPARE(errors.size(), 1);
     }
 
@@ -339,12 +339,12 @@ private slots:
         library.load();
         library.renameCanvas("Untitled", "Untitled", "Auth");
         library.createCanvas("Untitled");
-        QCOMPARE(library.duplicateCanvas("Untitled", "Auth"), "Auth copy");
+        QCOMPARE(library.duplicateCanvas("Untitled", "Auth"), QString("Auth copy"));
         QCOMPARE(canvases(library, 0), (QStringList{"Auth", "Auth copy", "Untitled"}));
-        QCOMPARE(library.duplicateCanvas("Untitled", "Auth"), "Auth copy 2");
+        QCOMPARE(library.duplicateCanvas("Untitled", "Auth"), QString("Auth copy 2"));
         QCOMPARE(library.currentCanvas(), "Auth copy 2");
 
-        QCOMPARE(library.duplicateProject("Untitled"), "Untitled copy");
+        QCOMPARE(library.duplicateProject("Untitled"), QString("Untitled copy"));
         QCOMPARE(projects(library), (QStringList{"Untitled", "Untitled copy"}));
         QCOMPARE(canvases(library, 1), canvases(library, 0));
         QVERIFY(QFile::exists(library.canvasPath("Untitled copy", "Auth copy 2")));
@@ -367,13 +367,13 @@ private slots:
 
         Library library(m_root);
         library.load();
-        QCOMPARE(library.importCanvas(outside, "Untitled"), "Shared board");
-        QCOMPARE(library.importCanvas(outside, "Untitled"), "Shared board 2");
+        QCOMPARE(library.importCanvas(outside, "Untitled"), QString("Shared board"));
+        QCOMPARE(library.importCanvas(outside, "Untitled"), QString("Shared board 2"));
         QCOMPARE(library.currentCanvas(), "Shared board 2");
         QVERIFY(QFile::exists(outside));   // a copy, not a move
 
         QSignalSpy errors(&library, &Library::errorOccurred);
-        QCOMPARE(library.importCanvas(broken, "Untitled"), QString());
+        QCOMPARE(library.importCanvas(broken, "Untitled"), std::nullopt);
         QCOMPARE(errors.size(), 1);
     }
 

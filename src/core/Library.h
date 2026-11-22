@@ -60,13 +60,13 @@ public:
     Q_INVOKABLE QString projectNameProblem(const QString &name, const QString &except = {}) const;
     Q_INVOKABLE QString canvasNameProblem(const QString &project, const QString &name, const QString &except = {}) const;
 
-    // Each returns the new item's name ("" on failure) and opens it.
+    // Each returns the new item's name (nothing on failure: errorOccurred says why) and opens it.
     // These two also emit createdEmpty(), so the UI can have the new item named right away.
-    Q_INVOKABLE QString createProject();
-    Q_INVOKABLE QString createCanvas(const QString &project);
-    Q_INVOKABLE QString duplicateProject(const QString &project);
-    Q_INVOKABLE QString duplicateCanvas(const QString &project, const QString &canvas);
-    QString importCanvas(const QString &filePath, const QString &project);
+    Q_INVOKABLE std::optional<QString> createProject();
+    Q_INVOKABLE std::optional<QString> createCanvas(const QString &project);
+    Q_INVOKABLE std::optional<QString> duplicateProject(const QString &project);
+    Q_INVOKABLE std::optional<QString> duplicateCanvas(const QString &project, const QString &canvas);
+    std::optional<QString> importCanvas(const QString &filePath, const QString &project);
     Q_INVOKABLE void importCanvases(const QList<QUrl> &files);   // into the open Project
 
     Q_INVOKABLE bool renameProject(const QString &project, const QString &newName);
@@ -80,8 +80,8 @@ public:
     // `toIndex` is a position in the list as it is now, before the item is taken out.
     Q_INVOKABLE void moveProject(const QString &project, int toIndex);
     // Moving into another Project renames the Canvas if the name is taken there ("Auth 2").
-    // Returns the Canvas's name afterwards, or "" if it couldn't move.
-    Q_INVOKABLE QString moveCanvas(const QString &project, const QString &canvas, const QString &toProject, int toIndex);
+    // Returns the Canvas's name afterwards, or nothing if it couldn't move.
+    Q_INVOKABLE std::optional<QString> moveCanvas(const QString &project, const QString &canvas, const QString &toProject, int toIndex);
 
     Q_INVOKABLE void setExpanded(const QString &project, bool expanded);
     std::optional<Viewport> view(const QString &project, const QString &canvas) const;
@@ -122,10 +122,10 @@ private:
     void notifyIfCurrentPathChanged();
     QString addCanvas(ProjectEntry *project, int at, const CanvasEntry &entry);
     void reorderCanvas(ProjectEntry &project, int from, int toIndex);
-    QString moveCanvasToProject(ProjectEntry &source, int from, ProjectEntry &target, int toIndex);
+    std::optional<QString> moveCanvasToProject(ProjectEntry &source, int from, ProjectEntry &target, int toIndex);
     bool replaceLastProject();
     bool trashProject(int index);
-    QString addProject(int at);
+    std::optional<QString> addProject(int at);
 
     LibraryFolder m_folder;
     LibraryIndex m_index;   // what is saved as the index file

@@ -108,8 +108,13 @@ Node Node::fromJson(const QJsonObject &json)
 {
     Node node;
     node.id = json["id"].toString();
+    // A file can say anything; a size that is missing or not positive becomes the smallest one.
+    const auto size = [&](const char *key, qreal minimum) {
+        const qreal value = json[key].toDouble();
+        return value > 0 ? value : minimum;
+    };
     node.rect = QRectF(json["x"].toDouble(), json["y"].toDouble(),
-                       json["width"].toDouble(), json["height"].toDouble());
+                       size("width", MinimumSize.width()), size("height", MinimumSize.height()));
     node.color = json["color"].toString();
 
     const QString type = json["type"].toString();
@@ -176,6 +181,14 @@ Connection Connection::fromJson(const QJsonObject &json)
         c.waypoints.append(QPointF(p["x"].toDouble(), p["y"].toDouble()));
     }
     return c;
+}
+
+QRectF boundingRect(const QVector<Node> &nodes)
+{
+    QRectF bounds;
+    for (const Node &n : nodes)
+        bounds = bounds.united(n.rect);
+    return bounds;
 }
 
 QString itemId(const CanvasItem &item)

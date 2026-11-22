@@ -45,10 +45,7 @@ QJsonObject Fragment::toJson() const
 
 QRectF Fragment::bounds() const
 {
-    QRectF result;
-    for (const Node &n : nodes)
-        result = result.united(n.rect);
-    return result;
+    return boundingRect(nodes);
 }
 
 Fragment::Insertion Fragment::insertion(QPointF offset) const

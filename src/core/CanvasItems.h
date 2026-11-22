@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QPointF>
 #include <QRectF>
+#include <QSizeF>
 #include <QString>
 #include <QVector>
 #include <variant>
@@ -50,6 +51,8 @@ struct UnsupportedContent  // an Unsupported Card
 // A Card, a Group or an Unsupported Card. JSON Canvas calls all of these "nodes".
 struct Node
 {
+    static constexpr QSizeF MinimumSize{80, 40};   // smaller can't be resized or read
+
     QString id;
     QRectF rect;
     QString color;   // "" (default), "1".."6" (preset) or "#rrggbb"
@@ -90,5 +93,7 @@ struct Connection
 };
 
 using CanvasItem = std::variant<Node, Connection>;
+
+QRectF boundingRect(const QVector<Node> &nodes);   // around all of them; empty for none
 
 QString itemId(const CanvasItem &item);

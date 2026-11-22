@@ -121,10 +121,12 @@ LibraryIndex Library::readIndex()
     if (json.isObject())
         return LibraryIndex::fromJson(json.object());
     file.close();
+    QString message = tr("The library index couldn't be read, so the order of projects and canvases was reset.");
     const QString broken = path + QStringLiteral(".broken");
-    const bool kept = (!QFile::exists(broken) || QFile::remove(broken)) && QFile::copy(path, broken);
-    const QString reset = tr("The library index couldn't be read, so the order of projects and canvases was reset.");
-    emit errorOccurred(kept ? reset + ' ' + tr("The old index was kept as %1.").arg(broken) : reset);
+    QFile::remove(broken);   // an older broken index, if any
+    if (QFile::copy(path, broken))
+        message += ' ' + tr("The old index was kept as %1.").arg(broken);
+    emit errorOccurred(message);
     return {};
 }
 
@@ -441,6 +443,18 @@ QString Library::duplicateCanvas(const QString &projectName, const QString &canv
     return addCanvas(&p, at->canvasIndex + 1, copy);
 }
 
+// Copies the Project's Canvas files into a new folder `to`. Stops at the first that fails.
+bool Library::copyProjectFolder(const QString &from, const QString &to, const QVector<CanvasEntry> &canvases)
+{
+    if (!QDir(m_root).mkpath(to))
+        return false;
+    for (const CanvasEntry &c : canvases) {
+        if (!QFile::copy(canvasPath(from, c.name), canvasPath(to, c.name)))
+            return false;
+    }
+    return true;
+}
+
 QString Library::duplicateProject(const QString &projectName)
 {
     const int i = projectIndex(projectName);
@@ -450,10 +464,7 @@ QString Library::duplicateProject(const QString &projectName)
     const QString name = uniqueName(tr("%1 copy").arg(projectName), projectNames());
     ProjectEntry copy = m_projects[i];
     copy.name = name;
-    bool copied = QDir(m_root).mkpath(name);
-    for (const CanvasEntry &c : copy.canvases)
-        copied = copied && QFile::copy(canvasPath(projectName, c.name), canvasPath(name, c.name));
-    if (!copied) {
+    if (!copyProjectFolder(projectName, name, copy.canvases)) {
         QDir(projectPath(name)).removeRecursively();
         emit errorOccurred(tr("Could not copy “%1”.").arg(projectName));
         return {};
@@ -515,21 +526,33 @@ bool Library::renameChecked(const QString &problem, const QString &from, const Q
 // `failure` ("" to say nothing), and where the file ended up if it couldn't be put back.
 bool Library::renameFile(const QString &from, const QString &to, const QString &failure)
 {
-    const auto fail = [&](const QString &stranded) {
-        if (!failure.isEmpty() && stranded.isEmpty())
-            emit errorOccurred(failure);
-        else if (!failure.isEmpty())
-            emit errorOccurred(failure + ' ' + tr("It could not be renamed back either, and is now called %1.").arg(stranded));
+    if (!sameName(from, to)) {
+        if (!QFileInfo::exists(to) && QDir().rename(from, to))
+            return true;
+        reportRenameFailure(failure, {});
         return false;
-    };
-    if (!sameName(from, to))
-        return (!QFileInfo::exists(to) && QDir().rename(from, to)) || fail({});
+    }
     const QString temporary = from + QStringLiteral(".renaming");
-    if (!QDir().rename(from, temporary))
-        return fail({});
+    if (!QDir().rename(from, temporary)) {
+        reportRenameFailure(failure, {});
+        return false;
+    }
     if (QDir().rename(temporary, to))
         return true;
-    return fail(QDir().rename(temporary, from) ? QString() : temporary);
+    const bool putBack = QDir().rename(temporary, from);
+    reportRenameFailure(failure, putBack ? QString() : temporary);
+    return false;
+}
+
+// `stranded`: where the file ended up when it couldn't be put back, or "".
+void Library::reportRenameFailure(const QString &failure, const QString &stranded)
+{
+    if (failure.isEmpty())
+        return;
+    if (stranded.isEmpty())
+        emit errorOccurred(failure);
+    else
+        emit errorOccurred(failure + ' ' + tr("It could not be renamed back either, and is now called %1.").arg(stranded));
 }
 
 bool Library::renameProject(const QString &projectName, const QString &newName)

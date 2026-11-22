@@ -13,7 +13,6 @@ namespace {
 
 constexpr QSizeF CardSize(240, 80);
 constexpr QSizeF GroupSize(480, 320);
-constexpr QSizeF MinimumSize(80, 40);
 
 CanvasItem translated(CanvasItem item, QPointF delta)
 {
@@ -281,11 +280,12 @@ QString Editor::createCard(QPointF center)
 // Group centered on `center`.
 QString Editor::createGroup(QPointF center)
 {
-    QRectF bounds;
+    QVector<Node> selected;
     for (const QString &id : m_selection) {
         if (const Node *n = document().node(id))
-            bounds = bounds.united(n->rect);
+            selected.append(*n);
     }
+    const QRectF bounds = boundingRect(selected);
 
     Node group;
     group.id = Document::newId();
@@ -479,13 +479,13 @@ void Editor::updateResize(QPointF delta, bool invertSnap)
         Node n = std::get<Node>(item);
         QRectF &r = n.rect;
         if (resize->edges & Qt::LeftEdge)
-            r.setLeft(std::min(place(r.left() + delta.x()), r.right() - MinimumSize.width()));
+            r.setLeft(std::min(place(r.left() + delta.x()), r.right() - Node::MinimumSize.width()));
         if (resize->edges & Qt::RightEdge)
-            r.setRight(std::max(place(r.right() + delta.x()), r.left() + MinimumSize.width()));
+            r.setRight(std::max(place(r.right() + delta.x()), r.left() + Node::MinimumSize.width()));
         if (resize->edges & Qt::TopEdge)
-            r.setTop(std::min(place(r.top() + delta.y()), r.bottom() - MinimumSize.height()));
+            r.setTop(std::min(place(r.top() + delta.y()), r.bottom() - Node::MinimumSize.height()));
         if (resize->edges & Qt::BottomEdge)
-            r.setBottom(std::max(place(r.bottom() + delta.y()), r.top() + MinimumSize.height()));
+            r.setBottom(std::max(place(r.bottom() + delta.y()), r.top() + Node::MinimumSize.height()));
         return CanvasItem(n);
     });
 }
@@ -692,8 +692,5 @@ void Editor::save()
 
 QRectF Editor::contentBounds() const
 {
-    QRectF bounds;
-    for (const Node &n : document().nodes())
-        bounds = bounds.united(n.rect);
-    return bounds;
+    return boundingRect(document().nodes());
 }

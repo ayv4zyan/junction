@@ -149,6 +149,16 @@ private slots:
         QVERIFY(!ids.contains(QString()));
     }
 
+    // A node without a usable size (missing, zero, negative) gets the smallest one, so it can be
+    // seen, grabbed and resized.
+    void nodesWithoutAUsableSizeGetTheSmallest()
+    {
+        const Node missing = Node::fromJson({{"id", "a"}, {"type", "text"}, {"x", 10}, {"y", 20}});
+        QCOMPARE(missing.rect, QRectF(QPointF(10, 20), Node::MinimumSize));
+        const Node negative = Node::fromJson({{"id", "b"}, {"type", "text"}, {"width", -5}, {"height", 300}});
+        QCOMPARE(negative.rect.size(), QSizeF(Node::MinimumSize.width(), 300));
+    }
+
     // A Connection to a node the file doesn't have is kept, not silently dropped on save.
     void danglingConnectionsAreWrittenBack()
     {

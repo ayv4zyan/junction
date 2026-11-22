@@ -89,23 +89,40 @@ void elbowRoute(Route &r, const QVector<QPointF> &controls, Side fromSide, Side 
 
     QVector<QPointF> points{start};
     QVector<int> spanEnds;   // index in `points` where each span (control point to control point) ends
+    QPointF heading;         // direction of the last leg
+    auto lineTo = [&](QPointF p) {
+        if (p != points.last())
+            heading = normalized(p - points.last());
+        points.append(p);
+    };
+    // Whether a leg to `p` would turn right round and run back along the previous leg.
+    auto goesBack = [&](QPointF p) {
+        const QPointF leg = p - points.last();
+        return leg.x() * heading.x() + leg.y() * heading.y() < 0;
+    };
+    auto movingHorizontally = [&] { return heading.y() == 0; };
 
-    QPointF current = start + sideNormal(fromSide) * ElbowStub;
-    points.append(current);
-    bool movingHorizontally = isHorizontal(fromSide);
+    lineTo(start + sideNormal(fromSide) * ElbowStub);
 
+    // To reach a Waypoint, keep going the way we were and turn once. If keeping going would
+    // run back along the last leg, turn first instead.
     for (int i = 1; i < controls.size() - 1; ++i) {
         const QPointF waypoint = controls[i];
-        points.append(movingHorizontally ? QPointF(waypoint.x(), current.y())
-                                         : QPointF(current.x(), waypoint.y()));
-        points.append(waypoint);
+        const QPointF current = points.last();
+        const QPointF keepGoing = movingHorizontally() ? QPointF(waypoint.x(), current.y())
+                                                       : QPointF(current.x(), waypoint.y());
+        const QPointF turnFirst = movingHorizontally() ? QPointF(current.x(), waypoint.y())
+                                                       : QPointF(waypoint.x(), current.y());
+        lineTo(goesBack(keepGoing) ? turnFirst : keepGoing);
+        lineTo(waypoint);
         spanEnds.append(points.size() - 1);
-        current = waypoint;
-        movingHorizontally = !movingHorizontally;
     }
 
-    // The leg arriving at endStub must not travel away from the end card, or the path would
-    // double back through it. When the simple shape would, we turn the other way first.
+    // The simple shape keeps going the way we were. It is no good if its first leg runs back
+    // along the last one, or if the leg arriving at endStub travels away from the end card
+    // (the path would double back through it). Then we turn the other way first; that shape
+    // meets both legs at right angles, so it never has either problem.
+    const QPointF current = points.last();
     const QPointF intoCard = -sideNormal(toSide);
     auto approachesCard = [&](QPointF corner) {
         const QPointF leg = endStub - corner;
@@ -116,18 +133,19 @@ void elbowRoute(Route &r, const QVector<QPointF> &controls, Side fromSide, Side 
     const QPointF turnAtMidX[] = {QPointF(midX, current.y()), QPointF(midX, endStub.y())};
     const QPointF turnAtMidY[] = {QPointF(current.x(), midY), QPointF(endStub.x(), midY)};
 
-    if (movingHorizontally == isHorizontal(toSide)) {
+    if (movingHorizontally() == isHorizontal(toSide)) {
         // Same direction at both ends: a Z shape, turning halfway.
-        const QPointF *z = movingHorizontally ? turnAtMidX : turnAtMidY;
-        if (!approachesCard(z[1]))
-            z = movingHorizontally ? turnAtMidY : turnAtMidX;
-        points << z[0] << z[1];
+        const QPointF *z = movingHorizontally() ? turnAtMidX : turnAtMidY;
+        if (goesBack(z[0]) || !approachesCard(z[1]))
+            z = movingHorizontally() ? turnAtMidY : turnAtMidX;
+        lineTo(z[0]);
+        lineTo(z[1]);
     } else {
         // Perpendicular: an L shape with one corner.
-        QPointF corner = movingHorizontally ? QPointF(endStub.x(), current.y()) : QPointF(current.x(), endStub.y());
-        if (!approachesCard(corner))
-            corner = movingHorizontally ? QPointF(current.x(), endStub.y()) : QPointF(endStub.x(), current.y());
-        points << corner;
+        QPointF corner = movingHorizontally() ? QPointF(endStub.x(), current.y()) : QPointF(current.x(), endStub.y());
+        if (goesBack(corner) || !approachesCard(corner))
+            corner = movingHorizontally() ? QPointF(current.x(), endStub.y()) : QPointF(endStub.x(), current.y());
+        lineTo(corner);
     }
     points << endStub << end;
     spanEnds.append(points.size() - 1);
@@ -168,17 +186,6 @@ QPointF sideNormal(Side side)
     return {};
 }
 
-Side facingSide(const QRectF &rect, QPointF toward)
-{
-    const QPointF d = toward - rect.center();
-    // Compare relative to the card's proportions, so wide cards prefer top/bottom less eagerly.
-    const qreal dx = std::abs(d.x()) / std::max(rect.width(), 1.0);
-    const qreal dy = std::abs(d.y()) / std::max(rect.height(), 1.0);
-    if (dx >= dy)
-        return d.x() >= 0 ? Side::Right : Side::Left;
-    return d.y() >= 0 ? Side::Bottom : Side::Top;
-}
-
 QPointF borderPoint(const QRectF &rect, QPointF toward)
 {
     const QPointF d = toward - rect.center();
@@ -192,8 +199,10 @@ QPointF borderPoint(const QRectF &rect, QPointF toward)
 
 std::pair<Side, Side> resolveSides(const QRectF &from, const QRectF &to, const Connection &c)
 {
+    // Floating Ends only look at the two cards, never at Waypoints, so adding or dragging a
+    // Waypoint doesn't move an end to another side.
     Side fromSide, toSide;
-    if (c.waypoints.isEmpty() && from.intersects(to)) {
+    if (from.intersects(to)) {
         // Overlapping, or one inside the other (a card and its Group): there is no gap to
         // cross, so both ends leave through the side of the bigger rect that is nearest to
         // the smaller one. The line goes out and comes back, which keeps it visible.
@@ -204,7 +213,7 @@ std::pair<Side, Side> resolveSides(const QRectF &from, const QRectF &to, const C
             {inner.y() - outer.top(), Side::Top}, {outer.bottom() - inner.y(), Side::Bottom},
             {inner.x() - outer.left(), Side::Left}, {outer.right() - inner.x(), Side::Right}};
         fromSide = toSide = std::min_element(std::begin(distances), std::end(distances))->second;
-    } else if (c.waypoints.isEmpty()) {
+    } else {
         // Both ends use the same axis, picked by whichever gap between the cards is wider,
         // so the two ends always face each other.
         const qreal gapX = std::max(to.left() - from.right(), from.left() - to.right());
@@ -218,10 +227,6 @@ std::pair<Side, Side> resolveSides(const QRectF &from, const QRectF &to, const C
             fromSide = toIsBelow ? Side::Bottom : Side::Top;
             toSide = toIsBelow ? Side::Top : Side::Bottom;
         }
-    } else {
-        // With Waypoints, each end faces its nearest Waypoint.
-        fromSide = facingSide(from, c.waypoints.first());
-        toSide = facingSide(to, c.waypoints.last());
     }
     if (c.fromSide != Side::None)
         fromSide = c.fromSide;

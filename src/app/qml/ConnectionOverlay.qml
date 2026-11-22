@@ -91,19 +91,26 @@ Item {
             screenRadius: 5
             opacity: overlay.editor.dragging || covered ? 0 : 1   // the label's own dot still takes the mouse
 
+            // What grabs it, in the dot's coordinates: the whole label when that stands in for
+            // it, otherwise the dot plus a margin.
+            readonly property rect grabArea: {
+                if (isLabel)
+                    return Qt.rect(overlay.labelBox.x - x, overlay.labelBox.y - y, overlay.labelBox.width, overlay.labelBox.height)
+                const margin = overlay.canvasView.dotMargin
+                return Qt.rect(-margin, -margin, width + 2 * margin, height + 2 * margin)
+            }
+
             WaypointDragArea {
-                readonly property real margin: overlay.canvasView.dotMargin
                 canvasView: overlay.canvasView
                 editor: overlay.editor
                 connectionId: overlay.connection.id
                 index: midpoint.index
                 inserted: true   // dragging it adds a Waypoint
                 visible: !midpoint.covered || midpoint.isLabel
-                // the dot plus a margin, or the whole label (in the dot's coordinates)
-                x: midpoint.isLabel ? overlay.labelBox.x - midpoint.x : -margin
-                y: midpoint.isLabel ? overlay.labelBox.y - midpoint.y : -margin
-                width: midpoint.isLabel ? overlay.labelBox.width : midpoint.width + 2 * margin
-                height: midpoint.isLabel ? overlay.labelBox.height : midpoint.height + 2 * margin
+                x: midpoint.grabArea.x
+                y: midpoint.grabArea.y
+                width: midpoint.grabArea.width
+                height: midpoint.grabArea.height
                 // the middle dot sits on the label, so double-clicking it edits the label
                 onDoubleClicked: overlay.canvasView.editLabel(overlay.connection.id)
                 onMenuRequested: overlay.canvasView.openMenuFor(overlay.connection.id)

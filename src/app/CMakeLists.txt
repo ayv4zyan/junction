@@ -9,6 +9,7 @@ qt_add_qml_module(junction
         qml/ExportDialog.qml
         qml/CanvasView.qml
         qml/CanvasMenus.qml
+        qml/CanvasBackground.qml
         qml/NodeItem.qml
         qml/CardItem.qml
         qml/GroupItem.qml

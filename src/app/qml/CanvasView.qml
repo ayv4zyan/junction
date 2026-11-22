@@ -32,9 +32,8 @@ Item {
     readonly property real dotMargin: 4 / zoom       // how far around a Dot still grabs it
     readonly property real connectionTolerance: 6 / zoom   // how far from a Connection's line still hits it
     // The pointer is directly moving something: panning, a selection rectangle, a new Connection.
-    readonly property bool manipulating: background.mode === CanvasView.Panning || rubberBand.visible || connectFrom !== ""
+    readonly property bool manipulating: background.mode !== CanvasBackground.Idle || connectFrom !== ""
 
-    enum PointerMode { Idle, Panning, Selecting }   // what a press on the background started
     enum ResizeKeeps { Fit, Center, Nothing }       // what a resize keeps, see keepOnResize
 
     focus: true
@@ -264,108 +263,27 @@ Item {
         colors: Colors.forPainter
     }
 
-    // Clicks that hit no Card: pan, rubber-band selection, selecting Connections,
-    // double-click to create a Card, wheel to scroll and zoom.
-    MouseArea {
+    CanvasBackground {
         id: background
         anchors.fill: parent
-        acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
-        hoverEnabled: true
-        cursorShape: mode === CanvasView.Panning ? Qt.ClosedHandCursor
-                   : canvasView.spaceHeld ? Qt.OpenHandCursor
-                   : overConnection ? Qt.PointingHandCursor : Qt.ArrowCursor
-        property int mode: CanvasView.Idle
-        property bool overConnection: false
-        property point last
-        property point rubberStart
-        property var rubberBase: []   // what stays selected besides the rectangle's catch (Shift/Ctrl)
-
-        onPressed: (mouse) => {
-            canvasView.forceActiveFocus()
-            last = Qt.point(mouse.x, mouse.y)
-            if (mouse.button === Qt.MiddleButton || canvasView.spaceHeld) {
-                mode = CanvasView.Panning
-                return
-            }
-            const hit = canvasView.editor.connectionAt(canvasView.toWorld(last), canvasView.connectionTolerance)
-            if (mouse.button === Qt.RightButton) {
-                if (hit) {
-                    canvasView.openMenuFor(hit)
-                } else {
-                    canvasView.editor.clearSelection()
-                    menus.openAt(canvasView.toWorld(last))
-                }
-                return
-            }
-            const additive = canvasView.isToggle(mouse.modifiers)
-            if (hit) {
-                canvasView.editor.select(hit, additive)
-                mode = CanvasView.Idle
-                return
-            }
-            if (!additive)
-                canvasView.editor.clearSelection()
-            mode = CanvasView.Selecting
-            rubberStart = last
-            rubberBase = canvasView.editor.selection
-        }
-
-        onPositionChanged: (mouse) => {
-            if (!pressed) {
-                overConnection = canvasView.editor.connectionAt(canvasView.toWorld(Qt.point(mouse.x, mouse.y)), canvasView.connectionTolerance) !== ""
-            } else if (mode === CanvasView.Panning) {
-                canvasView.panBy(mouse.x - last.x, mouse.y - last.y)
-                last = Qt.point(mouse.x, mouse.y)
-            } else if (mode === CanvasView.Selecting) {
-                rubberBand.x = Math.min(rubberStart.x, mouse.x)
-                rubberBand.y = Math.min(rubberStart.y, mouse.y)
-                rubberBand.width = Math.abs(mouse.x - rubberStart.x)
-                rubberBand.height = Math.abs(mouse.y - rubberStart.y)
-                rubberBand.visible = true
-                // The selection follows the rectangle as it is dragged, not only on release.
-                const a = canvasView.toWorld(Qt.point(rubberBand.x, rubberBand.y))
-                canvasView.editor.selectInRect(Qt.rect(a.x, a.y, rubberBand.width / canvasView.zoom,
-                                                   rubberBand.height / canvasView.zoom), rubberBase)
-            }
-        }
-
-        onReleased: {
-            rubberBand.visible = false
-            mode = CanvasView.Idle
-        }
-
-        onDoubleClicked: (mouse) => {
-            if (mouse.button !== Qt.LeftButton)
-                return
-            const world = canvasView.toWorld(Qt.point(mouse.x, mouse.y))
-            const hit = canvasView.editor.connectionAt(world, canvasView.connectionTolerance)
-            if (hit)
-                canvasView.editLabel(hit)
-            else
-                canvasView.editText(canvasView.editor.createCard(world))
-        }
-
-        onWheel: (wheel) => {
-            if (wheel.modifiers & Qt.ControlModifier) {
-                canvasView.zoomAt(Qt.point(wheel.x, wheel.y), Math.pow(1.0015, wheel.angleDelta.y))
-                return
-            }
-            const delta = canvasView.wheelDelta(wheel)
-            let dx = delta.x
-            let dy = delta.y
-            if ((wheel.modifiers & Qt.ShiftModifier) && dx === 0) {
-                dx = dy
-                dy = 0
-            }
-            canvasView.panBy(dx, dy)
-        }
+        canvasView: canvasView
+        menus: menus
     }
 
-    Item {
+    // Holds items placed in world coordinates: they move and scale with the view.
+    component WorldLayer: Item {
+        id: world
+        required property real zoom
+        required property point pan
         transform: [
-            Scale { xScale: canvasView.zoom; yScale: canvasView.zoom },
-            Translate { x: canvasView.pan.x; y: canvasView.pan.y }
+            Scale { xScale: world.zoom; yScale: world.zoom },
+            Translate { x: world.pan.x; y: world.pan.y }
         ]
+    }
+
+    WorldLayer {
+        zoom: canvasView.zoom
+        pan: canvasView.pan
         Repeater {
             id: groupRepeater
             model: canvasView.editor.groups
@@ -386,11 +304,9 @@ Item {
         colors: Colors.forPainter
     }
 
-    Item {
-        transform: [
-            Scale { xScale: canvasView.zoom; yScale: canvasView.zoom },
-            Translate { x: canvasView.pan.x; y: canvasView.pan.y }
-        ]
+    WorldLayer {
+        zoom: canvasView.zoom
+        pan: canvasView.pan
         Repeater {
             id: cardRepeater
             model: canvasView.editor.cards
@@ -401,8 +317,11 @@ Item {
     }
 
     Rectangle {
-        id: rubberBand
-        visible: false
+        visible: background.mode === CanvasBackground.Selecting
+        x: background.selectionRect.x
+        y: background.selectionRect.y
+        width: background.selectionRect.width
+        height: background.selectionRect.height
         color: Qt.alpha(Colors.selection, 0.12)
         border.color: Colors.selection
     }

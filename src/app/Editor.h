@@ -1,7 +1,7 @@
 #pragma once
 
-// The bridge between QML and the core: owns the Library, the open Canvas and the selection,
-// and turns what the user does into Transactions. QML calls these methods in canvas (world)
+// The bridge between QML and the open Canvas: owns it and the selection, and turns what the
+// user does on the Canvas into Transactions. QML calls these methods in canvas (world)
 // coordinates; it never edits the Document directly, so every change goes through commit() and
 // can be undone.
 //
@@ -11,7 +11,6 @@
 #include "Document.h"
 #include "Geometry.h"
 #include "Library.h"
-#include "LibraryModel.h"
 #include "NodeModel.h"
 #include "OpenCanvas.h"
 
@@ -83,9 +82,8 @@ class Editor : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
-    QML_UNCREATABLE("Created by main.cpp, which decides where the Library is")
+    QML_UNCREATABLE("Created by main.cpp")
 
-    Q_PROPERTY(LibraryModel *library READ library CONSTANT)
     Q_PROPERTY(NodeModel *cards READ cards CONSTANT)
     Q_PROPERTY(NodeModel *groups READ groups CONSTANT)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
@@ -111,11 +109,11 @@ public:
         Side targetSide = Side::None;
     };
 
-    explicit Editor(const QString &libraryFolder, QObject *parent = nullptr);
+    // Shows the Library's current Canvas, and follows it.
+    explicit Editor(Library *library, QObject *parent = nullptr);
 
     const Document &document() const { return m_canvas.document(); }
     const std::optional<ConnectionPreview> &connectionPreview() const { return m_preview; }
-    LibraryModel *library() { return &m_libraryModel; }
     NodeModel *cards() { return &m_cards; }
     NodeModel *groups() { return &m_groups; }
     QStringList selection() const { return m_selection; }
@@ -259,8 +257,7 @@ private:
 
     void loadCurrent();
 
-    Library m_library;
-    LibraryModel m_libraryModel{&m_library};
+    Library *m_library;
     OpenCanvas m_canvas;
     NodeModel m_cards{&m_canvas.document(), NodeModel::Cards};
     NodeModel m_groups{&m_canvas.document(), NodeModel::Groups};

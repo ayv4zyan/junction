@@ -83,7 +83,7 @@ Item {
             if (!pressed || !(event.buttons & Qt.LeftButton))
                 return
             if (!moved && Math.hypot(event.x - pressPoint.x, event.y - pressPoint.y) > 6
-                    && row.sidebar.library.filter === "") {
+                    && row.sidebar.libraryRows.filter === "") {
                 moved = true
                 row.sidebar.rowDrag.start(row.rowData())
             }
@@ -101,7 +101,7 @@ Item {
             if (event.button === Qt.RightButton)
                 row.sidebar.openMenu(row, row, event.x, event.y)
             else
-                row.sidebar.library.open(row.project, row.isProject ? "" : row.name)
+                row.sidebar.libraryRows.open(row.project, row.isProject ? "" : row.name)
         }
         onDoubleClicked: (event) => {
             if (event.button === Qt.LeftButton)
@@ -122,7 +122,7 @@ Item {
             implicitWidth: row.sidebar.chevronSize
             implicitHeight: row.sidebar.chevronSize
             focusPolicy: Qt.NoFocus
-            enabled: row.sidebar.library.filter === ""
+            enabled: row.sidebar.libraryRows.filter === ""
             onClicked: row.sidebar.library.setExpanded(row.project, !row.expanded)
             contentItem: IconImage {
                 source: "../icons/chevron.svg"
@@ -180,7 +180,7 @@ Item {
             tip: qsTr("New canvas in %1").arg(row.project)
             onClicked: {
                 row.sidebar.focusCanvas()
-                row.sidebar.library.createCanvas(row.project)
+                row.sidebar.libraryRows.createCanvas(row.project)
             }
         }
 

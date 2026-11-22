@@ -247,6 +247,12 @@ QStringList Library::projectNames() const
     return names;
 }
 
+int Library::canvasCount(const QString &project) const
+{
+    const int p = projectIndex(project);
+    return p < 0 ? 0 : int(m_projects[p].canvases.size());
+}
+
 QStringList Library::canvasNames(const QString &project) const
 {
     QStringList names;

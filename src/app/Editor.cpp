@@ -41,16 +41,15 @@ Change edited(const T &item, Edit edit)
 
 } // namespace
 
-Editor::Editor(const QString &libraryFolder, QObject *parent)
-    : QObject(parent), m_library(libraryFolder)
+Editor::Editor(Library *library, QObject *parent)
+    : QObject(parent), m_library(library)
 {
     // The open Canvas follows the Library. Before the Library changes files or opens another
     // Canvas, the open one is saved.
-    connect(&m_library, &Library::aboutToChange, &m_canvas, &OpenCanvas::savePending);
-    connect(&m_library, &Library::currentChanged, this, &Editor::loadCurrent);
-    connect(&m_library, &Library::canvasMoved, &m_canvas, &OpenCanvas::fileMoved);
-    connect(&m_library, &Library::canvasRemoved, &m_canvas, &OpenCanvas::fileRemoved);
-    connect(&m_library, &Library::errorOccurred, this, &Editor::errorOccurred);
+    connect(m_library, &Library::aboutToChange, &m_canvas, &OpenCanvas::savePending);
+    connect(m_library, &Library::currentChanged, this, &Editor::loadCurrent);
+    connect(m_library, &Library::canvasMoved, &m_canvas, &OpenCanvas::fileMoved);
+    connect(m_library, &Library::canvasRemoved, &m_canvas, &OpenCanvas::fileRemoved);
 
     connect(&m_canvas, &OpenCanvas::opened, this, &Editor::canvasOpened);
     connect(&m_canvas, &OpenCanvas::filePathChanged, this, &Editor::filePathChanged);
@@ -66,7 +65,7 @@ Editor::Editor(const QString &libraryFolder, QObject *parent)
 
     m_viewSaveTimer.setSingleShot(true);
     m_viewSaveTimer.setInterval(1000);
-    connect(&m_viewSaveTimer, &QTimer::timeout, &m_library, &Library::saveIndex);
+    connect(&m_viewSaveTimer, &QTimer::timeout, m_library, &Library::saveIndex);
 }
 
 // Nothing else may change the Document while a drag is in progress: the drag's final
@@ -717,20 +716,20 @@ void Editor::duplicate()
 
 void Editor::start()
 {
-    m_library.load();
+    m_library->load();
     loadCurrent();   // in case load() found nothing to open
 }
 
 // Shows the Library's current Canvas.
 void Editor::loadCurrent()
 {
-    const QString path = m_library.currentPath();
+    const QString path = m_library->currentPath();
     if (path == m_canvas.filePath() && !path.isEmpty())
         return;   // the open file was only renamed or moved; OpenCanvas::fileMoved() has followed it
     setSelection({});
     clearConnectionPreview();
     if (path.isEmpty())
-        m_canvas.openNothing(tr("The library folder %1 can't be written to.").arg(m_library.root()));
+        m_canvas.openNothing(tr("The library folder %1 can't be written to.").arg(m_library->root()));
     else
         m_canvas.open(path);
 }
@@ -755,7 +754,7 @@ QUrl Editor::exportCanvas(const QUrl &url)
 
 QVariantMap Editor::savedView() const
 {
-    const auto view = m_library.view(m_library.currentProject(), m_library.currentCanvas());
+    const auto view = m_library->view(m_library->currentProject(), m_library->currentCanvas());
     if (!view)
         return {};
     return {{"x", view->center.x()}, {"y", view->center.y()}, {"zoom", view->zoom}};
@@ -763,7 +762,7 @@ QVariantMap Editor::savedView() const
 
 void Editor::rememberView(QPointF center, qreal zoom)
 {
-    m_library.setView(m_library.currentProject(), m_library.currentCanvas(), {center, zoom});
+    m_library->setView(m_library->currentProject(), m_library->currentCanvas(), {center, zoom});
     m_viewSaveTimer.start();
 }
 

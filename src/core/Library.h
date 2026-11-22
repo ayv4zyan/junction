@@ -16,6 +16,7 @@
 #include <QJsonObject>
 #include <QObject>
 #include <QPointF>
+#include <QUrl>
 #include <QVector>
 #include <optional>
 
@@ -40,9 +41,14 @@ struct ProjectEntry
     QString lastCanvas;              // the Canvas last open in this Project
 };
 
+// QML calls the Q_INVOKABLE methods directly (the sidebar's list itself is LibraryModel).
 class Library : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QString currentProject READ currentProject NOTIFY currentChanged)
+    Q_PROPERTY(QString currentCanvas READ currentCanvas NOTIFY currentChanged)
+    Q_PROPERTY(QStringList projectNames READ projectNames NOTIFY changed)
+    Q_PROPERTY(QUrl folder READ folder CONSTANT)
 
 public:
     explicit Library(const QString &root, QObject *parent = nullptr);
@@ -54,6 +60,9 @@ public:
     void saveIndex();
 
     QString root() const { return m_root; }
+    QUrl folder() const { return QUrl::fromLocalFile(m_root); }
+    QStringList projectNames() const;
+    Q_INVOKABLE int canvasCount(const QString &project) const;
     const QVector<ProjectEntry> &projects() const { return m_projects; }
     int projectIndex(const QString &project) const;
     int canvasIndex(const QString &project, const QString &canvas) const;
@@ -68,31 +77,31 @@ public:
     QString lastCanvas(const QString &project) const;   // or its first, if that one is gone
 
     // Why a name can't be used, or "" when it can. `except` is the item being renamed.
-    QString projectNameProblem(const QString &name, const QString &except = {}) const;
-    QString canvasNameProblem(const QString &project, const QString &name, const QString &except = {}) const;
+    Q_INVOKABLE QString projectNameProblem(const QString &name, const QString &except = {}) const;
+    Q_INVOKABLE QString canvasNameProblem(const QString &project, const QString &name, const QString &except = {}) const;
 
     // Each returns the new item's name ("" on failure) and opens it.
     QString createProject();
     QString createCanvas(const QString &project);
-    QString duplicateProject(const QString &project);
-    QString duplicateCanvas(const QString &project, const QString &canvas);
+    Q_INVOKABLE QString duplicateProject(const QString &project);
+    Q_INVOKABLE QString duplicateCanvas(const QString &project, const QString &canvas);
     QString importCanvas(const QString &filePath, const QString &project);
 
-    bool renameProject(const QString &project, const QString &newName);
-    bool renameCanvas(const QString &project, const QString &canvas, const QString &newName);
+    Q_INVOKABLE bool renameProject(const QString &project, const QString &newName);
+    Q_INVOKABLE bool renameCanvas(const QString &project, const QString &canvas, const QString &newName);
 
     // Deleting moves the files to the system trash. The last Canvas of a Project can't be
     // deleted; deleting the last Project leaves a new empty one.
-    bool deleteProject(const QString &project);
-    bool deleteCanvas(const QString &project, const QString &canvas);
+    Q_INVOKABLE bool deleteProject(const QString &project);
+    Q_INVOKABLE bool deleteCanvas(const QString &project, const QString &canvas);
 
     // `toIndex` is a position in the list as it is now, before the item is taken out.
-    void moveProject(const QString &project, int toIndex);
+    Q_INVOKABLE void moveProject(const QString &project, int toIndex);
     // Moving into another Project renames the Canvas if the name is taken there ("Auth 2").
     // Returns the Canvas's name afterwards, or "" if it couldn't move.
-    QString moveCanvas(const QString &project, const QString &canvas, const QString &toProject, int toIndex);
+    Q_INVOKABLE QString moveCanvas(const QString &project, const QString &canvas, const QString &toProject, int toIndex);
 
-    void setExpanded(const QString &project, bool expanded);
+    Q_INVOKABLE void setExpanded(const QString &project, bool expanded);
     std::optional<Viewport> view(const QString &project, const QString &canvas) const;
     void setView(const QString &project, const QString &canvas, const Viewport &view);
 
@@ -110,7 +119,6 @@ signals:
 
 private:
     ProjectEntry *project(const QString &name);
-    QStringList projectNames() const;
     QStringList canvasNames(const QString &project) const;
     QJsonObject readIndex();
     QStringList canvasFiles(const QString &project) const;   // names of the .canvas files in its folder

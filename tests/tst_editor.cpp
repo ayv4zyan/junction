@@ -15,6 +15,7 @@ class TestEditor : public QObject
     Q_OBJECT
 
     std::unique_ptr<QTemporaryDir> m_folder;
+    std::unique_ptr<Library> m_library;
     Editor *m_editor = nullptr;
 
     // Two Cards connected A -> B, with a Group around both. Returns {a, b, connection, group}.
@@ -41,7 +42,8 @@ private slots:
     void init()
     {
         m_folder = std::make_unique<QTemporaryDir>();
-        m_editor = new Editor(m_folder->filePath("Library"));
+        m_library = std::make_unique<Library>(m_folder->filePath("Library"));
+        m_editor = new Editor(m_library.get());
         m_editor->start();
         QVERIFY(m_editor->loadError().isEmpty());
     }
@@ -49,6 +51,7 @@ private slots:
     void cleanup()
     {
         delete m_editor;
+        m_library.reset();
         m_folder.reset();
     }
 

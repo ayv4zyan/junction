@@ -1,4 +1,5 @@
 #include "Editor.h"
+#include "LibraryModel.h"
 #include "JunctionDesign.h"
 
 #include <QCryptographicHash>
@@ -45,11 +46,18 @@ int main(int argc, char *argv[])
     if (!server.listen(serverName))
         qWarning("Junction: %s; a second launch will not find this one", qPrintable(server.errorString()));
 
-    Editor editor(libraryFolder);   // outlives the engine, which is destroyed first
+    // These outlive the engine, which is destroyed first.
+    Library library(libraryFolder);
+    LibraryModel libraryRows(&library);
+    Editor editor(&library);
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
-    engine.setInitialProperties({{"editor", QVariant::fromValue(&editor)}});
+    engine.setInitialProperties({
+        {"library", QVariant::fromValue(&library)},
+        {"libraryRows", QVariant::fromValue(&libraryRows)},
+        {"editor", QVariant::fromValue(&editor)},
+    });
     engine.loadFromModule("Junction", "Main");
 
     QObject::connect(&server, &QLocalServer::newConnection, &app, [&] {

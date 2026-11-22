@@ -11,7 +11,8 @@ import JunctionDesign
 Rectangle {
     id: sidebar
 
-    required property LibraryModel library
+    required property Library library
+    required property LibraryModel libraryRows   // the rows shown
     required property AskDialog ask
     property real headerHeight: 40
     property alias list: list
@@ -42,7 +43,7 @@ Rectangle {
         if (canvas)
             library.setExpanded(project, true)
         Qt.callLater(() => {
-            const i = library.rowOf(project, canvas)
+            const i = libraryRows.rowOf(project, canvas)
             if (i < 0)
                 return
             list.positionViewAtIndex(i, ListView.Contain)
@@ -55,7 +56,7 @@ Rectangle {
 
     // The name with the searched-for part in bold, or "" when not searching.
     function highlight(name) {
-        const query = library.filter.trim()
+        const query = libraryRows.filter.trim()
         const at = name.toLowerCase().indexOf(query.toLowerCase())
         if (!query || at < 0)
             return ""
@@ -127,10 +128,10 @@ Rectangle {
                 placeholderText: qsTr("Search")
                 leftPadding: Space.sm + Sizes.icon + Space.sm   // room for the magnifier
                 rightPadding: clearButton.visible ? clearButton.width + Space.xs : Space.sm
-                onTextChanged: sidebar.library.filter = text
+                onTextChanged: sidebar.libraryRows.filter = text
                 // Enter opens the first Canvas found; Esc gives up.
                 function openFirst() {
-                    if (sidebar.library.openFirstMatch()) {
+                    if (sidebar.libraryRows.openFirstMatch()) {
                         text = ""
                         sidebar.focusCanvas()
                     }
@@ -176,7 +177,7 @@ Rectangle {
                 tip: qsTr("New project (Ctrl+Shift+N)")
                 onClicked: {
                     sidebar.focusCanvas()
-                    sidebar.library.createProject()
+                    sidebar.libraryRows.createProject()
                 }
             }
             IconButton {
@@ -207,7 +208,7 @@ Rectangle {
         anchors.topMargin: Space.xs
         anchors.bottom: parent.bottom
         width: parent.width
-        model: sidebar.library
+        model: sidebar.libraryRows
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         highlightFollowsCurrentItem: false
@@ -227,7 +228,7 @@ Rectangle {
         displaced: Transition { NumberAnimation { property: "y"; duration: Motion.normal; easing.type: Motion.enter } }
 
         Connections {
-            target: sidebar.library
+            target: sidebar.libraryRows
             function onModelAboutToBeReset() { list.keptY = list.contentY }
             function onModelReset() {
                 list.forceLayout()
@@ -238,11 +239,11 @@ Rectangle {
         Label {
             anchors.centerIn: parent
             width: parent.width - 2 * Space.lg
-            visible: list.count === 0 && sidebar.library.filter !== ""
+            visible: list.count === 0 && sidebar.libraryRows.filter !== ""
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
             color: Colors.mutedText
-            text: qsTr("Nothing matches “%1”").arg(sidebar.library.filter.trim())
+            text: qsTr("Nothing matches “%1”").arg(sidebar.libraryRows.filter.trim())
         }
     }
 
@@ -250,6 +251,7 @@ Rectangle {
         id: rowDrag
         anchors.fill: parent
         library: sidebar.library
+        libraryRows: sidebar.libraryRows
         list: list
         canvasIndent: sidebar.canvasIndent
         projectIndent: sidebar.rowInset + Space.xs
@@ -262,7 +264,7 @@ Rectangle {
         onClosed: sidebar.menuRow = -1
         MenuItem {
             text: qsTr("New canvas")
-            onTriggered: Qt.callLater(sidebar.library.createCanvas, sidebar.menuData.project)
+            onTriggered: Qt.callLater(sidebar.libraryRows.createCanvas, sidebar.menuData.project)
         }
         MenuItem {
             text: qsTr("Rename")

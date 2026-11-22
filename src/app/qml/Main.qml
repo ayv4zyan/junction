@@ -12,8 +12,10 @@ import JunctionDesign
 ApplicationWindow {
     id: window
 
-    required property Editor editor   // created by main.cpp, which decides where the Library is
-    readonly property LibraryModel library: editor.library
+    required property Editor editor
+    // Created by main.cpp: the Library, its rows as the sidebar shows them, and the open Canvas.
+    required property Library library
+    required property LibraryModel libraryRows
 
     // Our shortcuts stay out of the way while text is being typed.
     readonly property bool typing: activeFocusItem !== null && activeFocusItem.visible
@@ -92,10 +94,15 @@ ApplicationWindow {
         function onErrorOccurred(message) { toast.show(message, { error: true }) }
     }
 
+    Connections {
+        target: window.library
+        function onErrorOccurred(message) { toast.show(message, { error: true }) }
+    }
+
     Component.onCompleted: editor.start()
 
     Connections {
-        target: window.library
+        target: window.libraryRows
         function onRenameRequested(project, canvas) { Qt.callLater(window.startRename, project, canvas) }
     }
 
@@ -124,6 +131,7 @@ ApplicationWindow {
             height: parent.height
             visible: sidebarSlot.width > 0
             library: window.library
+            libraryRows: window.libraryRows
             ask: askDialog
             headerHeight: toolbar.height
             onHideRequested: window.toggleSidebar()
@@ -195,8 +203,8 @@ ApplicationWindow {
                     }
                     Menu {
                         id: fileMenu
-                        MenuItem { text: qsTr("New canvas"); onTriggered: window.library.createCanvas(window.library.currentProject) }
-                        MenuItem { text: qsTr("New project"); onTriggered: window.library.createProject() }
+                        MenuItem { text: qsTr("New canvas"); onTriggered: window.libraryRows.createCanvas(window.library.currentProject) }
+                        MenuItem { text: qsTr("New project"); onTriggered: window.libraryRows.createProject() }
                         MenuSeparator {}
                         MenuItem { text: qsTr("Import canvas…"); onTriggered: importDialog.open() }
                         MenuItem { text: qsTr("Export as canvas file…"); onTriggered: window.exportAs("canvas") }
@@ -332,7 +340,7 @@ ApplicationWindow {
         }
         onDropped: (drop) => {
             window.focusCanvas()
-            window.library.importCanvases(canvasUrls(drop.urls))
+            window.libraryRows.importCanvases(canvasUrls(drop.urls))
         }
         Rectangle {
             anchors.fill: parent
@@ -374,11 +382,11 @@ ApplicationWindow {
     // The Library. Each first takes the keyboard back to the canvas (see focusCanvas).
     Shortcut {
         sequences: [StandardKey.New]
-        onActivated: { window.focusCanvas(); window.library.createCanvas(window.library.currentProject) }
+        onActivated: { window.focusCanvas(); window.libraryRows.createCanvas(window.library.currentProject) }
     }
     Shortcut {
         sequence: "Ctrl+Shift+N"
-        onActivated: { window.focusCanvas(); window.library.createProject() }
+        onActivated: { window.focusCanvas(); window.libraryRows.createProject() }
     }
     Shortcut { sequence: "Ctrl+\\"; onActivated: window.toggleSidebar() }
     Shortcut {
@@ -389,8 +397,8 @@ ApplicationWindow {
         }
     }
     // Previous and next Canvas of the Project.
-    Shortcut { sequence: "Alt+Up"; enabled: !window.typing; onActivated: { window.focusCanvas(); window.library.openAdjacent(-1) } }
-    Shortcut { sequence: "Alt+Down"; enabled: !window.typing; onActivated: { window.focusCanvas(); window.library.openAdjacent(1) } }
+    Shortcut { sequence: "Alt+Up"; enabled: !window.typing; onActivated: { window.focusCanvas(); window.libraryRows.openAdjacent(-1) } }
+    Shortcut { sequence: "Alt+Down"; enabled: !window.typing; onActivated: { window.focusCanvas(); window.libraryRows.openAdjacent(1) } }
     Shortcut {
         sequence: "F2"
         enabled: !window.typing
@@ -406,7 +414,7 @@ ApplicationWindow {
         title: qsTr("Import canvas into “%1”").arg(window.library.currentProject)
         fileMode: FileDialog.OpenFiles
         nameFilters: [qsTr("Canvas (*.canvas)")]
-        onAccepted: window.library.importCanvases(selectedFiles)
+        onAccepted: window.libraryRows.importCanvases(selectedFiles)
     }
 
     FileDialog {

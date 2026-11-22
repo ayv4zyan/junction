@@ -8,7 +8,6 @@ LibraryModel::LibraryModel(Library *library, QObject *parent)
     connect(m_library, &Library::currentChanged, this, [this] {
         if (!m_rows.isEmpty())
             emit dataChanged(index(0), index(m_rows.size() - 1), {CurrentRole});
-        emit currentChanged();
     });
 }
 
@@ -32,8 +31,6 @@ void LibraryModel::rebuild()
         }
     }
     endResetModel();
-    emit structureChanged();
-    emit currentChanged();   // currentRow may have moved
 }
 
 // Expanding or collapsing only inserts or removes that Project's rows, so the rest of the list
@@ -60,7 +57,6 @@ void LibraryModel::expandedChanged(const QString &project)
     }
     const QModelIndex changed = index(header);
     emit dataChanged(changed, changed, {ExpandedRole});
-    emit currentChanged();   // currentRow may have moved
 }
 
 bool LibraryModel::matches(const QString &name) const
@@ -105,7 +101,7 @@ QVariant LibraryModel::data(const QModelIndex &index, int role) const
     case ExpandedRole:
         return project.expanded || !m_filter.isEmpty();
     case CurrentRole:
-        return project.name == currentProject() && (isProject || project.canvases[row.canvas].name == currentCanvas());
+        return project.name == m_library->currentProject() && (isProject || project.canvases[row.canvas].name == m_library->currentCanvas());
     }
     return {};
 }
@@ -122,14 +118,6 @@ QHash<int, QByteArray> LibraryModel::roleNames() const
         {ExpandedRole, "expanded"},
         {CurrentRole, "current"},
     };
-}
-
-QStringList LibraryModel::projectNames() const
-{
-    QStringList names;
-    for (const ProjectEntry &p : m_library->projects())
-        names.append(p.name);
-    return names;
 }
 
 QVariantMap LibraryModel::rowAt(int row) const
@@ -167,12 +155,6 @@ int LibraryModel::lastRowOf(const QString &project) const
     return last;
 }
 
-int LibraryModel::canvasCount(const QString &project) const
-{
-    const int p = m_library->projectIndex(project);
-    return p < 0 ? 0 : int(m_library->projects()[p].canvases.size());
-}
-
 // ---- Actions ----
 
 void LibraryModel::open(const QString &project, const QString &canvas)
@@ -182,13 +164,13 @@ void LibraryModel::open(const QString &project, const QString &canvas)
 
 void LibraryModel::openAdjacent(int step)
 {
-    const int p = m_library->projectIndex(currentProject());
+    const int p = m_library->projectIndex(m_library->currentProject());
     if (p < 0)
         return;
     const QVector<CanvasEntry> &canvases = m_library->projects()[p].canvases;
-    const int next = m_library->canvasIndex(currentProject(), currentCanvas()) + step;
+    const int next = m_library->canvasIndex(m_library->currentProject(), m_library->currentCanvas()) + step;
     if (next >= 0 && next < canvases.size())
-        m_library->open(currentProject(), canvases[next].name);
+        m_library->open(m_library->currentProject(), canvases[next].name);
 }
 
 bool LibraryModel::openFirstMatch()
@@ -219,65 +201,10 @@ void LibraryModel::createCanvas(const QString &project)
         emit renameRequested(project, name);
 }
 
-void LibraryModel::duplicateProject(const QString &project)
-{
-    m_library->duplicateProject(project);
-}
-
-void LibraryModel::duplicateCanvas(const QString &project, const QString &canvas)
-{
-    m_library->duplicateCanvas(project, canvas);
-}
-
 void LibraryModel::importCanvases(const QList<QUrl> &urls)
 {
     for (const QUrl &url : urls) {
         if (url.isLocalFile())
-            m_library->importCanvas(url.toLocalFile(), currentProject());
+            m_library->importCanvas(url.toLocalFile(), m_library->currentProject());
     }
-}
-
-QString LibraryModel::projectNameProblem(const QString &name, const QString &except) const
-{
-    return m_library->projectNameProblem(name, except);
-}
-
-QString LibraryModel::canvasNameProblem(const QString &project, const QString &name, const QString &except) const
-{
-    return m_library->canvasNameProblem(project, name, except);
-}
-
-bool LibraryModel::renameProject(const QString &project, const QString &name)
-{
-    return m_library->renameProject(project, name);
-}
-
-bool LibraryModel::renameCanvas(const QString &project, const QString &canvas, const QString &name)
-{
-    return m_library->renameCanvas(project, canvas, name);
-}
-
-void LibraryModel::deleteProject(const QString &project)
-{
-    m_library->deleteProject(project);
-}
-
-void LibraryModel::deleteCanvas(const QString &project, const QString &canvas)
-{
-    m_library->deleteCanvas(project, canvas);
-}
-
-void LibraryModel::moveProject(const QString &project, int toIndex)
-{
-    m_library->moveProject(project, toIndex);
-}
-
-void LibraryModel::moveCanvas(const QString &project, const QString &canvas, const QString &toProject, int toIndex)
-{
-    m_library->moveCanvas(project, canvas, toProject, toIndex);
-}
-
-void LibraryModel::setExpanded(const QString &project, bool expanded)
-{
-    m_library->setExpanded(project, expanded);
 }

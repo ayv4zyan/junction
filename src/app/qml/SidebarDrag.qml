@@ -16,7 +16,8 @@ import JunctionDesign
 //   coordinates. `noOp` drops would put the row back where it is.
 Item {
     id: rowDrag
-    required property LibraryModel library
+    required property Library library
+    required property LibraryModel libraryRows
     required property ListView list
     required property real canvasIndent   // where a Canvas row's name starts (see Sidebar)
     required property real projectIndent  // ...and a Project row's
@@ -65,7 +66,7 @@ Item {
         const rowItem = list.itemAtIndex(i)
         if (!rowItem)
             return null
-        const row = library.rowAt(i)
+        const row = libraryRows.rowAt(i)
         return item.kind === "canvas" ? canvasDrop(row, i, rowItem, y) : projectDrop(row, y)
     }
 
@@ -89,8 +90,8 @@ Item {
 
     // A Project lands before or after the whole Project under the pointer, whichever half it is in.
     function projectDrop(row, y) {
-        const top = list.itemAtIndex(library.rowOf(row.project))
-        const bottom = list.itemAtIndex(library.lastRowOf(row.project))
+        const top = list.itemAtIndex(libraryRows.rowOf(row.project))
+        const bottom = list.itemAtIndex(libraryRows.lastRowOf(row.project))
         if (!top || !bottom)
             return null
         const before = y < (top.y + bottom.y + bottom.height) / 2

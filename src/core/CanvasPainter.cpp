@@ -2,6 +2,7 @@
 #include "DesignValues.h"
 
 #include <QAbstractTextDocumentLayout>
+#include <QCoreApplication>
 #include <QFontMetricsF>
 #include <QImage>
 #include <QPainter>
@@ -36,9 +37,7 @@ void drawArrowhead(QPainter &painter, QPointF tip, QPointF direction, const QCol
 void drawMarkdown(QPainter &painter, const QString &markdown, const QRectF &rect, const QColor &color)
 {
     QTextDocument document;
-    // Like Obsidian, every newline is a line break (in plain Markdown it would be a space).
-    // Two spaces before a newline mark a hard break in Markdown.
-    document.setMarkdown(QString(markdown).replace('\n', QStringLiteral("  \n")));
+    document.setMarkdown(markdown);
     document.setTextWidth(rect.width());
     document.setDefaultFont(font(CardFontSize));
 
@@ -69,10 +68,7 @@ QColor Palette::resolve(const QString &color, const QColor &fallback) const
 Palette Palette::fromVariantMap(const QVariantMap &map)
 {
     Palette p;
-    auto read = [&](const char *key, QColor &target) {
-        if (map.contains(key))
-            target = map[key].value<QColor>();
-    };
+    auto read = [&](const char *key, QColor &target) { target = map.value(key).value<QColor>(); };
     read("background", p.background);
     read("grid", p.grid);
     read("cardFill", p.cardFill);
@@ -81,8 +77,7 @@ Palette Palette::fromVariantMap(const QVariantMap &map)
     read("mutedText", p.mutedText);
     read("line", p.line);
     read("selection", p.selection);
-    if (map.contains("radius"))
-        p.radius = map["radius"].toReal();
+    p.radius = map.value("radius").toReal();
     for (const QVariant &preset : map["presets"].toList())
         p.presets.append(preset.value<QColor>());
     return p;
@@ -183,12 +178,11 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
 
     const QRectF content = node.rect.adjusted(CardPadding, CardPadding, -CardPadding, -CardPadding);
     if (node.kind == NodeKind::Text) {
-        drawMarkdown(painter, node.text, content, palette.text);
+        drawMarkdown(painter, node.markdown(), content, palette.text);
     } else {
         painter.setPen(palette.mutedText);
         painter.setFont(font(CardFontSize));
-        painter.drawText(content, Qt::AlignCenter | Qt::TextWordWrap,
-                         QStringLiteral("Unsupported: %1").arg(node.raw["type"].toString()));
+        painter.drawText(content, Qt::AlignCenter | Qt::TextWordWrap, node.unsupportedText());
     }
 }
 
@@ -206,7 +200,7 @@ bool exportCanvas(const Document &document, const QSet<QString> &onlyIds, const 
         bounds = bounds.united(n.rect);
     }
     if (bounds.isEmpty()) {
-        *error = QStringLiteral("Nothing to export.");
+        *error = QCoreApplication::translate("CanvasPainter", "Nothing to export.");
         return false;
     }
 
@@ -232,12 +226,17 @@ bool exportCanvas(const Document &document, const QSet<QString> &onlyIds, const 
             drawNode(painter, n, palette);
     };
 
+    const QString cantWrite = QCoreApplication::translate("CanvasPainter", "Could not write %1").arg(path);
     if (path.endsWith(".svg", Qt::CaseInsensitive)) {
         QSvgGenerator svg;
         svg.setFileName(path);
         svg.setSize(bounds.size().toSize());
         svg.setViewBox(bounds);
-        QPainter painter(&svg);
+        QPainter painter;
+        if (!painter.begin(&svg)) {   // fails when the file can't be opened for writing
+            *error = cantWrite;
+            return false;
+        }
         paint(painter);
         return true;
     }
@@ -250,7 +249,7 @@ bool exportCanvas(const Document &document, const QSet<QString> &onlyIds, const 
     paint(painter);
     painter.end();
     if (!image.save(path)) {
-        *error = QStringLiteral("Could not write %1").arg(path);
+        *error = cantWrite;
         return false;
     }
     return true;

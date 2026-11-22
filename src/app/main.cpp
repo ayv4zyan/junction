@@ -40,7 +40,8 @@ int main(int argc, char *argv[])
     }
     QLocalServer::removeServer(serverName);   // a socket left behind by a crash
     QLocalServer server;
-    server.listen(serverName);
+    if (!server.listen(serverName))
+        qWarning("Junction: %s; a second launch will not find this one", qPrintable(server.errorString()));
 
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,

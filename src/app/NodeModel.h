@@ -14,7 +14,7 @@ class NodeModel : public QAbstractListModel
 
 public:
     enum Filter { Cards, Groups };
-    enum Role { IdRole = Qt::UserRole + 1, KindRole, XRole, YRole, WidthRole, HeightRole, TextRole, ColorRole };
+    enum Role { IdRole = Qt::UserRole + 1, KindRole, XRole, YRole, WidthRole, HeightRole, TextRole, ColorRole, MarkdownRole };
 
     NodeModel(Document *document, Filter filter, QObject *parent = nullptr);
 

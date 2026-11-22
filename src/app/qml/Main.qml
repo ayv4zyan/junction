@@ -350,10 +350,10 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+D"; enabled: window.canEdit; onActivated: canvasEditor.duplicate() }
     Shortcut { sequence: "Ctrl+G"; enabled: window.canEdit; onActivated: canvasView.editingId = canvasEditor.createGroup(canvasView.pointerWorld()) }
     // Arrow keys nudge the selection by one grid step.
-    Shortcut { sequence: "Left"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(-20, 0)) }
-    Shortcut { sequence: "Right"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(20, 0)) }
-    Shortcut { sequence: "Up"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(0, -20)) }
-    Shortcut { sequence: "Down"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(0, 20)) }
+    Shortcut { sequence: "Left"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(-1, 0)) }
+    Shortcut { sequence: "Right"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(1, 0)) }
+    Shortcut { sequence: "Up"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(0, -1)) }
+    Shortcut { sequence: "Down"; enabled: window.canEdit; onActivated: canvasEditor.nudge(Qt.point(0, 1)) }
     Shortcut { sequence: "Ctrl+0"; onActivated: canvasView.resetZoom() }
     Shortcut { sequence: "Ctrl+1"; onActivated: canvasView.userFit() }
 
@@ -401,13 +401,11 @@ ApplicationWindow {
         onAccepted: {
             const written = defaultSuffix === "canvas" ? canvasEditor.exportCanvas(selectedFile)
                                                        : canvasEditor.exportImage(selectedFile, Colors.forPainter)
-            if (!written)
+            const file = written.toString()
+            if (!file)
                 return   // the Editor has reported why
-            const file = selectedFile.toString()
             const folder = file.slice(0, file.lastIndexOf("/"))
-            let name = decodeURIComponent(file.slice(file.lastIndexOf("/") + 1))
-            if (defaultSuffix === "canvas" && !name.endsWith(".canvas"))
-                name += ".canvas"   // exportCanvas adds it the same way
+            const name = decodeURIComponent(file.slice(file.lastIndexOf("/") + 1))
             toast.show(qsTr("Exported “%1”").arg(name),
                        { action: qsTr("Show in folder"), onAction: () => Qt.openUrlExternally(folder) })
         }

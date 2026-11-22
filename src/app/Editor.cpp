@@ -443,8 +443,9 @@ void Editor::beginMove(const QString &id)
     beginDrag(itemsMovingWithSelection());
 }
 
-void Editor::nudge(QPointF delta)
+void Editor::nudge(QPointF steps)
 {
+    const QPointF delta = steps * Geometry::GridSize;
     Transaction t;
     for (const Item &item : itemsMovingWithSelection())
         t.append({item, translated(item, delta)});
@@ -869,7 +870,7 @@ void Editor::save()
     saveNow();
 }
 
-bool Editor::exportCanvas(const QUrl &url)
+QUrl Editor::exportCanvas(const QUrl &url)
 {
     QString path = url.toLocalFile();
     if (!path.endsWith(".canvas"))
@@ -877,9 +878,9 @@ bool Editor::exportCanvas(const QUrl &url)
     QString error;
     if (!m_document.save(path, &error)) {
         emit errorOccurred(tr("Could not save %1: %2").arg(path, error));
-        return false;
+        return {};
     }
-    return true;
+    return QUrl::fromLocalFile(path);
 }
 
 QVariantMap Editor::savedView() const
@@ -896,15 +897,15 @@ void Editor::rememberView(QPointF center, qreal zoom)
     m_viewSaveTimer.start();
 }
 
-bool Editor::exportImage(const QUrl &url, const QVariantMap &palette)
+QUrl Editor::exportImage(const QUrl &url, const QVariantMap &palette)
 {
     // Exports the selection, or the whole Canvas when nothing is selected.
     QString error;
     if (!CanvasPainter::exportCanvas(m_document, m_document.nodesWithContents(m_selection), url.toLocalFile(), Palette::fromVariantMap(palette), &error)) {
         emit errorOccurred(error);
-        return false;
+        return {};
     }
-    return true;
+    return url;
 }
 
 QRectF Editor::contentBounds() const

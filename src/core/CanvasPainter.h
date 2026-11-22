@@ -11,18 +11,19 @@
 
 class QPainter;
 
-// Colors and the corner radius come from the design tokens (src/design: Colors.forPainter) as
-// a QVariantMap, so the painted layers and exports match the rest of the UI.
+// Colors and the corner radius come only from the design tokens (src/design: Colors.forPainter)
+// as a QVariantMap, so the painted layers and exports match the rest of the UI. There are no
+// defaults here on purpose: a second copy of the colors would drift from the tokens.
 struct Palette
 {
-    QColor background{"#1e1e1e"};
-    QColor grid{"#3a3a3a"};
-    QColor cardFill{"#262626"};
-    QColor cardBorder{"#555555"};
-    QColor text{"#dcddde"};
-    QColor mutedText{"#8a8a8a"};
-    QColor line{"#8a8a8a"};
-    QColor selection{"#7f6df2"};
+    QColor background;
+    QColor grid;
+    QColor cardFill;
+    QColor cardBorder;
+    QColor text;
+    QColor mutedText;
+    QColor line;
+    QColor selection;
     QVector<QColor> presets;   // JSON Canvas colors "1".."6"
     qreal radius = 0;          // corners of Cards, Groups and Connection labels
 

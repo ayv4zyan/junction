@@ -1,5 +1,6 @@
 #include "CanvasItems.h"
 
+#include <QCoreApplication>
 #include <QJsonArray>
 
 QString sideToString(Side side)
@@ -39,6 +40,17 @@ PathStyle pathStyleFromString(const QString &text, PathStyle fallback)
     if (text == u"curved") return PathStyle::Curved;
     if (text == u"elbow") return PathStyle::Elbow;
     return fallback;
+}
+
+QString Node::markdown() const
+{
+    // In plain Markdown a newline is a space; two spaces before it make it a hard break.
+    return QString(text).replace('\n', QStringLiteral("  \n"));
+}
+
+QString Node::unsupportedText() const
+{
+    return QCoreApplication::translate("Node", "Unsupported: %1").arg(raw["type"].toString());
 }
 
 QJsonObject Node::toJson() const

@@ -30,6 +30,10 @@ struct Node
     QJsonObject raw;   // Unsupported Card: the JSON it was loaded from, written back as-is
 
     bool isCard() const { return kind != NodeKind::Group; }
+    // A Card's text as Markdown with every newline a line break, as Obsidian shows it.
+    QString markdown() const;
+    // What an Unsupported Card shows in place of its content.
+    QString unsupportedText() const;
 
     QJsonObject toJson() const;
     static Node fromJson(const QJsonObject &json);

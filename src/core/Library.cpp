@@ -136,10 +136,10 @@ void Library::saveIndex()
         {"current", QJsonObject{{"project", m_currentProject}, {"canvas", m_currentCanvas}}},
     };
     QSaveFile file(QDir(m_root).filePath(IndexFile));
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(QJsonDocument(index).toJson(QJsonDocument::Indented));
-        file.commit();
-    }
+    const bool written = file.open(QIODevice::WriteOnly)
+                         && file.write(QJsonDocument(index).toJson(QJsonDocument::Indented)) >= 0 && file.commit();
+    if (!written)
+        emit errorOccurred(tr("Could not save the library index: %1").arg(file.errorString()));
 }
 
 void Library::finish()

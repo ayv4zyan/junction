@@ -92,7 +92,7 @@ public:
     Q_INVOKABLE void setText(const QString &id, const QString &text);   // Card text or Group label
     Q_INVOKABLE void setColor(const QString &color);
     Q_INVOKABLE void deleteSelection();
-    Q_INVOKABLE void nudge(QPointF delta);   // arrow keys
+    Q_INVOKABLE void nudge(QPointF steps);   // arrow keys: moves the selection by whole grid steps
 
     // Dragging: begin, update with the total distance moved so far, end (= one undo step).
     // `invertSnap` is true while Alt is held.
@@ -138,9 +138,9 @@ public:
     // Files. Every Canvas is saved automatically, shortly after each change.
     Q_INVOKABLE void start();   // loads the Library and opens what was open last time
     Q_INVOKABLE void save();
-    // Both return whether the file was written; failures are reported through errorOccurred.
-    Q_INVOKABLE bool exportCanvas(const QUrl &url);   // a copy of the .canvas file
-    Q_INVOKABLE bool exportImage(const QUrl &url, const QVariantMap &palette);
+    // Both return the file written, or an empty URL when that failed (errorOccurred says why).
+    Q_INVOKABLE QUrl exportCanvas(const QUrl &url);   // a copy of the .canvas file
+    Q_INVOKABLE QUrl exportImage(const QUrl &url, const QVariantMap &palette);
     Q_INVOKABLE QRectF contentBounds() const;
 
     // The part of the Canvas on screen, kept per Canvas so switching back returns to it.

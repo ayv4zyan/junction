@@ -16,6 +16,7 @@ Item {
     required property real nodeWidth
     required property real nodeHeight
     required property string text
+    required property string markdown   // the text as displayed (see Node::markdown)
     required property string nodeColor
 
     readonly property Editor editor: canvas.editor
@@ -89,9 +90,7 @@ Item {
             width: scroller.width
             height: Math.max(implicitHeight, scroller.height)
             visible: !card.editing
-            // Like Obsidian, every newline is a line break (in plain Markdown it would be a space).
-            // Two spaces before a newline mark a hard break in Markdown.
-            text: card.kind === "text" ? card.text.replace(/\n/g, "  \n") : card.text
+            text: card.kind === "text" ? card.markdown : card.text
             textFormat: card.kind === "text" ? Text.MarkdownText : Text.PlainText
             color: card.kind === "text" ? Colors.text : Colors.mutedText
             horizontalAlignment: card.kind === "text" ? Text.AlignLeft : Text.AlignHCenter

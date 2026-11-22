@@ -59,6 +59,8 @@ Fragment::Insertion Fragment::insertion(QPointF offset) const
         result.nodeIds.append(n.id);
     }
     for (Connection c : connections) {
+        if (!newIds.contains(c.fromNode) || !newIds.contains(c.toNode))
+            continue;   // not between two of the nodes: nothing to attach it to
         c.id = Document::newId();
         c.fromNode = newIds.value(c.fromNode);
         c.toNode = newIds.value(c.toNode);

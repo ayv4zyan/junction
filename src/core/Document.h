@@ -88,6 +88,7 @@ signals:
     void changed();   // after any of the above, for those that only need to know that
 
 private:
+    void put(const CanvasItem &item);   // inserts it, or replaces the one with the same id
     void putNode(const Node &node);
     void putConnection(const Connection &connection);
     void remove(const CanvasItem &item);

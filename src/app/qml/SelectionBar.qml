@@ -23,8 +23,16 @@ Floating {
         const topLeft = canvas.toScreen(Qt.point(b.x, b.y))
         return Qt.rect(topLeft.x, topLeft.y, b.width * canvas.zoom, b.height * canvas.zoom)
     }
-    readonly property point position: editor.floatingPosition(target, Qt.size(width, height),
-                                                              Qt.rect(0, 0, canvas.width, canvas.height), Space.sm)
+    // Where it sits, worked out only while it is shown: when it fades out (nothing selected any
+    // more, or a drag starts) it stays where it was, instead of jumping to wherever an empty
+    // selection would put it.
+    property point position
+    Binding on position {
+        when: bar.shown
+        value: bar.editor.floatingPosition(bar.target, Qt.size(bar.width, bar.height),
+                                           Qt.rect(0, 0, bar.canvas.width, bar.canvas.height), Space.sm)
+        restoreMode: Binding.RestoreNone
+    }
 
     // Follows the selection 1:1 (also while scrolling the canvas): never animated.
     x: canvas.x + position.x

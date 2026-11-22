@@ -130,9 +130,8 @@ private:
     bool createEmptyCanvasFile(const QString &path);
     // Never replaces an existing file; a change of case only ("auth" -> "Auth") also works where
     // the file system ignores case. On failure it says `failure` ("" to say nothing).
-    bool renamePath(const QString &from, const QString &to, const QString &failure);
-    bool renameOnDisk(const QString &problem, const QString &from, const QString &to, const QString &failure);
-    static bool moveFile(const QString &from, const QString &to, QString *stranded);
+    bool renameFile(const QString &from, const QString &to, const QString &failure);
+    bool renameChecked(const QString &problem, const QString &from, const QString &to, const QString &failure);
     // Every change ends here: saves the index, emits projectsChanged(), then currentChanged() if
     // currentPath() is no longer the one last announced.
     void saveIndexAndNotify();

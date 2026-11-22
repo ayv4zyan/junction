@@ -9,6 +9,7 @@
 // open one is renamed, moved or deleted) the Library says so and the Editor follows.
 
 #include "Document.h"
+#include "Fragment.h"
 #include "Geometry.h"
 #include "Library.h"
 #include "NodeModel.h"
@@ -204,10 +205,10 @@ private:
     QRectF placed(QPointF center, QSizeF size) const;
     Node newCard(QPointF center, const QString &text = {}) const;
     Transaction removal(const QSet<QString> &nodeIds, const QStringList &connectionIds) const;
-    QVector<Item> itemsMovingWithSelection() const;
+    QVector<CanvasItem> itemsMovingWithSelection() const;
     template <typename Kind>
     const Kind *activeDrag() const;   // the drag in progress, if it is of that kind
-    bool beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &kind);
+    bool beginDrag(const QVector<CanvasItem> &items, const decltype(Drag::kind) &kind);
     template <typename Moved>
     void showDrag(Moved moved);   // every dragged item becomes moved(item as the drag began)
     void endDrag(const QString &text);
@@ -216,9 +217,7 @@ private:
 
     template <typename EditNode, typename EditConnection>
     Transaction editedItems(const QStringList &ids, EditNode editNode, EditConnection editConnection) const;
-    template <typename EditConnection>
-    Transaction editedSelectedConnections(EditConnection editConnection) const;
-    void insertFragment(const QJsonObject &fragment, QPointF offset);
+    void insertFragment(const Fragment &fragment, QPointF offset);
 
     void loadCurrent();
 

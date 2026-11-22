@@ -33,7 +33,7 @@ const Connection *Document::connection(const QString &id) const
     return it == m_connections.end() ? nullptr : &*it;
 }
 
-std::optional<Item> Document::item(const QString &id) const
+std::optional<CanvasItem> Document::item(const QString &id) const
 {
     if (const Node *n = node(id))
         return *n;
@@ -83,7 +83,7 @@ void Document::apply(const Transaction &transaction)
         apply(change);
 }
 
-void Document::put(const Item &item)
+void Document::put(const CanvasItem &item)
 {
     if (const Node *n = std::get_if<Node>(&item))
         putNode(*n);
@@ -118,7 +118,7 @@ void Document::putConnection(const Connection &connection)
     emit connectionsChanged();
 }
 
-void Document::remove(const Item &item)
+void Document::remove(const CanvasItem &item)
 {
     const QString id = itemId(item);
     if (std::holds_alternative<Node>(item)) {

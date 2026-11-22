@@ -499,43 +499,37 @@ void Library::importCanvases(const QList<QUrl> &files)
 
 // What renaming a Project and a Canvas share: a name with a `problem` is refused (and said so);
 // otherwise the open Canvas is saved and the folder or file renamed.
-bool Library::renameOnDisk(const QString &problem, const QString &from, const QString &to, const QString &failure)
+bool Library::renameChecked(const QString &problem, const QString &from, const QString &to, const QString &failure)
 {
     if (!problem.isEmpty()) {
         emit errorOccurred(problem);
         return false;
     }
     emit aboutToChangeFiles();
-    return renamePath(from, to, failure);
+    return renameFile(from, to, failure);
 }
 
 // Like QDir::rename, but never replaces an existing file, and a change of case only
-// ("auth" -> "Auth") also works where the file system ignores case.
-bool Library::renamePath(const QString &from, const QString &to, const QString &failure)
+// ("auth" -> "Auth") also works where the file system ignores case: it goes through a temporary
+// name, since such a file system sees both names as the same file. On failure it says
+// `failure` ("" to say nothing), and where the file ended up if it couldn't be put back.
+bool Library::renameFile(const QString &from, const QString &to, const QString &failure)
 {
-    QString stranded;   // where the file ended up when it couldn't be put back
-    if (moveFile(from, to, &stranded))
-        return true;
-    if (!failure.isEmpty())
-        emit errorOccurred(stranded.isEmpty() ? failure
-                                              : failure + ' ' + tr("It could not be renamed back either, and is now called %1.").arg(stranded));
-    return false;
-}
-
-// The rename itself. A change of case only goes through a temporary name, since a file system
-// that ignores case sees "auth" and "Auth" as the same file.
-bool Library::moveFile(const QString &from, const QString &to, QString *stranded)
-{
+    const auto fail = [&](const QString &stranded) {
+        if (!failure.isEmpty() && stranded.isEmpty())
+            emit errorOccurred(failure);
+        else if (!failure.isEmpty())
+            emit errorOccurred(failure + ' ' + tr("It could not be renamed back either, and is now called %1.").arg(stranded));
+        return false;
+    };
     if (!sameName(from, to))
-        return !QFileInfo::exists(to) && QDir().rename(from, to);
+        return (!QFileInfo::exists(to) && QDir().rename(from, to)) || fail({});
     const QString temporary = from + QStringLiteral(".renaming");
     if (!QDir().rename(from, temporary))
-        return false;
+        return fail({});
     if (QDir().rename(temporary, to))
         return true;
-    if (!QDir().rename(temporary, from))
-        *stranded = temporary;
-    return false;
+    return fail(QDir().rename(temporary, from) ? QString() : temporary);
 }
 
 bool Library::renameProject(const QString &projectName, const QString &newName)
@@ -546,7 +540,7 @@ bool Library::renameProject(const QString &projectName, const QString &newName)
         return false;
     if (name == projectName)
         return true;   // nothing to do
-    if (!renameOnDisk(projectNameProblem(name, projectName), projectPath(projectName), projectPath(name),
+    if (!renameChecked(projectNameProblem(name, projectName), projectPath(projectName), projectPath(name),
                       tr("Could not rename “%1” to “%2”.").arg(projectName, name)))
         return false;
     p->name = name;
@@ -568,7 +562,7 @@ bool Library::renameCanvas(const QString &projectName, const QString &canvas, co
         return true;   // nothing to do
     const QString from = canvasPath(projectName, canvas);
     const QString to = canvasPath(projectName, name);
-    if (!renameOnDisk(canvasNameProblem(projectName, name, canvas), from, to,
+    if (!renameChecked(canvasNameProblem(projectName, name, canvas), from, to,
                       tr("Could not rename “%1” to “%2”.").arg(canvas, name)))
         return false;
     ProjectEntry &p = m_projects[at->projectIndex];
@@ -642,7 +636,7 @@ bool Library::replaceLastProject()
         return false;
     }
     ProjectEntry &project = m_projects.first();
-    if (project.name != UntitledName && renamePath(projectPath(project.name), projectPath(UntitledName), {}))
+    if (project.name != UntitledName && renameFile(projectPath(project.name), projectPath(UntitledName), {}))
         project.name = UntitledName;
     setCurrent(project.name, project.firstCanvas());
     saveIndexAndNotify();
@@ -712,7 +706,7 @@ QString Library::moveCanvasToProject(ProjectEntry &source, int from, ProjectEntr
     const QString name = uniqueName(canvas, canvasNames(target.name));
     const QString oldPath = canvasPath(source.name, canvas);
     const QString newPath = canvasPath(target.name, name);
-    if (!renamePath(oldPath, newPath, tr("Could not move “%1” to “%2”.").arg(canvas, target.name)))
+    if (!renameFile(oldPath, newPath, tr("Could not move “%1” to “%2”.").arg(canvas, target.name)))
         return {};
     CanvasEntry entry = source.canvases.takeAt(from);
     entry.name = name;

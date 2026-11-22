@@ -178,7 +178,7 @@ Connection Connection::fromJson(const QJsonObject &json)
     return c;
 }
 
-QString itemId(const Item &item)
+QString itemId(const CanvasItem &item)
 {
     return std::visit([](const auto &i) { return i.id; }, item);
 }

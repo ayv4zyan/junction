@@ -89,6 +89,6 @@ struct Connection
     bool operator==(const Connection &) const = default;
 };
 
-using Item = std::variant<Node, Connection>;
+using CanvasItem = std::variant<Node, Connection>;
 
-QString itemId(const Item &item);
+QString itemId(const CanvasItem &item);

@@ -1,55 +1,73 @@
 #include "Fragment.h"
 
+#include <QHash>
 #include <QJsonArray>
 
-namespace Fragment {
-
-QJsonObject copy(const Document &document, const QSet<QString> &nodeIds)
+Fragment Fragment::copy(const Document &document, const QSet<QString> &nodeIds)
 {
-    QJsonArray nodes, edges;
+    Fragment fragment;
     for (const Node &n : document.nodes()) {
         if (nodeIds.contains(n.id))
-            nodes.append(n.toJson());
+            fragment.nodes.append(n);
     }
     for (const Connection &c : document.connections()) {
         if (nodeIds.contains(c.fromNode) && nodeIds.contains(c.toNode))
-            edges.append(c.toJson(c.fromSide, c.toSide));
+            fragment.connections.append(c);
     }
-    return {{"nodes", nodes}, {"edges", edges}};
+    return fragment;
 }
 
-QRectF bounds(const QJsonObject &fragment)
+Fragment Fragment::fromJson(const QJsonObject &json)
+{
+    Fragment fragment;
+    QSet<QString> ids;
+    for (const QJsonValue &value : json["nodes"].toArray()) {
+        fragment.nodes.append(Node::fromJson(value.toObject()));
+        ids.insert(fragment.nodes.last().id);
+    }
+    for (const QJsonValue &value : json["edges"].toArray()) {
+        const Connection c = Connection::fromJson(value.toObject());
+        if (ids.contains(c.fromNode) && ids.contains(c.toNode))   // others can't be inserted
+            fragment.connections.append(c);
+    }
+    return fragment;
+}
+
+QJsonObject Fragment::toJson() const
+{
+    QJsonArray nodesJson, edgesJson;
+    for (const Node &n : nodes)
+        nodesJson.append(n.toJson());
+    for (const Connection &c : connections)
+        edgesJson.append(c.toJson(c.fromSide, c.toSide));
+    return {{"nodes", nodesJson}, {"edges", edgesJson}};
+}
+
+QRectF Fragment::bounds() const
 {
     QRectF result;
-    for (const QJsonValue &value : fragment["nodes"].toArray())
-        result = result.united(Node::fromJson(value.toObject()).rect);
+    for (const Node &n : nodes)
+        result = result.united(n.rect);
     return result;
 }
 
-Insertion insertion(const QJsonObject &fragment, QPointF offset)
+Fragment::Insertion Fragment::insertion(QPointF offset) const
 {
     Insertion result;
     QHash<QString, QString> newIds;   // old id -> new id
-
-    for (const QJsonValue &value : fragment["nodes"].toArray()) {
-        Node n = Node::fromJson(value.toObject());
+    for (Node n : nodes) {
         n.id = newIds[n.id] = Document::newId();
         n.rect.translate(offset);
         result.transaction.append(Change::added(n));
         result.nodeIds.append(n.id);
     }
-    for (const QJsonValue &value : fragment["edges"].toArray()) {
-        Connection c = Connection::fromJson(value.toObject());
-        if (!newIds.contains(c.fromNode) || !newIds.contains(c.toNode))
-            continue;
+    for (Connection c : connections) {
         c.id = Document::newId();
-        c.fromNode = newIds[c.fromNode];
-        c.toNode = newIds[c.toNode];
+        c.fromNode = newIds.value(c.fromNode);
+        c.toNode = newIds.value(c.toNode);
         for (QPointF &p : c.waypoints)
             p += offset;
         result.transaction.append(Change::added(c));
     }
     return result;
 }
-
-} // namespace Fragment

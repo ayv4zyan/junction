@@ -59,7 +59,7 @@ public:
 
     // Shows the items as they are without an undo step, for the drag in progress. Its final
     // state must then be pushed as a Transaction from where the drag began.
-    void showUncommitted(const QVector<Item> &items);
+    void showUncommitted(const QVector<CanvasItem> &items);
 
     void save();          // now
     void savePending();   // now, if a change is waiting to be saved

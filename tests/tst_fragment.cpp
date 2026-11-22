@@ -41,17 +41,21 @@ private slots:
     {
         Document doc;
         fill(doc);
-        const QJsonObject fragment = Fragment::copy(doc, {"a", "b"});
-        QCOMPARE(fragment["nodes"].toArray().size(), 2);
-        QCOMPARE(fragment["edges"].toArray().size(), 1);
-        QCOMPARE(Fragment::bounds(fragment), QRectF(0, 0, 300, 50));
+        const Fragment fragment = Fragment::copy(doc, {"a", "b"});
+        QCOMPARE(fragment.nodes.size(), 2);
+        QCOMPARE(fragment.connections.size(), 1);
+        QCOMPARE(fragment.bounds(), QRectF(0, 0, 300, 50));
+        // through the clipboard and back
+        const Fragment pasted = Fragment::fromJson(fragment.toJson());
+        QCOMPARE(pasted.nodes, fragment.nodes);
+        QCOMPARE(pasted.connections.size(), 1);
     }
 
     void insertionHasFreshIdsAndIsMoved()
     {
         Document doc;
         fill(doc);
-        const Fragment::Insertion insertion = Fragment::insertion(Fragment::copy(doc, {"a", "b"}), {10, 20});
+        const Fragment::Insertion insertion = Fragment::copy(doc, {"a", "b"}).insertion({10, 20});
         QCOMPARE(insertion.nodeIds.size(), 2);
         QCOMPARE(insertion.transaction.size(), 3);   // two nodes, one Connection
         doc.apply(insertion.transaction);
@@ -66,8 +70,10 @@ private slots:
 
     void textIsNotAFragment()
     {
-        QVERIFY(Fragment::bounds({}).isEmpty());
-        QVERIFY(Fragment::insertion({}, {}).transaction.isEmpty());
+        const Fragment notOne = Fragment::fromJson({});
+        QVERIFY(notOne.isEmpty());
+        QVERIFY(notOne.bounds().isEmpty());
+        QVERIFY(notOne.insertion({}).transaction.isEmpty());
     }
 };
 

@@ -15,7 +15,7 @@ constexpr QSizeF CardSize(240, 80);
 constexpr QSizeF GroupSize(480, 320);
 constexpr QSizeF MinimumSize(80, 40);
 
-Item translated(Item item, QPointF delta)
+CanvasItem translated(CanvasItem item, QPointF delta)
 {
     if (Node *n = std::get_if<Node>(&item)) {
         n->rect.translate(delta);
@@ -35,6 +35,9 @@ Connection newConnection(const QString &from, const QString &to, Side toSide)
     c.toSide = toSide;
     return c;
 }
+
+// For editedItems() on the Connections only: the nodes stay as they are.
+void keepNode(Node &) {}
 
 // The Change that applies `edit` to a copy of `item`.
 template <typename T, typename Edit>
@@ -314,12 +317,6 @@ Transaction Editor::editedItems(const QStringList &ids, EditNode editNode, EditC
     return t;
 }
 
-template <typename EditConnection>
-Transaction Editor::editedSelectedConnections(EditConnection editConnection) const
-{
-    return editedItems(m_selection, [](Node &) {}, editConnection);
-}
-
 void Editor::setColor(const QString &color)
 {
     commit(editedItems(m_selection, [&](Node &n) { n.color = color; }, [&](Connection &c) { c.color = color; }),
@@ -366,13 +363,13 @@ const Kind *Editor::activeDrag() const
 
 // Not on a Canvas that can't be edited: the drag would show changes that can't be kept. A drag
 // still in progress (its release never came) is put back first.
-bool Editor::beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &kind)
+bool Editor::beginDrag(const QVector<CanvasItem> &items, const decltype(Drag::kind) &kind)
 {
     cancelDrag();
     if (!m_canvas.isEditable())
         return false;
     Transaction changes;
-    for (const Item &item : items)
+    for (const CanvasItem &item : items)
         changes.append(Change::updated(item, item));
     m_drag = Drag{changes, kind};
     emit draggingChanged();
@@ -382,7 +379,7 @@ bool Editor::beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &k
 template <typename Moved>
 void Editor::showDrag(Moved moved)
 {
-    QVector<Item> items;
+    QVector<CanvasItem> items;
     for (Change &change : m_drag->changes) {
         change = Change::updated(*change.before(), moved(*change.before()));
         items.append(*change.after());
@@ -395,7 +392,7 @@ void Editor::cancelDrag()
 {
     if (!m_drag)
         return;
-    QVector<Item> originals;
+    QVector<CanvasItem> originals;
     for (const Change &change : std::as_const(m_drag->changes))
         originals.append(*change.before());
     m_canvas.showUncommitted(originals);
@@ -414,10 +411,10 @@ void Editor::endDrag(const QString &text)
 
 // Selected nodes move, and so does everything inside a selected Group, and the Waypoints of
 // Connections between two moving nodes.
-QVector<Item> Editor::itemsMovingWithSelection() const
+QVector<CanvasItem> Editor::itemsMovingWithSelection() const
 {
     const QSet<QString> moving = document().nodesWithContents(m_selection);
-    QVector<Item> items;
+    QVector<CanvasItem> items;
     for (const Node &n : document().nodes()) {
         if (moving.contains(n.id))
             items.append(n);
@@ -444,7 +441,7 @@ void Editor::nudge(QPointF steps)
 {
     const QPointF delta = steps * Geometry::GridSize;
     Transaction t;
-    for (const Item &item : itemsMovingWithSelection())
+    for (const CanvasItem &item : itemsMovingWithSelection())
         t.append(Change::updated(item, translated(item, delta)));
     commit(t, tr("Move"));
 }
@@ -455,7 +452,7 @@ void Editor::updateMove(QPointF delta, bool invertSnap)
     if (!move)
         return;
     const QPointF snappedDelta = snapped(move->anchor + delta, invertSnap) - move->anchor;
-    showDrag([&](const Item &item) { return translated(item, snappedDelta); });
+    showDrag([&](const CanvasItem &item) { return translated(item, snappedDelta); });
 }
 
 void Editor::endMove()
@@ -478,7 +475,7 @@ void Editor::updateResize(QPointF delta, bool invertSnap)
     if (!resize)
         return;
     auto place = [&](qreal side) { return snapped(side, invertSnap); };
-    showDrag([&](const Item &item) {
+    showDrag([&](const CanvasItem &item) {
         Node n = std::get<Node>(item);
         QRectF &r = n.rect;
         if (resize->edges & Qt::LeftEdge)
@@ -489,7 +486,7 @@ void Editor::updateResize(QPointF delta, bool invertSnap)
             r.setTop(std::min(place(r.top() + delta.y()), r.bottom() - MinimumSize.height()));
         if (resize->edges & Qt::BottomEdge)
             r.setBottom(std::max(place(r.bottom() + delta.y()), r.top() + MinimumSize.height()));
-        return Item(n);
+        return CanvasItem(n);
     });
 }
 
@@ -528,13 +525,13 @@ void Editor::showDraggedWaypointAt(QPointF point)
     const WaypointDrag *drag = activeDrag<WaypointDrag>();
     if (!drag)
         return;
-    showDrag([&](const Item &item) {
+    showDrag([&](const CanvasItem &item) {
         Connection c = std::get<Connection>(item);
         if (drag->inserted)
             c.waypoints.insert(drag->index, point);
         else
             c.waypoints[drag->index] = point;
-        return Item(c);
+        return CanvasItem(c);
     });
 }
 
@@ -589,13 +586,13 @@ void Editor::removeWaypoint(const QString &connectionId, int index)
 
 void Editor::setConnectionStyle(PathStyle style)
 {
-    commit(editedSelectedConnections([&](Connection &c) { c.style = style; }),
+    commit(editedItems(m_selection, keepNode, [&](Connection &c) { c.style = style; }),
            tr("Change path style"));
 }
 
 void Editor::setArrows(bool fromArrow, bool toArrow)
 {
-    commit(editedSelectedConnections([&](Connection &c) {
+    commit(editedItems(m_selection, keepNode, [&](Connection &c) {
                c.fromArrow = fromArrow;
                c.toArrow = toArrow;
            }),
@@ -616,16 +613,16 @@ void Editor::setLabels(const QStringList &ids, const QString &label)
 
 void Editor::removeConnectionLabels()
 {
-    commit(editedSelectedConnections([](Connection &c) { c.label.clear(); }), tr("Remove label"));
+    commit(editedItems(m_selection, keepNode, [](Connection &c) { c.label.clear(); }), tr("Remove label"));
 }
 
 // ---- Clipboard ----
 // The clipboard holds a Fragment: the selected nodes, the Cards inside selected Groups, and the
 // Connections between them.
 
-void Editor::insertFragment(const QJsonObject &fragment, QPointF offset)
+void Editor::insertFragment(const Fragment &fragment, QPointF offset)
 {
-    const Fragment::Insertion insertion = Fragment::insertion(fragment, offset);
+    const Fragment::Insertion insertion = fragment.insertion(offset);
     if (commit(insertion.transaction, tr("Paste")))
         setSelection(insertion.nodeIds);
 }
@@ -636,7 +633,9 @@ void Editor::insertFragment(const QJsonObject &fragment, QPointF offset)
 void Editor::cut()
 {
     const QSet<QString> ids = document().nodesWithContents(m_selection);
-    if (ids.isEmpty() && selectionSummary().connections == 0)
+    const bool connectionSelected = std::any_of(m_selection.begin(), m_selection.end(),
+                                                [&](const QString &id) { return document().connection(id); });
+    if (ids.isEmpty() && !connectionSelected)
         return;
     copy();
     commit(removal(ids, m_selection), tr("Cut"));
@@ -644,16 +643,16 @@ void Editor::cut()
 
 void Editor::copy()
 {
-    const QJsonObject fragment = Fragment::copy(document(), document().nodesWithContents(m_selection));
-    if (!fragment["nodes"].toArray().isEmpty())
-        m_clipboard->setText(QString::fromUtf8(QJsonDocument(fragment).toJson(QJsonDocument::Compact)));
+    const Fragment fragment = Fragment::copy(document(), document().nodesWithContents(m_selection));
+    if (!fragment.isEmpty())
+        m_clipboard->setText(QString::fromUtf8(QJsonDocument(fragment.toJson()).toJson(QJsonDocument::Compact)));
 }
 
 void Editor::paste(QPointF center)
 {
     const QString text = m_clipboard->text();
-    const QJsonObject fragment = QJsonDocument::fromJson(text.toUtf8()).object();
-    const QRectF bounds = Fragment::bounds(fragment);
+    const Fragment fragment = Fragment::fromJson(QJsonDocument::fromJson(text.toUtf8()).object());
+    const QRectF bounds = fragment.bounds();
     if (!bounds.isEmpty()) {
         const QPointF offset = center - bounds.center();
         insertFragment(fragment, snapped(offset));

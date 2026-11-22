@@ -90,9 +90,9 @@ void OpenCanvas::redo()
     m_saveTimer.start();
 }
 
-void OpenCanvas::showUncommitted(const QVector<Item> &items)
+void OpenCanvas::showUncommitted(const QVector<CanvasItem> &items)
 {
-    for (const Item &item : items)
+    for (const CanvasItem &item : items)
         m_document.put(item);
 }
 

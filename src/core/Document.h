@@ -13,28 +13,28 @@
 class Change
 {
 public:
-    static Change added(const Item &item) { return {std::nullopt, item}; }
-    static Change removed(const Item &item) { return {item, std::nullopt}; }
+    static Change added(const CanvasItem &item) { return {std::nullopt, item}; }
+    static Change removed(const CanvasItem &item) { return {item, std::nullopt}; }
     // Both states of the same item: the same id and the same type.
-    static Change updated(const Item &before, const Item &after)
+    static Change updated(const CanvasItem &before, const CanvasItem &after)
     {
         Q_ASSERT(itemId(before) == itemId(after) && before.index() == after.index());
         return {before, after};
     }
 
-    const std::optional<Item> &before() const { return m_before; }   // empty when added
-    const std::optional<Item> &after() const { return m_after; }     // empty when removed
+    const std::optional<CanvasItem> &before() const { return m_before; }   // empty when added
+    const std::optional<CanvasItem> &after() const { return m_after; }     // empty when removed
     bool changesNothing() const { return m_before == m_after; }
     Change inverted() const { return {m_after, m_before}; }
 
 private:
-    Change(std::optional<Item> before, std::optional<Item> after)
+    Change(std::optional<CanvasItem> before, std::optional<CanvasItem> after)
         : m_before(std::move(before)), m_after(std::move(after))
     {
     }
 
-    std::optional<Item> m_before;
-    std::optional<Item> m_after;
+    std::optional<CanvasItem> m_before;
+    std::optional<CanvasItem> m_after;
 };
 
 // A user action: all its Changes are done and undone together.
@@ -54,7 +54,7 @@ public:
     const QVector<Connection> &connections() const { return m_connections; }
     const Node *node(const QString &id) const;
     const Connection *connection(const QString &id) const;
-    std::optional<Item> item(const QString &id) const;
+    std::optional<CanvasItem> item(const QString &id) const;
 
     // The given nodes plus every node lying completely inside the Groups among them (nested
     // ones too). Other ids are left out. This is what moves, copies and exports with a selection.
@@ -66,7 +66,7 @@ public:
     void apply(const Transaction &transaction);
     // Inserts the item, or replaces the one with the same id. Without an undo step: for showing
     // a drag in progress (OpenCanvas::showUncommitted); everything else goes through apply().
-    void put(const Item &item);
+    void put(const CanvasItem &item);
 
     QJsonObject toJson() const;
     // Items without an id, or with one already taken, get a fresh id: everything finds items by id.
@@ -90,7 +90,7 @@ signals:
 private:
     void putNode(const Node &node);
     void putConnection(const Connection &connection);
-    void remove(const Item &item);
+    void remove(const CanvasItem &item);
 
     QVector<Node> m_nodes;
     QVector<Connection> m_connections;

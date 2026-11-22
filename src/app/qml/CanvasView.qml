@@ -66,7 +66,6 @@ Item {
         if (nodeId)
             editInPlace(nodeId)
     }
-    function stopEditingInPlace() { interaction.editingNodeId = "" }
     function endEditingInPlace(nodeId) {
         if (interaction.editingNodeId === nodeId)
             interaction.editingNodeId = ""
@@ -240,7 +239,7 @@ Item {
         target: canvasView.editor
         function onCanvasOpened() {
             canvasView.cancelConnection()
-            canvasView.stopEditingInPlace()
+            canvasView.endEditingInPlace(canvasView.editingNodeId)
             if (canvasView.editingLabelId) {   // the Connection belonged to the Canvas shown before
                 canvasView.endLabelEditing()
                 canvasView.forceActiveFocus()

@@ -75,14 +75,17 @@ starting it again brings the window forward.
 ## Code layout
 
 - `src/core` — no QML: the model (`CanvasItems`, `Document`), every edit as a `Change`
-  inside a `Transaction` (undo, and later network sync), `Geometry` (how Connections run, and
-  where the floating selection toolbar goes),
-  `CanvasPainter` for drawing and export, and the `Library` of Projects and Canvases on disk.
+  inside a `Transaction` (undo, and later network sync), the `OpenCanvas` (its file, undo
+  history and autosave), `Fragment` (copy and paste), `Geometry` (how Connections run, and
+  where the floating selection toolbar goes), and the `Library` of Projects and Canvases on disk.
+- `src/render` — `CanvasPainter`: drawing a Canvas with QPainter for the live layers and for
+  PNG/SVG export, with copies of the few design values it needs (`DesignValues.h`).
 - `src/design` — the design system (`JunctionDesign`): tokens, the Qt Quick Controls style, shared
   components and the Geist typeface, plus `junction-gallery`. Knows nothing about the app; see
   [its README](src/design/README.md) for the rules.
-- `src/app` — `Editor` (the object QML talks to), `NodeModel`, `LibraryModel` (the sidebar),
-  the painted grid/connection layers, and the QML screens, built from `src/design`.
+- `src/app` — `Editor` (what QML edits the open Canvas through), `NodeModel`, `LibraryModel` (the
+  sidebar's rows), the painted grid/connection layers, and the QML screens, built from `src/design`.
+  `main.cpp` creates the Library, its rows and the Editor and hands them to QML.
 - `tests` — Qt Test unit tests for the core and the Editor, the design check's rules, and that the
   C++ side's design values match the tokens. CI (`.github/workflows/ci.yml`) builds and tests every
   pull request; the build itself fails on QML that goes around the design system.

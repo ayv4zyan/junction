@@ -48,5 +48,5 @@ add_custom_target(junction_design_check_app ALL
 add_dependencies(junction junction_design_check_app)
 
 # The look comes from JunctionDesign (src/design): its tokens, controls style and components.
-target_link_libraries(junction PRIVATE junction_core junction_design junction_designplugin
+target_link_libraries(junction PRIVATE junction_core junction_render junction_design junction_designplugin
     Qt6::Network Qt6::Quick Qt6::QuickControls2)

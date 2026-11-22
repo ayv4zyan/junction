@@ -12,6 +12,7 @@ qt_standard_project_setup(REQUIRES 6.9)
 set(QT_QML_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml)
 
 add_subdirectory(src/core)
+add_subdirectory(src/render)
 add_subdirectory(src/design)
 add_subdirectory(src/app)
 

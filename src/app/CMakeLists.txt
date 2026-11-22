@@ -16,6 +16,7 @@ qt_add_qml_module(junction
         qml/ConnectionOverlay.qml
         qml/LabelEditor.qml
         qml/SelectionBar.qml
+        qml/PropertyPicker.qml
         qml/DragArea.qml
         qml/SelectMoveArea.qml
         qml/PointMarker.qml

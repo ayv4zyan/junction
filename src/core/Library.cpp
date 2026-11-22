@@ -502,21 +502,29 @@ void Library::importCanvases(const QList<QUrl> &files)
 // ("auth" -> "Auth") also works where the file system ignores case.
 bool Library::renamePath(const QString &from, const QString &to, const QString &failure)
 {
-    const auto fail = [&](const QString &more = {}) {
-        if (!failure.isEmpty())
-            emit errorOccurred(more.isEmpty() ? failure : failure + ' ' + more);
-        return false;
-    };
+    QString stranded;   // where the file ended up when it couldn't be put back
+    if (moveFile(from, to, &stranded))
+        return true;
+    if (!failure.isEmpty())
+        emit errorOccurred(stranded.isEmpty() ? failure
+                                              : failure + ' ' + tr("It could not be renamed back either, and is now called %1.").arg(stranded));
+    return false;
+}
+
+// The rename itself. A change of case only goes through a temporary name, since a file system
+// that ignores case sees "auth" and "Auth" as the same file.
+bool Library::moveFile(const QString &from, const QString &to, QString *stranded)
+{
     if (!sameName(from, to))
-        return !QFileInfo::exists(to) && QDir().rename(from, to) ? true : fail();
+        return !QFileInfo::exists(to) && QDir().rename(from, to);
     const QString temporary = from + QStringLiteral(".renaming");
     if (!QDir().rename(from, temporary))
-        return fail();
+        return false;
     if (QDir().rename(temporary, to))
         return true;
     if (!QDir().rename(temporary, from))
-        return fail(tr("It could not be renamed back either, and is now called %1.").arg(temporary));
-    return fail();
+        *stranded = temporary;
+    return false;
 }
 
 bool Library::renameProject(const QString &projectName, const QString &newName)

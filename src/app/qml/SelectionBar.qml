@@ -4,6 +4,7 @@ import QtQuick.Controls
 import Junction
 import JunctionDesign
 import "CanvasColors.js" as CanvasColors
+import "Placement.js" as Placement
 
 // The floating toolbar for the Selection: colors for anything, plus Path Style, arrowheads and
 // Label when a single Connection is selected. It sits just above the selection (below it near
@@ -30,8 +31,8 @@ RisingFloating {
     property point position
     Binding on position {
         when: bar.shown
-        value: bar.editor.floatingPosition(bar.target, Qt.size(bar.width, bar.height),
-                                           Qt.rect(0, 0, bar.canvasView.width, bar.canvasView.height), Space.sm)
+        value: Placement.floatingPosition(bar.target, Qt.size(bar.width, bar.height),
+                                          Qt.rect(0, 0, bar.canvasView.width, bar.canvasView.height), Space.sm)
         restoreMode: Binding.RestoreNone
     }
 

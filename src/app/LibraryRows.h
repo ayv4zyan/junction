@@ -56,7 +56,7 @@ private:
     };
 
     void rebuild();
-    void expandedChanged(const QString &project);
+    void showExpanded(const QString &project);   // adds or takes away its Canvas rows
     bool matches(const QString &name) const;
 
     Library *m_library;

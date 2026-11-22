@@ -34,3 +34,10 @@ set_tests_properties(tst_design_values PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=of
 add_test(NAME app_starts_cleanly
     COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:junction> -DWORK=${CMAKE_CURRENT_BINARY_DIR}/app_starts_cleanly
             -P ${CMAKE_CURRENT_SOURCE_DIR}/app_starts_cleanly.cmake)
+
+# The QML-side logic that has no C++ behind it (tests/qml, Qt Quick Test).
+qt_add_executable(tst_qml tst_qml.cpp)
+target_compile_definitions(tst_qml PRIVATE QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/qml")
+target_link_libraries(tst_qml PRIVATE Qt6::QuickTest Qt6::Qml)
+add_test(NAME tst_qml COMMAND tst_qml)
+set_tests_properties(tst_qml PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)

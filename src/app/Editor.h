@@ -143,11 +143,6 @@ public:
     Q_INVOKABLE void endWaypointDrag();
 
     // Connections
-    // Where the floating selection toolbar goes (see Geometry::floatingPosition), in view coordinates.
-    Q_INVOKABLE QPointF floatingPosition(const QRectF &selection, const QSizeF &size, const QRectF &view, qreal gap) const
-    {
-        return Geometry::floatingPosition(selection, size, view, gap);
-    }
     Q_INVOKABLE void connectNodes(const QString &from, const QString &to, CanvasEnums::Side toSide);
     Q_INVOKABLE QString connectToNewCard(const QString &from, QPointF center);
     Q_INVOKABLE void reattach(const QString &connectionId, bool fromEnd, const QString &nodeId, CanvasEnums::Side side);
@@ -176,7 +171,6 @@ signals:
     void snapToGridChanged();
     void canvasOpened();   // another Canvas is shown; the Document was replaced
     void draggingChanged();
-    void errorOccurred(const QString &message);
 
 private:
     // A drag in progress. While it lasts, the Document shows where the items are now without

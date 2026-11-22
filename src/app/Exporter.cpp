@@ -20,15 +20,15 @@ QUrl Exporter::exportCanvasFile(const QUrl &url)
     return QUrl::fromLocalFile(path);
 }
 
-QUrl Exporter::exportImage(const QUrl &url, const QVariantMap &palette, const QStringList &ids)
+QUrl Exporter::exportImage(const QUrl &url, const QVariantMap &colors, const QStringList &ids)
 {
-    const std::optional<Palette> colors = Palette::fromVariantMap(palette);
-    if (!colors) {
+    const std::optional<Palette> palette = Palette::fromVariantMap(colors);
+    if (!palette) {
         emit errorOccurred(tr("The colors to export with are incomplete."));
         return {};
     }
     QString error;
-    if (!CanvasPainter::exportImage(*m_document, m_document->nodesWithContents(ids), url.toLocalFile(), *colors, &error)) {
+    if (!CanvasPainter::exportImage(*m_document, m_document->nodesWithContents(ids), url.toLocalFile(), *palette, &error)) {
         emit errorOccurred(error);
         return {};
     }

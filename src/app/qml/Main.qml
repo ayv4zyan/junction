@@ -86,7 +86,7 @@ ApplicationWindow {
     function showError(message) { toast.show(message, { error: true }) }
 
     Component.onCompleted: {
-        for (const source of [editor, openCanvas, library, exporter])
+        for (const source of [openCanvas, library, exporter])
             source.errorOccurred.connect(showError)
         library.load()   // the Editor then opens what was open last time
     }

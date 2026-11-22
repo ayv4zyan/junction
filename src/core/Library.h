@@ -65,7 +65,7 @@ public:
     Q_INVOKABLE QString canvasNameProblem(const QString &project, const QString &name, const QString &except = {}) const;
 
     // Each returns the new item's name ("" on failure) and opens it.
-    // These two also say `created`, so the UI can have the new item named right away.
+    // These two also emit created(), so the UI can have the new item named right away.
     Q_INVOKABLE QString createProject();
     Q_INVOKABLE QString createCanvas(const QString &project);
     Q_INVOKABLE QString duplicateProject(const QString &project);
@@ -132,6 +132,7 @@ private:
     // Never replaces an existing file; a change of case only ("auth" -> "Auth") also works where
     // the file system ignores case. On failure it says `failure` ("" to say nothing).
     bool renamePath(const QString &from, const QString &to, const QString &failure);
+    static bool moveFile(const QString &from, const QString &to, QString *stranded);
     // Every change ends here: saves the index, emits projectsChanged(), then currentChanged() if
     // currentPath() is no longer the one last announced.
     void saveIndexAndNotify();

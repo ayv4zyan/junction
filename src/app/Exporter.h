@@ -21,8 +21,8 @@ public:
 
     Q_INVOKABLE QUrl exportCanvasFile(const QUrl &url);
     // Of the nodes among `ids` (with what is inside their Groups), or the whole Canvas when
-    // there are none; `palette` is Colors.forPainter.
-    Q_INVOKABLE QUrl exportImage(const QUrl &url, const QVariantMap &palette, const QStringList &ids);
+    // there are none; `colors` is Colors.forPainter.
+    Q_INVOKABLE QUrl exportImage(const QUrl &url, const QVariantMap &colors, const QStringList &ids);
 
 signals:
     void errorOccurred(const QString &message);

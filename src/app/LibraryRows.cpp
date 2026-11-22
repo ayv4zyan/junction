@@ -5,7 +5,7 @@ LibraryRows::LibraryRows(Library *library, QObject *parent)
 {
     connect(m_library, &Library::projectsChanged, this, &LibraryRows::rebuild);
     connect(m_library, &Library::created, this, [this] { setFilter({}); });   // so the new row can be seen
-    connect(m_library, &Library::expandedChanged, this, &LibraryRows::expandedChanged);
+    connect(m_library, &Library::expandedChanged, this, &LibraryRows::showExpanded);
     connect(m_library, &Library::currentChanged, this, [this] {
         if (!m_rows.isEmpty())
             emit dataChanged(index(0), index(m_rows.size() - 1), {CurrentRole});
@@ -40,7 +40,7 @@ void LibraryRows::rebuild()
 
 // Expanding or collapsing only inserts or removes that Project's rows, so the rest of the list
 // (and a row being clicked or double-clicked) stays as it is.
-void LibraryRows::expandedChanged(const QString &project)
+void LibraryRows::showExpanded(const QString &project)
 {
     if (!m_filter.isEmpty())
         return;   // while searching, every Project is shown expanded anyway

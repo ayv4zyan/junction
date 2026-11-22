@@ -76,8 +76,8 @@ starting it again brings the window forward.
 
 - `src/core` — no QML: the model (`CanvasItems`, `Document`), every edit as a `Change`
   inside a `Transaction` (undo, and later network sync), the `OpenCanvas` (its file, undo
-  history and autosave), `Fragment` (copy and paste), `Geometry` (how Connections run, and
-  where the floating selection toolbar goes), and the `Library` of Projects and Canvases on disk.
+  history and autosave), `Fragment` (copy and paste), `Geometry` (how Connections run, and the
+  grid), and the `Library` of Projects and Canvases on disk.
 - `src/render` — `CanvasPainter`: drawing a Canvas with QPainter for the live layers and for
   PNG/SVG export, with copies of the few design values it needs (`DesignValues.h`).
 - `src/design` — the design system (`JunctionDesign`): tokens, the Qt Quick Controls style, shared
@@ -87,6 +87,7 @@ starting it again brings the window forward.
   `Exporter` (writing it out as a file or an image), `NodeModel`, `LibraryRows` (the
   sidebar's rows), the painted grid/connection layers, and the QML screens, built from `src/design`.
   `main.cpp` creates these and hands them to QML.
-- `tests` — Qt Test unit tests for the core and the Editor, the design check's rules, and that the
+- `tests` — Qt Test unit tests for the core and the Editor, Qt Quick Tests for QML-only logic
+  (`tests/qml`), a start-up smoke test of the real app, the design check's rules, and that the
   C++ side's design values match the tokens. CI (`.github/workflows/ci.yml`) builds and tests every
   pull request; the build itself fails on QML that goes around the design system.

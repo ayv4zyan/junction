@@ -27,6 +27,7 @@ qt_add_qml_module(junction
         qml/SidebarRow.qml
         qml/SidebarDrag.qml
         qml/CanvasColors.js
+        qml/Placement.js
     RESOURCES
         icons/style-straight.svg icons/style-curved.svg icons/style-elbow.svg
         icons/arrows-none.svg icons/arrows-end.svg icons/arrows-start.svg icons/arrows-both.svg

@@ -35,7 +35,6 @@ Item {
     ListModel { id: waypoints }
 
     function sync(model, points) {
-        points = points ?? []
         while (model.count > points.length)
             model.remove(model.count - 1)
         for (let i = 0; i < points.length; ++i) {
@@ -151,7 +150,7 @@ Item {
             property bool dragging: false
             property point dragPoint
             canvasView: overlay.canvasView
-            center: dragging ? dragPoint : (fromEnd ? overlay.connection.start : overlay.connection.end) ?? Qt.point(0, 0)
+            center: dragging ? dragPoint : (fromEnd ? overlay.connection.start : overlay.connection.end)
 
             DragArea {
                 canvasView: overlay.canvasView

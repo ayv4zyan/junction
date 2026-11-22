@@ -44,11 +44,15 @@ Item {
         anchors.fill: parent
         anchors.leftMargin: row.sidebar.rowInset
         anchors.rightMargin: row.sidebar.rowInset
-        color: !row.isProject && row.current ? Colors.current
-             // a collapsed Project holding the open Canvas
-             : row.isProject && row.current && !row.expanded ? Qt.alpha(Colors.selection, 0.10)
-             : (row.hovered && !row.sidebar.rowDrag.active) || row.sidebar.menuRow === row.index ? Colors.hover
-             : "transparent"
+        color: {
+            if (row.current && !row.isProject)
+                return Colors.current
+            if (row.current && !row.expanded)   // a collapsed Project holding the open Canvas
+                return Qt.alpha(Colors.selection, 0.10)
+            if ((row.hovered && !row.sidebar.rowDrag.active) || row.sidebar.menuRow === row.index)
+                return Colors.hover
+            return "transparent"
+        }
         Behavior on color { ColorAnimation { duration: Motion.fast } }
         // a collapsed Project a Canvas is being dropped into
         border.width: row.sidebar.rowDrag.drop && row.sidebar.rowDrag.drop.intoRow === row.index ? 1.5 : 0

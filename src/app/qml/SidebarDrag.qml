@@ -67,18 +67,20 @@ Item {
     // A Canvas lands before or after the Canvas row under the pointer, whichever half it is in;
     // on a Project row, at the top of an open Project or the end of a collapsed one.
     function canvasDrop(row, rowIndex, rowItem, y) {
-        const after = y >= rowItem.y + rowItem.height / 2
-        const index = row.kind === "canvas" ? row.canvasIndex + (after ? 1 : 0)
-                    : row.expanded ? 0 : row.canvasCount
-        const lineY = row.kind === "canvas" ? rowItem.y + (after ? rowItem.height : 0)
-                    : row.expanded ? rowItem.y + rowItem.height : -1
         const dragged = draggedRow
-        return {
+        const drop = (index, lineY, intoRow) => ({
             lineY: lineY,
-            intoRow: lineY < 0 ? rowIndex : -1,
+            intoRow: intoRow,
             noOp: row.project === dragged.project && (index === dragged.canvasIndex || index === dragged.canvasIndex + 1),
             move: () => library.moveCanvas(dragged.project, dragged.name, row.project, index)
+        })
+        if (row.kind === "canvas") {
+            const after = y >= rowItem.y + rowItem.height / 2
+            return drop(row.canvasIndex + (after ? 1 : 0), rowItem.y + (after ? rowItem.height : 0), -1)
         }
+        if (row.expanded)
+            return drop(0, rowItem.y + rowItem.height, -1)
+        return drop(row.canvasCount, -1, rowIndex)
     }
 
     // A Project lands before or after the whole Project under the pointer, whichever half it is in.

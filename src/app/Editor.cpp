@@ -164,7 +164,7 @@ ConnectionDetails Editor::selectedConnection() const
     return {
         .valid = true,
         .id = c->id,
-        .style = pathStyleToString(c->style),
+        .style = c->style,
         .fromArrow = c->fromArrow,
         .toArrow = c->toArrow,
         .label = c->label,
@@ -447,15 +447,13 @@ void Editor::endMove()
     endDrag(tr("Move"));
 }
 
-// `horizontal` and `vertical` say which sides follow the mouse: -1 = left/top, 1 = right/bottom,
-// 0 = neither. Dragging a corner moves two sides.
-void Editor::beginResize(const QString &id, int horizontal, int vertical)
+void Editor::beginResize(const QString &id, Qt::Edges edges)
 {
     const Node *n = document().node(id);
     if (!n)
         return;
     setSelection({id});
-    beginDrag({*n}, ResizeDrag{horizontal, vertical});
+    beginDrag({*n}, ResizeDrag{edges});
 }
 
 void Editor::updateResize(QPointF delta, bool invertSnap)
@@ -468,13 +466,13 @@ void Editor::updateResize(QPointF delta, bool invertSnap)
     showDrag([&](const Item &item) {
         Node n = std::get<Node>(item);
         QRectF &r = n.rect;
-        if (resize->horizontal < 0)
+        if (resize->edges & Qt::LeftEdge)
             r.setLeft(std::min(place(r.left() + delta.x()), r.right() - MinimumSize.width()));
-        else if (resize->horizontal > 0)
+        if (resize->edges & Qt::RightEdge)
             r.setRight(std::max(place(r.right() + delta.x()), r.left() + MinimumSize.width()));
-        if (resize->vertical < 0)
+        if (resize->edges & Qt::TopEdge)
             r.setTop(std::min(place(r.top() + delta.y()), r.bottom() - MinimumSize.height()));
-        else if (resize->vertical > 0)
+        if (resize->edges & Qt::BottomEdge)
             r.setBottom(std::max(place(r.bottom() + delta.y()), r.top() + MinimumSize.height()));
         return Item(n);
     });
@@ -542,10 +540,10 @@ QString Editor::cardAt(QPointF point, qreal margin) const
     return {};
 }
 
-QString Editor::handleAt(const QString &nodeId, QPointF point, qreal radius) const
+Side Editor::handleAt(const QString &nodeId, QPointF point, qreal radius) const
 {
     const Node *n = document().node(nodeId);
-    return n ? sideToString(Geometry::handleAt(n->rect, point, radius)) : QString();
+    return n ? Geometry::handleAt(n->rect, point, radius) : Side::None;
 }
 
 QString Editor::connectionAt(QPointF point, qreal tolerance) const
@@ -561,9 +559,9 @@ QString Editor::connectionAt(QPointF point, qreal tolerance) const
 }
 
 void Editor::setConnectionPreview(const QString &fromNode, QPointF pointer, const QString &targetNode,
-                                  const QString &targetSide)
+                                  Side targetSide)
 {
-    m_preview = ConnectionPreview{fromNode, pointer, targetNode, sideFromString(targetSide)};
+    m_preview = ConnectionPreview{fromNode, pointer, targetNode, targetSide};
     emit previewChanged();
 }
 
@@ -573,7 +571,7 @@ void Editor::clearConnectionPreview()
     emit previewChanged();
 }
 
-void Editor::connectNodes(const QString &from, const QString &to, const QString &toSide)
+void Editor::connectNodes(const QString &from, const QString &to, Side toSide)
 {
     if (from == to || !document().node(from) || !document().node(to))
         return;
@@ -581,7 +579,7 @@ void Editor::connectNodes(const QString &from, const QString &to, const QString 
     c.id = Document::newId();
     c.fromNode = from;
     c.toNode = to;
-    c.toSide = sideFromString(toSide);
+    c.toSide = toSide;
     commit({{std::nullopt, c}}, tr("Connect"));
     setSelection({c.id});
 }
@@ -600,7 +598,7 @@ QString Editor::connectToNewCard(const QString &from, QPointF center)
     return card.id;
 }
 
-void Editor::reattach(const QString &connectionId, bool fromEnd, const QString &nodeId, const QString &side)
+void Editor::reattach(const QString &connectionId, bool fromEnd, const QString &nodeId, Side side)
 {
     const Connection *existing = document().connection(connectionId);
     if (!existing || !document().node(nodeId))
@@ -608,10 +606,10 @@ void Editor::reattach(const QString &connectionId, bool fromEnd, const QString &
     Connection c = *existing;
     if (fromEnd) {
         c.fromNode = nodeId;
-        c.fromSide = sideFromString(side);
+        c.fromSide = side;
     } else {
         c.toNode = nodeId;
-        c.toSide = sideFromString(side);
+        c.toSide = side;
     }
     if (c.fromNode != c.toNode && c != *existing)
         commit({{*existing, c}}, tr("Reattach connection"));
@@ -625,9 +623,9 @@ void Editor::removeWaypoint(const QString &connectionId, int index)
     commit({edited(*existing, [&](Connection &c) { c.waypoints.removeAt(index); })}, tr("Remove waypoint"));
 }
 
-void Editor::setConnectionStyle(const QString &style)
+void Editor::setConnectionStyle(PathStyle style)
 {
-    commit(editedSelectedConnections([&](Connection &c) { c.style = pathStyleFromString(style, c.style); }),
+    commit(editedSelectedConnections([&](Connection &c) { c.style = style; }),
            tr("Change path style"));
 }
 

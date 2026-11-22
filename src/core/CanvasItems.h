@@ -3,14 +3,24 @@
 // The things that live on a Canvas (see GLOSSARY.md), and their JSON Canvas form.
 
 #include <QJsonObject>
+#include <QObject>
 #include <QPointF>
 #include <QRectF>
 #include <QString>
 #include <QVector>
 #include <variant>
 
+// In a namespace of their own only so that QML can use them too (registered by the app).
+namespace CanvasEnums {
+Q_NAMESPACE
 enum class Side { None, Top, Right, Bottom, Left };   // None = Floating End
+Q_ENUM_NS(Side)
 enum class PathStyle { Straight, Curved, Elbow };
+Q_ENUM_NS(PathStyle)
+} // namespace CanvasEnums
+using CanvasEnums::Side;
+using CanvasEnums::PathStyle;
+
 enum class NodeKind { Text, Group, Unsupported };
 
 QString sideToString(Side side);

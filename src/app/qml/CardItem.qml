@@ -183,7 +183,7 @@ Item {
             MouseArea {
                 id: handleMouse
                 anchors.fill: parent
-                anchors.margins: card ? -4 / card.canvas.zoom : 0   // card is null while being destroyed
+                anchors.margins: card ? -card.canvas.dotMargin : 0   // card is null while being destroyed
                 hoverEnabled: true
                 cursorShape: Qt.CrossCursor
                 onContainsMouseChanged: card.hoveredHandles += containsMouse ? 1 : -1

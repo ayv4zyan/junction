@@ -132,6 +132,7 @@ private:
     ProjectEntry *project(const QString &name);
     QStringList canvasNames(const QString &project) const;
     QJsonObject readIndex();
+    void openRemembered(const QString &project, const QString &canvas);
     QStringList canvasFiles(const QString &project) const;   // names of the .canvas files in its folder
     void setCurrent(const QString &project, const QString &canvas);
     bool createEmptyCanvasFile(const QString &path);

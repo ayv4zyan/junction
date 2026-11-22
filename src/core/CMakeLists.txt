@@ -12,3 +12,7 @@ add_library(junction_core STATIC
 
 target_include_directories(junction_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(junction_core PUBLIC Qt6::Core Qt6::Gui)
+
+# For QML_FOREIGN registrations in the app (Library, Viewport, CanvasEnums), which need the
+# core types' meta-object data.
+qt_extract_metatypes(junction_core)

@@ -15,7 +15,19 @@ Item {
     readonly property var connection: editor.selectedConnection   // see Editor::selectedConnection()
     readonly property bool active: connection.valid
     readonly property rect labelBox: connection.labelRect   // empty without a label
-    property bool draggingWaypoint: false
+
+    // Dragging a Waypoint (`inserted`: a new one at midpoint `index`); one undo step.
+    component WaypointDragArea: DragArea {
+        id: waypointDrag
+        required property Editor editor
+        required property string connectionId
+        required property int index
+        required property bool inserted
+        cursorShape: Qt.SizeAllCursor
+        onDragStarted: editor.beginWaypointDrag(connectionId, index, inserted)
+        onDragged: (delta, invertSnap) => waypointDrag.editor.updateWaypointDrag(delta, invertSnap)
+        onDragFinished: editor.endWaypointDrag()
+    }
 
     // The dots come from ListModels that are updated in place. Rebuilding a Repeater's model
     // would destroy the dot under the mouse in the middle of a drag.
@@ -77,21 +89,21 @@ Item {
             center: Qt.point(px, py)
             filled: false
             screenRadius: 5
-            opacity: overlay.draggingWaypoint || covered ? 0 : 1   // the label's own dot still takes the mouse
+            opacity: overlay.editor.dragging || covered ? 0 : 1   // the label's own dot still takes the mouse
 
-            DragArea {
-                readonly property real margin: 4 / overlay.canvas.zoom
+            WaypointDragArea {
+                readonly property real margin: overlay.canvas.dotMargin
                 canvas: overlay.canvas
+                editor: overlay.editor
+                connectionId: overlay.connection.id
+                index: midpoint.index
+                inserted: true   // dragging it adds a Waypoint
                 visible: !midpoint.covered || midpoint.isLabel
                 // the dot plus a margin, or the whole label (in the dot's coordinates)
                 x: midpoint.isLabel ? overlay.labelBox.x - midpoint.x : -margin
                 y: midpoint.isLabel ? overlay.labelBox.y - midpoint.y : -margin
                 width: midpoint.isLabel ? overlay.labelBox.width : midpoint.width + 2 * margin
                 height: midpoint.isLabel ? overlay.labelBox.height : midpoint.height + 2 * margin
-                cursorShape: Qt.SizeAllCursor   // dragging it adds a Waypoint
-                onDragStarted: { overlay.draggingWaypoint = true; overlay.editor.beginWaypointDrag(overlay.connection.id, midpoint.index, true) }
-                onDragged: (delta, invertSnap) => overlay.editor.updateWaypointDrag(delta, invertSnap)
-                onDragFinished: { overlay.editor.endWaypointDrag(); overlay.draggingWaypoint = false }
                 // the middle dot sits on the label, so double-clicking it edits the label
                 onDoubleClicked: overlay.canvas.editLabel(overlay.connection.id)
                 onMenuRequested: overlay.canvas.openMenuFor(overlay.connection.id)
@@ -109,14 +121,14 @@ Item {
             canvas: overlay.canvas
             center: Qt.point(px, py)
 
-            DragArea {
+            WaypointDragArea {
                 canvas: overlay.canvas
+                editor: overlay.editor
+                connectionId: overlay.connection.id
+                index: waypoint.index
+                inserted: false
                 anchors.fill: parent
-                anchors.margins: -4 / overlay.canvas.zoom
-                cursorShape: Qt.SizeAllCursor
-                onDragStarted: { overlay.draggingWaypoint = true; overlay.editor.beginWaypointDrag(overlay.connection.id, waypoint.index, false) }
-                onDragged: (delta, invertSnap) => overlay.editor.updateWaypointDrag(delta, invertSnap)
-                onDragFinished: { overlay.editor.endWaypointDrag(); overlay.draggingWaypoint = false }
+                anchors.margins: -overlay.canvas.dotMargin
                 onDoubleClicked: overlay.editor.removeWaypoint(overlay.connection.id, waypoint.index)
                 onMenuRequested: overlay.canvas.openMenuFor(overlay.connection.id, waypoint.index)
             }
@@ -137,7 +149,7 @@ Item {
             DragArea {
                 canvas: overlay.canvas
                 anchors.fill: parent
-                anchors.margins: -4 / overlay.canvas.zoom
+                anchors.margins: -overlay.canvas.dotMargin
                 cursorShape: Qt.CrossCursor   // re-attaching an end, like connecting from a Handle
                 property point origin
                 onDragStarted: { origin = end.center; end.dragPoint = origin; end.dragging = true }

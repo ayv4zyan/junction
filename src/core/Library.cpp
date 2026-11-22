@@ -133,13 +133,8 @@ void Library::load()
         return;
     }
 
-    // The Canvas open last time; if it is gone, the first of its Project, or else the very first.
     const QJsonObject current = index["current"].toObject();
-    const QString lastProject = current["project"].toString();
-    const ProjectEntry &project = projectIndex(lastProject) >= 0 ? *this->project(lastProject) : m_projects.first();
-    const QString lastCanvas = current["canvas"].toString();
-    setCurrent(project.name, canvasIndex(project.name, lastCanvas) >= 0 && project.name == lastProject
-                                 ? lastCanvas : project.canvases.first().name);
+    openRemembered(current["project"].toString(), current["canvas"].toString());
     saveAndAnnounce();
     emit loaded();
 }
@@ -164,6 +159,17 @@ QJsonObject Library::readIndex()
     const QString reset = tr("The library index couldn't be read, so the order of projects and canvases was reset.");
     emit errorOccurred(kept ? reset + ' ' + tr("The old index was kept as %1.").arg(broken) : reset);
     return {};
+}
+
+// The Canvas open last time; if it is gone, the first of its Project, or else the very first.
+void Library::openRemembered(const QString &project, const QString &canvas)
+{
+    if (canvasIndex(project, canvas) >= 0)
+        setCurrent(project, canvas);
+    else if (projectIndex(project) >= 0)
+        setCurrent(project, lastCanvas(project));
+    else
+        setCurrent(m_projects.first().name, m_projects.first().canvases.first().name);
 }
 
 QStringList Library::canvasFiles(const QString &project) const

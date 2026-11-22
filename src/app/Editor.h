@@ -23,6 +23,13 @@
 #include <optional>
 #include <variant>
 
+// The core's Side and PathStyle, for QML: CanvasEnums.Side.Top, CanvasEnums.PathStyle.Curved, ...
+namespace CanvasEnumsForeign {
+Q_NAMESPACE
+QML_FOREIGN_NAMESPACE(CanvasEnums)
+QML_NAMED_ELEMENT(CanvasEnums)
+} // namespace CanvasEnumsForeign
+
 // What the right-click menus need to know about the selection.
 struct SelectionSummary
 {
@@ -53,7 +60,7 @@ struct ConnectionDetails
     QML_VALUE_TYPE(connectionDetails)
     Q_PROPERTY(bool valid MEMBER valid)
     Q_PROPERTY(QString id MEMBER id)
-    Q_PROPERTY(QString style MEMBER style)
+    Q_PROPERTY(CanvasEnums::PathStyle style MEMBER style)
     Q_PROPERTY(bool fromArrow MEMBER fromArrow)
     Q_PROPERTY(bool toArrow MEMBER toArrow)
     Q_PROPERTY(QString label MEMBER label)
@@ -67,7 +74,7 @@ struct ConnectionDetails
 public:
     bool valid = false;           // false unless exactly one Connection (with both ends) is selected
     QString id;
-    QString style;                // "straight", "curved" or "elbow"
+    PathStyle style = PathStyle::Elbow;
     bool fromArrow = false;
     bool toArrow = false;
     QString label;
@@ -153,7 +160,7 @@ public:
     Q_INVOKABLE void beginMove(const QString &id);
     Q_INVOKABLE void updateMove(QPointF delta, bool invertSnap);
     Q_INVOKABLE void endMove();
-    Q_INVOKABLE void beginResize(const QString &id, int horizontal, int vertical);
+    Q_INVOKABLE void beginResize(const QString &id, Qt::Edges edges);   // the sides that follow the mouse
     Q_INVOKABLE void updateResize(QPointF delta, bool invertSnap);
     Q_INVOKABLE void endResize();
     Q_INVOKABLE void beginWaypointDrag(const QString &connectionId, int index, bool insert);
@@ -162,7 +169,7 @@ public:
 
     // Connections
     Q_INVOKABLE QString cardAt(QPointF point, qreal margin = 0) const;
-    Q_INVOKABLE QString handleAt(const QString &nodeId, QPointF point, qreal radius) const;
+    Q_INVOKABLE CanvasEnums::Side handleAt(const QString &nodeId, QPointF point, qreal radius) const;   // or None
     Q_INVOKABLE QString connectionAt(QPointF point, qreal tolerance) const;
     // Where the floating selection toolbar goes (see Geometry::floatingPosition), in view coordinates.
     Q_INVOKABLE QPointF floatingPosition(const QRectF &selection, const QSizeF &size, const QRectF &view, qreal gap) const
@@ -170,13 +177,13 @@ public:
         return Geometry::floatingPosition(selection, size, view, gap);
     }
     Q_INVOKABLE void setConnectionPreview(const QString &fromNode, QPointF pointer, const QString &targetNode,
-                                          const QString &targetSide);
+                                          CanvasEnums::Side targetSide);
     Q_INVOKABLE void clearConnectionPreview();
-    Q_INVOKABLE void connectNodes(const QString &from, const QString &to, const QString &toSide);
+    Q_INVOKABLE void connectNodes(const QString &from, const QString &to, CanvasEnums::Side toSide);
     Q_INVOKABLE QString connectToNewCard(const QString &from, QPointF center);
-    Q_INVOKABLE void reattach(const QString &connectionId, bool fromEnd, const QString &nodeId, const QString &side);
+    Q_INVOKABLE void reattach(const QString &connectionId, bool fromEnd, const QString &nodeId, CanvasEnums::Side side);
     Q_INVOKABLE void removeWaypoint(const QString &connectionId, int index);
-    Q_INVOKABLE void setConnectionStyle(const QString &style);
+    Q_INVOKABLE void setConnectionStyle(CanvasEnums::PathStyle style);
     Q_INVOKABLE void setArrows(bool fromArrow, bool toArrow);
     Q_INVOKABLE void setLabel(const QString &id, const QString &label);   // of a Group or a Connection
     Q_INVOKABLE void setLabels(const QString &label);   // of every selected Group and Connection
@@ -217,8 +224,7 @@ private:
     };
     struct ResizeDrag
     {
-        int horizontal;   // which sides follow the mouse, see beginResize()
-        int vertical;
+        Qt::Edges edges;   // the sides that follow the mouse; two at a corner
     };
     struct WaypointDrag
     {

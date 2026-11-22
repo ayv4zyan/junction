@@ -231,7 +231,7 @@ private slots:
     {
         const QString a = m_editor->createCard({0, 0});
         const QRectF before = m_editor->document().node(a)->rect;
-        m_editor->beginResize(a, 1, 0);   // the right side
+        m_editor->beginResize(a, Qt::RightEdge);
         m_editor->updateResize({-1000, 0}, false);
         m_editor->endResize();
         const QRectF after = m_editor->document().node(a)->rect;

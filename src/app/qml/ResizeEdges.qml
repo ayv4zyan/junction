@@ -13,14 +13,17 @@ Item {
 
     anchors.fill: parent
 
-    // Each strip is [horizontal, vertical]: -1 = left/top side, 1 = right/bottom side,
-    // 0 = that direction doesn't change. Four corners and four sides.
+    // The sides each strip moves: four corners and four sides.
     Repeater {
-        model: [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]]
+        model: [Qt.LeftEdge | Qt.TopEdge, Qt.TopEdge, Qt.RightEdge | Qt.TopEdge, Qt.RightEdge,
+                Qt.RightEdge | Qt.BottomEdge, Qt.BottomEdge, Qt.LeftEdge | Qt.BottomEdge, Qt.LeftEdge]
         delegate: DragArea {
-            required property var modelData
-            readonly property int horizontal: modelData[0]
-            readonly property int vertical: modelData[1]
+            id: strip
+            required property int modelData
+            readonly property int sides: modelData
+            // -1 = the left (top) side moves, 1 = the right (bottom) one, 0 = neither
+            readonly property int horizontal: sides & Qt.LeftEdge ? -1 : sides & Qt.RightEdge ? 1 : 0
+            readonly property int vertical: sides & Qt.TopEdge ? -1 : sides & Qt.BottomEdge ? 1 : 0
             readonly property real t: edges.thickness
 
             canvas: edges.canvas
@@ -35,7 +38,7 @@ Item {
 
             onContainsMouseChanged: edges.hoveredCount += containsMouse ? 1 : -1
             onTapped: (modifiers) => edges.canvas.editor.select(edges.nodeId, edges.canvas.isToggle(modifiers))
-            onDragStarted: edges.canvas.editor.beginResize(edges.nodeId, horizontal, vertical)
+            onDragStarted: edges.canvas.editor.beginResize(edges.nodeId, strip.sides)
             onDragged: (delta, invertSnap) => edges.canvas.editor.updateResize(delta, invertSnap)
             onDragFinished: edges.canvas.editor.endResize()
             onMenuRequested: edges.canvas.openMenuFor(edges.nodeId)

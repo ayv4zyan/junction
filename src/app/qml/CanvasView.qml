@@ -29,6 +29,7 @@ Item {
     readonly property alias dropTarget: interaction.dropTarget     // Card a dragged Connection end would attach to
     readonly property alias spaceHeld: interaction.spaceHeld       // Space+drag pans
     readonly property real handleRadius: 14 / zoom   // how close to a Handle counts as "on" it
+    readonly property real dotMargin: 4 / zoom       // how far around a Dot still grabs it
     // The pointer is directly moving something: panning, a selection rectangle, a new Connection.
     readonly property bool manipulating: background.mode === "pan" || rubberBand.visible || connectFrom !== ""
 
@@ -48,8 +49,7 @@ Item {
         property string connectFrom: ""
         property string dropTarget: ""
         property bool spaceHeld: false
-        property bool connectCancelled: false   // Esc while dragging out a new Connection
-        property point connectPress             // where that drag began, in screen coordinates
+        property point connectPress   // where the new Connection's drag began, in screen coordinates
     }
 
     // ---- Editing text (called by CardItem, GroupItem and the menus) ----
@@ -143,7 +143,6 @@ Item {
         forceActiveFocus()
         interaction.connectFrom = nodeId
         interaction.connectPress = screenPoint
-        interaction.connectCancelled = false
     }
 
     // The card a dragged Connection would attach to. A point just outside a card's border
@@ -153,22 +152,21 @@ Item {
         return target === connectFrom ? "" : target
     }
 
+    // After Esc (cancelConnection) the rest of the drag does nothing: connectFrom is "".
     function moveConnection(screenPoint) {
-        if (interaction.connectCancelled)
+        if (!connectFrom)
             return
         const world = toWorld(screenPoint)
         interaction.dropTarget = connectionTarget(world)
         editor.setConnectionPreview(connectFrom, world, dropTarget,
-                                    dropTarget ? editor.handleAt(dropTarget, world, handleRadius) : "")
+                                    dropTarget ? editor.handleAt(dropTarget, world, handleRadius) : CanvasEnums.Side.None)
     }
 
     function finishConnection(screenPoint) {
         const from = connectFrom
-        editor.clearConnectionPreview()
-        interaction.connectFrom = ""
-        interaction.dropTarget = ""
+        cancelConnection()
         const moved = Math.hypot(screenPoint.x - interaction.connectPress.x, screenPoint.y - interaction.connectPress.y)
-        if (interaction.connectCancelled || moved < 10)
+        if (!from || moved < 10)
             return
 
         const world = toWorld(screenPoint)
@@ -183,7 +181,6 @@ Item {
 
     function cancelConnection() {
         interaction.connectFrom = ""
-        interaction.connectCancelled = true
         interaction.dropTarget = ""
         editor.clearConnectionPreview()
     }

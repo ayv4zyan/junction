@@ -88,13 +88,15 @@ Floating {
 
         // Path style: one icon button per style; the current one is highlighted.
         Repeater {
-            model: [["straight", qsTr("Straight")], ["curved", qsTr("Curved")], ["elbow", qsTr("Elbow")]]
+            model: [[CanvasEnums.PathStyle.Straight, "style-straight", qsTr("Straight")],
+                    [CanvasEnums.PathStyle.Curved, "style-curved", qsTr("Curved")],
+                    [CanvasEnums.PathStyle.Elbow, "style-elbow", qsTr("Elbow")]]
             delegate: IconButton {
                 anchors.verticalCenter: parent?.verticalCenter
                 required property var modelData
                 visible: bar.isConnection
-                iconName: "style-" + modelData[0]
-                tip: modelData[1]
+                iconName: modelData[1]
+                tip: modelData[2]
                 checked: bar.connection.style === modelData[0]
                 onClicked: bar.editor.setConnectionStyle(modelData[0])
             }

@@ -29,18 +29,35 @@ Side sideFromString(const QString &text);
 QString pathStyleToString(PathStyle style);
 PathStyle pathStyleFromString(const QString &text, PathStyle fallback);
 
+// What a node holds depends on its kind.
+struct TextContent         // a Card
+{
+    QString text;          // Markdown
+    bool operator==(const TextContent &) const = default;
+};
+struct GroupContent        // a Group
+{
+    QString label;         // its title
+    bool operator==(const GroupContent &) const = default;
+};
+struct UnsupportedContent  // an Unsupported Card
+{
+    QJsonObject raw;       // the JSON it was loaded from, written back as-is
+    bool operator==(const UnsupportedContent &) const = default;
+};
+
 // A Card, a Group or an Unsupported Card. JSON Canvas calls all of these "nodes".
 struct Node
 {
     QString id;
-    NodeKind kind = NodeKind::Text;
     QRectF rect;
-    QString color;     // "" (default), "1".."6" (preset) or "#rrggbb"
-    QString text;      // Card: Markdown
-    QString label;     // Group: title
-    QJsonObject raw;   // Unsupported Card: the JSON it was loaded from, written back as-is
+    QString color;   // "" (default), "1".."6" (preset) or "#rrggbb"
+    std::variant<TextContent, GroupContent, UnsupportedContent> content;
 
-    bool isCard() const { return kind != NodeKind::Group; }
+    NodeKind kind() const;
+    bool isCard() const { return kind() != NodeKind::Group; }
+    QString text() const;    // a Card's Markdown; "" for the other kinds
+    QString label() const;   // a Group's title; "" for the other kinds
     // A Card's text as Markdown with every newline a line break, as Obsidian shows it.
     QString markdown() const;
     // What an Unsupported Card shows in place of its content.

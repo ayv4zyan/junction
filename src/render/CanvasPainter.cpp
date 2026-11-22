@@ -116,7 +116,7 @@ QColor colorUnder(QPointF point, const QVector<Node> &nodes, const Palette &pale
 {
     QColor color = palette.background;
     for (const Node &n : nodes) {
-        if (n.kind != NodeKind::Group || !n.rect.contains(point))
+        if (n.kind() != NodeKind::Group || !n.rect.contains(point))
             continue;
         // Each Group is painted over what is below it at GroupTint opacity.
         const QColor tint = palette.resolve(n.color, palette.cardBorder);
@@ -166,7 +166,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
     const QColor accent = palette.resolve(node.color, palette.cardBorder);
     painter.setPen(QPen(accent, 1.5));
 
-    if (node.kind == NodeKind::Group) {
+    if (node.kind() == NodeKind::Group) {
         QColor fill = accent;
         fill.setAlphaF(GroupTint);
         painter.setBrush(fill);
@@ -174,7 +174,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
 
         // The label on its bar above the Group, as GroupItem shows it.
         const QFont labelFont = font(CardFontSize, QFont::Bold);
-        const QString label = node.label.isEmpty() ? QCoreApplication::translate("GroupItem", "Group") : node.label;
+        const QString label = node.label().isEmpty() ? QCoreApplication::translate("GroupItem", "Group") : node.label();
         const qreal width = QFontMetricsF(labelFont).horizontalAdvance(label) + 2 * CardPadding;
         const QRectF bar(node.rect.left(), node.rect.top() - GroupLabelSpace, width, GroupLabelHeight);
         QColor barFill = accent;
@@ -198,7 +198,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
     }
 
     const QRectF content = node.rect.adjusted(CardPadding, CardPadding, -CardPadding, -CardPadding);
-    if (node.kind == NodeKind::Text) {
+    if (node.kind() == NodeKind::Text) {
         drawMarkdown(painter, node.markdown(), content, palette.text);
     } else {
         painter.setPen(palette.mutedText);
@@ -217,7 +217,7 @@ bool exportCanvas(const Document &document, const QSet<QString> &onlyIds, const 
     for (const Node &n : document.nodes()) {
         if (!included(n.id))
             continue;
-        (n.kind == NodeKind::Group ? groups : cards).append(n);
+        (n.kind() == NodeKind::Group ? groups : cards).append(n);
         bounds = bounds.united(n.rect);
     }
     if (bounds.isEmpty()) {

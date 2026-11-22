@@ -16,7 +16,7 @@ class TestDocument : public QObject
         Node n;
         n.id = id;
         n.rect = rect;
-        n.text = text;
+        n.content = TextContent{text};
         return n;
     }
 
@@ -73,8 +73,7 @@ private slots:
         Document doc;
         Node group;
         group.id = "g";
-        group.kind = NodeKind::Group;
-        group.label = "Backend";
+        group.content = GroupContent{"Backend"};
         group.rect = {-20, -20, 400, 200};
         group.color = "4";
         Connection c;
@@ -102,7 +101,7 @@ private slots:
                                {"subpath", "#Goals"}, {"x", 10}, {"y", 20}, {"width", 300}, {"height", 200}};
         Document doc;
         doc.fromJson({{"nodes", QJsonArray{file}}});
-        QCOMPARE(doc.node("f")->kind, NodeKind::Unsupported);
+        QCOMPARE(doc.node("f")->kind(), NodeKind::Unsupported);
         QCOMPARE(doc.toJson()["nodes"].toArray().first().toObject(), file);
     }
 

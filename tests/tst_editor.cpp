@@ -88,13 +88,13 @@ private slots:
         m_editor->setLabels("Backend");
 
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString("Backend"));
-        QCOMPARE(m_editor->document().node(ids[3])->label, QString("Backend"));
-        QCOMPARE(m_editor->document().node(ids[0])->text, QString());
+        QCOMPARE(m_editor->document().node(ids[3])->label(), QString("Backend"));
+        QCOMPARE(m_editor->document().node(ids[0])->text(), QString());
         QCOMPARE(m_editor->selectionSummary().sharedLabel, QString("Backend"));
 
         m_editor->undo();   // one step for all of them
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
-        QCOMPARE(m_editor->document().node(ids[3])->label, QString("Group"));
+        QCOMPARE(m_editor->document().node(ids[3])->label(), QString("Group"));
     }
 
     void removeConnectionLabels()
@@ -106,7 +106,7 @@ private slots:
         m_editor->removeConnectionLabels();
 
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
-        QCOMPARE(m_editor->document().node(ids[3])->label, QString("calls"));   // Groups keep theirs
+        QCOMPARE(m_editor->document().node(ids[3])->label(), QString("calls"));   // Groups keep theirs
         QCOMPARE(m_editor->selectionSummary().labeledConnections, 0);
     }
 
@@ -163,7 +163,7 @@ private slots:
         m_editor->select(ids[3], true);
         m_editor->setLabels("  calls  ");
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString("calls"));
-        QCOMPARE(m_editor->document().node(ids[3])->label, QString("calls"));
+        QCOMPARE(m_editor->document().node(ids[3])->label(), QString("calls"));
         m_editor->setLabels("   ");
         QCOMPARE(m_editor->document().connection(ids[2])->label, QString());
     }

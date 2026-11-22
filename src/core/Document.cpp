@@ -50,7 +50,7 @@ QSet<QString> Document::nodesWithContents(const QStringList &ids) const
         if (!selected)
             continue;
         result.insert(id);
-        if (selected->kind != NodeKind::Group)
+        if (selected->kind() != NodeKind::Group)
             continue;
         for (const Node &n : m_nodes) {
             if (selected->rect.contains(n.rect))

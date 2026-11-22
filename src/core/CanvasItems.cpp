@@ -42,20 +42,44 @@ PathStyle pathStyleFromString(const QString &text, PathStyle fallback)
     return fallback;
 }
 
+NodeKind Node::kind() const
+{
+    if (std::holds_alternative<GroupContent>(content))
+        return NodeKind::Group;
+    if (std::holds_alternative<UnsupportedContent>(content))
+        return NodeKind::Unsupported;
+    return NodeKind::Text;
+}
+
+QString Node::text() const
+{
+    const auto *card = std::get_if<TextContent>(&content);
+    return card ? card->text : QString();
+}
+
+QString Node::label() const
+{
+    const auto *group = std::get_if<GroupContent>(&content);
+    return group ? group->label : QString();
+}
+
 QString Node::markdown() const
 {
     // In plain Markdown a newline is a space; two spaces before it make it a hard break.
-    return QString(text).replace('\n', QStringLiteral("  \n"));
+    return text().replace('\n', QStringLiteral("  \n"));
 }
 
 QString Node::unsupportedText() const
 {
-    return QCoreApplication::translate("Node", "Unsupported: %1").arg(raw["type"].toString());
+    const auto *unsupported = std::get_if<UnsupportedContent>(&content);
+    const QString type = unsupported ? unsupported->raw["type"].toString() : QString();
+    return QCoreApplication::translate("Node", "Unsupported: %1").arg(type);
 }
 
 QJsonObject Node::toJson() const
 {
-    QJsonObject json = raw;   // empty unless this is an Unsupported Card
+    const auto *unsupported = std::get_if<UnsupportedContent>(&content);
+    QJsonObject json = unsupported ? unsupported->raw : QJsonObject();
     json["id"] = id;
     json["x"] = qRound(rect.x());
     json["y"] = qRound(rect.y());
@@ -65,13 +89,13 @@ QJsonObject Node::toJson() const
     if (!color.isEmpty())
         json["color"] = color;
 
-    if (kind == NodeKind::Text) {
+    if (const auto *card = std::get_if<TextContent>(&content)) {
         json["type"] = "text";
-        json["text"] = text;
-    } else if (kind == NodeKind::Group) {
+        json["text"] = card->text;
+    } else if (const auto *group = std::get_if<GroupContent>(&content)) {
         json["type"] = "group";
-        if (!label.isEmpty())
-            json["label"] = label;
+        if (!group->label.isEmpty())
+            json["label"] = group->label;
     }
     return json;
 }
@@ -85,16 +109,12 @@ Node Node::fromJson(const QJsonObject &json)
     node.color = json["color"].toString();
 
     const QString type = json["type"].toString();
-    if (type == u"text") {
-        node.kind = NodeKind::Text;
-        node.text = json["text"].toString();
-    } else if (type == u"group") {
-        node.kind = NodeKind::Group;
-        node.label = json["label"].toString();
-    } else {
-        node.kind = NodeKind::Unsupported;
-        node.raw = json;
-    }
+    if (type == u"text")
+        node.content = TextContent{json["text"].toString()};
+    else if (type == u"group")
+        node.content = GroupContent{json["label"].toString()};
+    else
+        node.content = UnsupportedContent{json};
     return node;
 }
 

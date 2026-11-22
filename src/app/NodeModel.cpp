@@ -59,14 +59,14 @@ QVariant NodeModel::data(const QModelIndex &index, int role) const
 
     switch (role) {
     case IdRole: return n->id;
-    case KindRole: return int(n->kind);   // QML compares it with CanvasEnums.NodeKind
+    case KindRole: return int(n->kind());   // QML compares it with CanvasEnums.NodeKind
     case XRole: return n->rect.x();
     case YRole: return n->rect.y();
     case WidthRole: return n->rect.width();
     case HeightRole: return n->rect.height();
-    case TextRole: return n->text;
-    case LabelRole: return n->label;
-    case DisplayTextRole: return n->kind == NodeKind::Unsupported ? n->unsupportedText() : n->markdown();
+    case TextRole: return n->text();
+    case LabelRole: return n->label();
+    case DisplayTextRole: return n->kind() == NodeKind::Unsupported ? n->unsupportedText() : n->markdown();
     case ColorRole: return n->color;
     }
     return {};

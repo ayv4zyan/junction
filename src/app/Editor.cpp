@@ -206,13 +206,13 @@ SelectionSummary Editor::selectionSummary() const
     QStringList labels;
     for (const QString &id : m_selection) {
         if (const Node *n = document().node(id)) {
-            if (n->kind == NodeKind::Group) {
+            if (n->kind() == NodeKind::Group) {
                 ++summary.groups;
                 summary.labelTargets.append(id);
-                labels.append(n->label);
+                labels.append(n->label());
             } else {
                 ++summary.cards;
-                if (n->kind == NodeKind::Text)
+                if (n->kind() == NodeKind::Text)
                     ++summary.editableCards;
             }
         } else if (const Connection *c = document().connection(id)) {
@@ -233,7 +233,7 @@ QRectF Editor::selectionBounds() const
     QRectF bounds;
     for (const QString &id : m_selection) {
         if (const Node *n = document().node(id)) {
-            const qreal labelSpace = n->kind == NodeKind::Group ? DesignValues::GroupLabelSpace : 0;
+            const qreal labelSpace = n->kind() == NodeKind::Group ? DesignValues::GroupLabelSpace : 0;
             bounds = bounds.united(n->rect.adjusted(0, -labelSpace, 0, 0));
         } else if (const Connection *c = document().connection(id)) {
             if (const auto route = document().route(*c)) {
@@ -258,7 +258,7 @@ Node Editor::newCard(QPointF center, const QString &text) const
 {
     Node card;
     card.id = Document::newId();
-    card.text = text;
+    card.content = TextContent{text};
     card.rect = placed(center, CardSize);
     return card;
 }
@@ -283,8 +283,7 @@ QString Editor::createGroup(QPointF center)
 
     Node group;
     group.id = Document::newId();
-    group.kind = NodeKind::Group;
-    group.label = tr("Group");
+    group.content = GroupContent{tr("Group")};
     const qreal margin = Geometry::GridSize * 2;
     group.rect = bounds.isEmpty() ? placed(center, GroupSize) : bounds.adjusted(-margin, -margin, margin, margin);
     commit({Change::added(group)}, tr("Group"));
@@ -295,8 +294,8 @@ QString Editor::createGroup(QPointF center)
 void Editor::setCardText(const QString &id, const QString &text)
 {
     const Node *existing = document().node(id);
-    if (existing && existing->kind == NodeKind::Text)
-        commit({edited(*existing, [&](Node &n) { n.text = text; })}, tr("Edit text"));
+    if (existing && existing->kind() == NodeKind::Text)
+        commit({edited(*existing, [&](Node &n) { n.content = TextContent{text}; })}, tr("Edit text"));
 }
 
 // The Changes that apply `editNode` to the nodes among `ids` and `editConnection` to the
@@ -646,8 +645,8 @@ void Editor::setLabelsOf(const QStringList &ids, const QString &label)
 {
     const QString trimmed = label.trimmed();
     auto setGroupLabel = [&](Node &n) {
-        if (n.kind == NodeKind::Group)
-            n.label = trimmed;
+        if (n.kind() == NodeKind::Group)
+            n.content = GroupContent{trimmed};
     };
     commit(editedItems(ids, setGroupLabel, [&](Connection &c) { c.label = trimmed; }), tr("Edit label"));
 }

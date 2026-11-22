@@ -6,6 +6,8 @@ add_library(junction_core STATIC
     CanvasSession.h CanvasSession.cpp
     Fragment.h Fragment.cpp
     LibraryIndex.h LibraryIndex.cpp
+    LibraryFolder.h LibraryFolder.cpp
+    LibraryNames.h LibraryNames.cpp
     Library.h Library.cpp
     TransactionCommand.h
     Geometry.h Geometry.cpp

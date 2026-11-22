@@ -13,6 +13,7 @@
 // the index always matches the folders. Folders changed behind the app's back are picked up by
 // load(): unlisted files go to the end, listed ones that are gone are skipped.
 
+#include "LibraryFolder.h"
 #include "LibraryIndex.h"
 
 #include <QObject>
@@ -40,14 +41,12 @@ public:
     Q_INVOKABLE void load();
     void saveIndex();
 
-    QString root() const { return m_root; }
-    QUrl folder() const { return QUrl::fromLocalFile(m_root); }
+    QUrl folder() const { return QUrl::fromLocalFile(m_folder.root()); }
     QStringList projectNames() const;
     Q_INVOKABLE int canvasCount(const QString &project) const;
     const QVector<ProjectEntry> &projects() const { return m_projects; }
     int projectIndex(const QString &project) const;
     int canvasIndex(const QString &project, const QString &canvas) const;
-    QString projectPath(const QString &project) const;
     QString canvasPath(const QString &project, const QString &canvas) const;
 
     // The Canvas open in the editor.
@@ -94,9 +93,6 @@ public:
     Q_INVOKABLE QVariant currentView() const;
     Q_INVOKABLE void rememberCurrentView(QPointF center, qreal zoom);
 
-    static QString nameProblem(const QString &name);   // characters and length only
-    static QString uniqueName(const QString &base, const QStringList &taken);
-
 signals:
     // In one change they come in this order: openCanvasMustBeSaved, then canvasMoved / canvasRemoved,
     // then projectsChanged, then currentChanged. The Editor relies on it: by the time it hears
@@ -124,17 +120,12 @@ private:
     std::optional<FoundCanvas> findCanvas(const QString &project, const QString &canvas) const;
     QStringList canvasNames(const QString &project) const;
     LibraryIndex readIndex();
+    LibraryIndex currentIndex() const;   // what saveIndex() writes
     std::optional<LibraryIndex> loadProjects();
-    bool writeIndex() const;
     void openWhatWasOpenLastTime(const QString &project, const QString &canvas);
-    QStringList canvasFiles(const QString &project) const;   // names of the .canvas files in its folder
     void setCurrent(const QString &project, const QString &canvas);
-    bool createEmptyCanvasFile(const QString &path);
-    // Never replaces an existing file; a change of case only ("auth" -> "Auth") also works where
-    // the file system ignores case. On failure it says `failure` ("" to say nothing).
+    bool createEmptyCanvas(const QString &project, const QString &canvas);
     bool renameFile(const QString &from, const QString &to, const QString &failure);
-    void reportRenameFailure(const QString &failure, const QString &stranded);
-    bool copyProjectFolder(const QString &from, const QString &to, const QVector<CanvasEntry> &canvases);
     bool renameIfNameIsFree(const QString &problem, const QString &from, const QString &to, const QString &failure);
     // Every change ends here: saves the index, emits projectsChanged(), then currentChanged() if
     // currentPath() is no longer the one last announced.
@@ -143,13 +134,11 @@ private:
     QString addCanvas(ProjectEntry *project, int at, const CanvasEntry &entry);
     void reorderCanvas(ProjectEntry &project, int from, int toIndex);
     QString moveCanvasToProject(ProjectEntry &source, int from, ProjectEntry &target, int toIndex);
-    static QString nameProblemAmong(const QString &name, const QStringList &existing, const QString &except,
-                                    const QString &taken);
     bool replaceLastProject();
     bool trashProject(int index);
     QString addProject(int at);
 
-    QString m_root;
+    LibraryFolder m_folder;
     QVector<ProjectEntry> m_projects;
     QString m_currentProject;
     QString m_currentCanvas;

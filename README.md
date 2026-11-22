@@ -77,7 +77,8 @@ starting it again brings the window forward.
 - `src/core` — no QML: the model (`CanvasItems`, `Document`), every edit as a `Change`
   inside a `Transaction` (undo, and later network sync), the `CanvasSession` (its file, undo
   history and autosave), `Fragment` (copy and paste), `Geometry` (how Connections run, and the
-  grid), and the `Library` of Projects and Canvases on disk.
+  grid), and the `Library` of Projects and Canvases (its folder on disk is `LibraryFolder`, its
+  name rules `LibraryNames`, its index file `LibraryIndex`).
 - `src/render` — `CanvasPainter`: drawing a Canvas with QPainter for the live layers and for
   PNG/SVG export, with copies of the few design values it needs (`DesignValues.h`).
 - `src/design` — the design system (`JunctionDesign`): tokens, the Qt Quick Controls style, shared

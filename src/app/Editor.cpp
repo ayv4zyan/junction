@@ -680,7 +680,7 @@ void Editor::loadCurrent()
     cancelDrag();
     setSelection({});
     if (path.isEmpty())
-        m_session.openNothing(tr("The library folder %1 can't be written to.").arg(m_library->root()));
+        m_session.openNothing(tr("The library folder %1 can't be written to.").arg(m_library->folder().toLocalFile()));
     else
         m_session.open(path);
 }

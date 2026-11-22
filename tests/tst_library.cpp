@@ -66,6 +66,25 @@ private slots:
         QVERIFY(QFile::exists(library.currentPath()));
     }
 
+    // An index that can't be read is reported and kept aside, not silently replaced.
+    void brokenIndexIsKeptAndReported()
+    {
+        touch("Notes/Ideas.canvas");
+        QFile index(QDir(m_root).filePath(".junction"));
+        QVERIFY(index.open(QIODevice::WriteOnly));
+        index.write("{ broken");
+        index.close();
+
+        Library library(m_root);
+        QSignalSpy errors(&library, &Library::errorOccurred);
+        library.load();
+        QCOMPARE(errors.count(), 1);
+        QCOMPARE(projects(library), QStringList{"Notes"});
+        QFile kept(QDir(m_root).filePath(".junction.broken"));
+        QVERIFY(kept.open(QIODevice::ReadOnly));
+        QCOMPARE(kept.readAll(), QByteArray("{ broken"));
+    }
+
     void indexKeepsOrderViewsAndCurrent()
     {
         {

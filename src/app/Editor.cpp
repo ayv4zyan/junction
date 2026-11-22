@@ -368,13 +368,21 @@ const Kind *Editor::activeDrag() const
 
 void Editor::beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &kind)
 {
-    m_drag = Drag{items, items, kind};
+    Transaction changes;
+    for (const Item &item : items)
+        changes.append({item, item});
+    m_drag = Drag{changes, kind};
     emit draggingChanged();
 }
 
-void Editor::showDrag(const QVector<Item> &items)
+template <typename Moved>
+void Editor::showDrag(Moved moved)
 {
-    m_drag->current = items;
+    QVector<Item> items;
+    for (Change &change : m_drag->changes) {
+        change.after = moved(*change.before);
+        items.append(*change.after);
+    }
     m_canvas.showUncommitted(items);
 }
 
@@ -384,10 +392,7 @@ void Editor::endDrag(const QString &text)
         return;
     const Drag drag = *std::exchange(m_drag, std::nullopt);
     emit draggingChanged();
-    Transaction t;
-    for (int i = 0; i < drag.original.size(); ++i)
-        t.append({drag.original[i], drag.current[i]});
-    commit(t, text);
+    commit(drag.changes, text);
 }
 
 // Selected nodes move, and so does everything inside a selected Group, and the Waypoints of
@@ -436,11 +441,7 @@ void Editor::updateMove(QPointF delta, bool invertSnap)
     if (snapping(invertSnap))
         target = Geometry::snap(target);
     const QPointF snappedDelta = target - move->anchor;
-
-    QVector<Item> items;
-    for (const Item &item : m_drag->original)
-        items.append(translated(item, snappedDelta));
-    showDrag(items);
+    showDrag([&](const Item &item) { return translated(item, snappedDelta); });
 }
 
 void Editor::endMove()
@@ -464,20 +465,21 @@ void Editor::updateResize(QPointF delta, bool invertSnap)
     const ResizeDrag *resize = activeDrag<ResizeDrag>();
     if (!resize)
         return;
-    Node n = std::get<Node>(m_drag->original.first());
-    QRectF &r = n.rect;
     const bool snap = snapping(invertSnap);
     auto place = [snap](qreal side) { return snap ? Geometry::snap(side) : side; };
-
-    if (resize->horizontal < 0)
-        r.setLeft(std::min(place(r.left() + delta.x()), r.right() - MinimumSize.width()));
-    else if (resize->horizontal > 0)
-        r.setRight(std::max(place(r.right() + delta.x()), r.left() + MinimumSize.width()));
-    if (resize->vertical < 0)
-        r.setTop(std::min(place(r.top() + delta.y()), r.bottom() - MinimumSize.height()));
-    else if (resize->vertical > 0)
-        r.setBottom(std::max(place(r.bottom() + delta.y()), r.top() + MinimumSize.height()));
-    showDrag({n});
+    showDrag([&](const Item &item) {
+        Node n = std::get<Node>(item);
+        QRectF &r = n.rect;
+        if (resize->horizontal < 0)
+            r.setLeft(std::min(place(r.left() + delta.x()), r.right() - MinimumSize.width()));
+        else if (resize->horizontal > 0)
+            r.setRight(std::max(place(r.right() + delta.x()), r.left() + MinimumSize.width()));
+        if (resize->vertical < 0)
+            r.setTop(std::min(place(r.top() + delta.y()), r.bottom() - MinimumSize.height()));
+        else if (resize->vertical > 0)
+            r.setBottom(std::max(place(r.bottom() + delta.y()), r.top() + MinimumSize.height()));
+        return Item(n);
+    });
 }
 
 void Editor::endResize()
@@ -493,18 +495,11 @@ void Editor::beginWaypointDrag(const QString &connectionId, int index, bool inse
     const auto route = c ? document().route(*c) : std::nullopt;
     if (!route)
         return;
-    const Connection original = *c;
-    Connection current = original;
-    if (insert) {
-        if (index < 0 || index >= route->midpoints.size())
-            return;
-        current.waypoints.insert(index, route->midpoints[index]);
-    }
-    if (index < 0 || index >= current.waypoints.size())
+    const QVector<QPointF> &points = insert ? route->midpoints : c->waypoints;
+    if (index < 0 || index >= points.size())
         return;
-
-    beginDrag({original}, WaypointDrag{index, current.waypoints[index]});
-    showDrag({current});
+    beginDrag({*c}, WaypointDrag{index, points[index], insert});
+    showDraggedWaypointAt(points[index]);   // a new Waypoint shows up right away
 }
 
 void Editor::updateWaypointDrag(QPointF delta, bool invertSnap)
@@ -512,10 +507,21 @@ void Editor::updateWaypointDrag(QPointF delta, bool invertSnap)
     const WaypointDrag *drag = activeDrag<WaypointDrag>();
     if (!drag)
         return;
-    Connection c = std::get<Connection>(m_drag->current.first());
     const QPointF point = drag->anchor + delta;
-    c.waypoints[drag->index] = snapping(invertSnap) ? Geometry::snap(point) : point;
-    showDrag({c});
+    showDraggedWaypointAt(snapping(invertSnap) ? Geometry::snap(point) : point);
+}
+
+void Editor::showDraggedWaypointAt(QPointF point)
+{
+    const WaypointDrag *drag = activeDrag<WaypointDrag>();
+    showDrag([&](const Item &item) {
+        Connection c = std::get<Connection>(item);
+        if (drag->inserted)
+            c.waypoints.insert(drag->index, point);
+        else
+            c.waypoints[drag->index] = point;
+        return Item(c);
+    });
 }
 
 void Editor::endWaypointDrag()

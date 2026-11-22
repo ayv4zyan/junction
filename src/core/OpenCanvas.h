@@ -50,7 +50,8 @@ public:
     void save();          // now
     void savePending();   // now, if a change is waiting to be saved
 
-    // The Library renamed, moved or deleted a file: the history and the open file follow.
+    // The Library renamed, moved or deleted a file: the history and the open file follow. A
+    // deleted open file can't be edited any more (it gets a load error).
     void fileMoved(const QString &oldPath, const QString &newPath);
     void fileRemoved(const QString &path);
 

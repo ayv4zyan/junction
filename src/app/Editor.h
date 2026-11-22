@@ -161,8 +161,8 @@ signals:
     void errorOccurred(const QString &message);
 
 private:
-    // A drag in progress. While it lasts, the Document shows `current` without an undo step;
-    // on release, one Transaction from `original` to `current` goes on the undo stack.
+    // A drag in progress. While it lasts, the Document shows where the items are now without
+    // an undo step; on release, its Changes (from where they were) go on the undo stack.
     struct MoveDrag
     {
         QPointF anchor;   // the grabbed node's top-left corner, which snaps to the grid
@@ -175,12 +175,12 @@ private:
     struct WaypointDrag
     {
         int index;        // of the Waypoint in the Connection
-        QPointF anchor;   // where it was, which snaps to the grid
+        QPointF anchor;   // where it starts, which snaps to the grid
+        bool inserted;    // a new Waypoint at `index`, rather than an existing one
     };
     struct Drag
     {
-        QVector<Item> original;
-        QVector<Item> current;
+        Transaction changes;   // before: as the drag began; after: where the item is now
         std::variant<MoveDrag, ResizeDrag, WaypointDrag> kind;
     };
 
@@ -194,8 +194,10 @@ private:
     template <typename Kind>
     const Kind *activeDrag() const;   // the drag in progress, if it is of that kind
     void beginDrag(const QVector<Item> &items, const decltype(Drag::kind) &kind);
-    void showDrag(const QVector<Item> &items);
+    template <typename Moved>
+    void showDrag(Moved moved);   // every dragged item becomes moved(item as the drag began)
     void endDrag(const QString &text);
+    void showDraggedWaypointAt(QPointF point);
 
     QVector<Connection> selectedConnections() const;
     void insertFragment(const QJsonObject &fragment, QPointF offset);

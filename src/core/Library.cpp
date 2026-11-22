@@ -109,10 +109,7 @@ Library::~Library()
 void Library::load()
 {
     QDir().mkpath(m_root);
-    QFile indexFile(QDir(m_root).filePath(IndexFile));
-    QJsonObject index;   // order, views, expanded state, the open Canvas; empty the first time
-    if (indexFile.open(QIODevice::ReadOnly))
-        index = QJsonDocument::fromJson(indexFile.readAll()).object();
+    const QJsonObject index = readIndex();
 
     m_projects.clear();
     const QStringList folders = QDir(m_root).entryList(QDir::Dirs | QDir::NoDotAndDotDot, SortOrder);
@@ -139,6 +136,29 @@ void Library::load()
     setCurrent(project.name, canvasIndex(project.name, lastCanvas) >= 0 && project.name == lastProject
                                  ? lastCanvas : project.canvases.first().name);
     saveAndAnnounce();
+}
+
+// The index: order, views, expanded state, the open Canvas. Empty the first time. An index
+// that can't be read is kept as ".junction.broken" (load() is about to write a new one), and
+// the user is told that the order and views were reset.
+QJsonObject Library::readIndex()
+{
+    const QString path = QDir(m_root).filePath(IndexFile);
+    QFile file(path);
+    if (!file.exists())
+        return {};
+    QJsonParseError parseError;
+    const QJsonDocument json = file.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(file.readAll(), &parseError)
+                                                              : QJsonDocument();
+    if (json.isObject())
+        return json.object();
+    file.close();
+    const QString broken = path + QStringLiteral(".broken");
+    QFile::remove(broken);
+    QFile::copy(path, broken);
+    emit errorOccurred(tr("The library index couldn't be read, so the order of projects and canvases was reset. "
+                          "The old index was kept as %1.").arg(broken));
+    return {};
 }
 
 QStringList Library::canvasFiles(const QString &project) const
@@ -473,7 +493,8 @@ bool Library::renamePath(const QString &from, const QString &to)
             return false;
         if (QDir().rename(temporary, to))
             return true;
-        QDir().rename(temporary, from);
+        if (!QDir().rename(temporary, from))
+            emit errorOccurred(tr("%1 could not be renamed back and is now called %2.").arg(from, temporary));
         return false;
     }
     return !QFileInfo::exists(to) && QDir().rename(from, to);

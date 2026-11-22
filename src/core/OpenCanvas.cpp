@@ -129,9 +129,11 @@ void OpenCanvas::fileRemoved(const QString &path)
     delete m_stacks.take(path);   // also leaves m_history
     m_lastWritten.remove(path);
     if (m_filePath == path) {
-        // Nothing may be written there any more. A new Canvas may later get the same path
-        // (delete the only Project, and a new "Untitled" appears): it must be loaded afresh.
+        // Nothing may be written there any more, so it can't be edited either until the
+        // Library opens another Canvas. A new Canvas may later get the same path (delete the
+        // only Project, and a new "Untitled" appears): it must be loaded afresh.
         m_saveTimer.stop();
+        m_loadError = tr("%1 was deleted.").arg(QFileInfo(path).fileName());
         setFilePath({});
     }
 }

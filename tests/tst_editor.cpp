@@ -177,6 +177,59 @@ private slots:
         m_editor->select(ids[2]);
         QVERIFY(m_editor->selectionBounds().top() < -5);   // the line runs at y = 0
     }
+
+    // A drag shows every step on the Canvas but is one undo step, and snaps to the grid.
+    void movingIsOneUndoStep()
+    {
+        const QString a = m_editor->createCard({0, 0});
+        const QPointF start = m_editor->document().node(a)->rect.topLeft();
+        m_editor->beginMove(a);
+        QVERIFY(m_editor->isDragging());
+        m_editor->updateMove({7, 3}, false);
+        m_editor->updateMove({43, 18}, false);
+        QCOMPARE(m_editor->document().node(a)->rect.topLeft(), start + QPointF(40, 20));
+        m_editor->endMove();
+        QVERIFY(!m_editor->isDragging());
+        m_editor->undo();
+        QCOMPARE(m_editor->document().node(a)->rect.topLeft(), start);
+        QVERIFY(m_editor->document().node(a));   // undoing the move did not undo the creation
+    }
+
+    // Nothing else changes the Canvas during a drag: its final Transaction starts from where it began.
+    void commandsWaitForTheDragToEnd()
+    {
+        const QString a = m_editor->createCard({0, 0});
+        m_editor->beginMove(a);
+        m_editor->deleteSelection();
+        QVERIFY(m_editor->document().node(a));
+        m_editor->endMove();
+    }
+
+    void resizingKeepsAMinimumSize()
+    {
+        const QString a = m_editor->createCard({0, 0});
+        const QRectF before = m_editor->document().node(a)->rect;
+        m_editor->beginResize(a, 1, 0);   // the right side
+        m_editor->updateResize({-1000, 0}, false);
+        m_editor->endResize();
+        const QRectF after = m_editor->document().node(a)->rect;
+        QCOMPARE(after.left(), before.left());
+        QCOMPARE(after.width(), 80.0);
+    }
+
+    void draggingAMidpointAddsAWaypoint()
+    {
+        const QStringList ids = makeGroupedPair();
+        m_editor->beginWaypointDrag(ids[2], 0, true);
+        QCOMPARE(m_editor->document().connection(ids[2])->waypoints.size(), 1);
+        m_editor->updateWaypointDrag({0, 100}, false);
+        m_editor->endWaypointDrag();
+        const Connection *c = m_editor->document().connection(ids[2]);
+        QCOMPARE(c->waypoints.size(), 1);
+        QCOMPARE(int(c->waypoints.first().y()) % 20, 0);   // snapped
+        m_editor->undo();
+        QVERIFY(m_editor->document().connection(ids[2])->waypoints.isEmpty());
+    }
 };
 
 QTEST_MAIN(TestEditor)

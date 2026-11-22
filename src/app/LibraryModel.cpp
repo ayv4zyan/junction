@@ -147,6 +147,8 @@ int LibraryModel::rowOf(const QString &project, const QString &canvas) const
 {
     const int p = m_library->projectIndex(project);
     const int c = canvas.isEmpty() ? -1 : m_library->canvasIndex(project, canvas);
+    if (p < 0 || (!canvas.isEmpty() && c < 0))
+        return -1;   // no such Project or Canvas (not its Project's row)
     for (int i = 0; i < m_rows.size(); ++i) {
         if (m_rows[i].project == p && m_rows[i].canvas == c)
             return i;

@@ -13,6 +13,7 @@
 // the index always matches the folders. Folders changed behind the app's back are picked up by
 // load(): unlisted files go to the end, listed ones that are gone are skipped.
 
+#include <QJsonObject>
 #include <QObject>
 #include <QPointF>
 #include <QVector>
@@ -111,6 +112,7 @@ private:
     ProjectEntry *project(const QString &name);
     QStringList projectNames() const;
     QStringList canvasNames(const QString &project) const;
+    QJsonObject readIndex();
     QStringList canvasFiles(const QString &project) const;   // names of the .canvas files in its folder
     void setCurrent(const QString &project, const QString &canvas);
     bool createEmptyCanvasFile(const QString &path);

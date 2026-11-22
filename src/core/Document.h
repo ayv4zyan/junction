@@ -1,8 +1,10 @@
 #pragma once
 
 #include "CanvasItems.h"
+#include "Geometry.h"
 
 #include <QObject>
+#include <QSet>
 #include <optional>
 
 // One edit to one item. Every modification of a Document is expressed as Changes, which is
@@ -37,17 +39,22 @@ public:
     const Connection *connection(const QString &id) const;
     std::optional<Item> item(const QString &id) const;
 
-    // Cards (and Groups) lying completely inside the given Group, including nested ones.
-    QStringList nodesInside(const Node &group) const;
+    // The given nodes plus every node lying completely inside the Groups among them (nested
+    // ones too). Other ids are left out. This is what moves, copies and exports with a selection.
+    QSet<QString> nodesWithContents(const QStringList &ids) const;
     QVector<Connection> connectionsOf(const QString &nodeId) const;
+    // The path a Connection takes between its nodes, or nothing if one of them is missing.
+    std::optional<Geometry::Route> route(const Connection &connection) const;
 
     void apply(const Change &change);
     void apply(const Transaction &transaction);
 
     QJsonObject toJson() const;
+    // Items without an id, or with one already taken, get a fresh id: everything finds items by id.
     void fromJson(const QJsonObject &json);
     void clear();
 
+    // Fails, leaving the Document as it was, if the file can't be read or isn't a JSON object.
     bool load(const QString &path, QString *error);
     bool save(const QString &path, QString *error) const;
 

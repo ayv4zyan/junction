@@ -174,7 +174,6 @@ private:
     void endDrag(const QString &text);
 
     QVector<Connection> selectedConnections() const;
-    QSet<QString> copiedNodeIds() const;
     QJsonObject selectionToJson() const;
     void insertJson(const QJsonObject &json, QPointF offset);
 

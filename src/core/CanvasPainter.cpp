@@ -192,7 +192,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
     }
 }
 
-bool exportCanvas(const Document &document, const QStringList &onlyIds, const QString &path,
+bool exportCanvas(const Document &document, const QSet<QString> &onlyIds, const QString &path,
                   const Palette &palette, QString *error)
 {
     auto included = [&](const QString &id) { return onlyIds.isEmpty() || onlyIds.contains(id); };
@@ -212,11 +212,10 @@ bool exportCanvas(const Document &document, const QStringList &onlyIds, const QS
 
     QVector<std::pair<Connection, Geometry::Route>> connections;
     for (const Connection &c : document.connections()) {
-        const Node *from = document.node(c.fromNode);
-        const Node *to = document.node(c.toNode);
-        if (from && to && included(from->id) && included(to->id)) {
-            connections.append({c, Geometry::route(from->rect, to->rect, c)});
-            bounds = bounds.united(connections.last().second.path.boundingRect());
+        const auto route = document.route(c);
+        if (route && included(c.fromNode) && included(c.toNode)) {
+            connections.append({c, *route});
+            bounds = bounds.united(route->path.boundingRect());
         }
     }
     bounds.adjust(-40, -60, 40, 40);   // extra room on top for Group labels

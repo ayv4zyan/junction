@@ -30,6 +30,15 @@ Item translated(Item item, QPointF delta)
     return item;
 }
 
+// The Change that applies `edit` to a copy of `item`.
+template <typename T, typename Edit>
+Change edited(const T &item, Edit edit)
+{
+    T changed = item;
+    edit(changed);
+    return {item, changed};
+}
+
 QVariantList toVariantList(const QVector<QPointF> &points)
 {
     QVariantList list;
@@ -199,14 +208,9 @@ QVariantMap Editor::selectedConnection() const
     if (m_selection.size() != 1)
         return {};
     const Connection *c = m_document.connection(m_selection.first());
-    if (!c)
+    const auto route = c ? m_document.route(*c) : std::nullopt;
+    if (!route)
         return {};
-    const Node *from = m_document.node(c->fromNode);
-    const Node *to = m_document.node(c->toNode);
-    if (!from || !to)
-        return {};
-
-    const Geometry::Route route = Geometry::route(from->rect, to->rect, *c);
     return {
         {"id", c->id},
         {"style", pathStyleToString(c->style)},
@@ -214,11 +218,11 @@ QVariantMap Editor::selectedConnection() const
         {"toArrow", c->toArrow},
         {"label", c->label},
         {"waypoints", toVariantList(c->waypoints)},
-        {"midpoints", toVariantList(route.midpoints)},
-        {"start", route.start},
-        {"end", route.end},
-        {"labelPosition", route.labelPosition},
-        {"labelRect", CanvasPainter::labelRect(route, c->label)},
+        {"midpoints", toVariantList(route->midpoints)},
+        {"start", route->start},
+        {"end", route->end},
+        {"labelPosition", route->labelPosition},
+        {"labelRect", CanvasPainter::labelRect(*route, c->label)},
     };
 }
 
@@ -279,12 +283,9 @@ QRectF Editor::selectionBounds() const
             const qreal labelSpace = n->kind == NodeKind::Group ? DesignValues::GroupLabelSpace : 0;
             bounds = bounds.united(n->rect.adjusted(0, -labelSpace, 0, 0));
         } else if (const Connection *c = m_document.connection(id)) {
-            const Node *from = m_document.node(c->fromNode);
-            const Node *to = m_document.node(c->toNode);
-            if (from && to) {
-                const Geometry::Route route = Geometry::route(from->rect, to->rect, *c);
-                bounds = bounds.united(route.path.boundingRect())
-                               .united(CanvasPainter::labelRect(route, c->label));   // empty without a label
+            if (const auto route = m_document.route(*c)) {
+                bounds = bounds.united(route->path.boundingRect())
+                               .united(CanvasPainter::labelRect(*route, c->label));   // empty without a label
             }
         }
     }
@@ -340,27 +341,18 @@ QString Editor::createGroup(QPointF center)
 void Editor::setText(const QString &id, const QString &text)
 {
     const Node *existing = m_document.node(id);
-    if (!existing)
-        return;
-    Node changed = *existing;
-    (changed.kind == NodeKind::Group ? changed.label : changed.text) = text;
-    if (changed != *existing)
-        commit({{*existing, changed}}, tr("Edit text"));
+    if (existing)
+        commit({edited(*existing, [&](Node &n) { (n.kind == NodeKind::Group ? n.label : n.text) = text; })}, tr("Edit text"));
 }
 
 void Editor::setColor(const QString &color)
 {
     Transaction t;
     for (const QString &id : m_selection) {
-        if (const Node *n = m_document.node(id)) {
-            Node changed = *n;
-            changed.color = color;
-            t.append({*n, changed});
-        } else if (const Connection *c = m_document.connection(id)) {
-            Connection changed = *c;
-            changed.color = color;
-            t.append({*c, changed});
-        }
+        if (const Node *n = m_document.node(id))
+            t.append(edited(*n, [&](Node &changed) { changed.color = color; }));
+        else if (const Connection *c = m_document.connection(id))
+            t.append(edited(*c, [&](Connection &changed) { changed.color = color; }));
     }
     commit(t, tr("Change color"));
 }
@@ -426,17 +418,7 @@ void Editor::endDrag(const QString &text)
 // Connections between two moving nodes.
 QVector<Item> Editor::itemsMovingWithSelection() const
 {
-    QSet<QString> moving;
-    for (const QString &selectedId : m_selection) {
-        if (const Node *n = m_document.node(selectedId)) {
-            moving.insert(n->id);
-            if (n->kind == NodeKind::Group) {
-                for (const QString &inside : m_document.nodesInside(*n))
-                    moving.insert(inside);
-            }
-        }
-    }
-
+    const QSet<QString> moving = m_document.nodesWithContents(m_selection);
     QVector<Item> items;
     for (const Node &n : m_document.nodes()) {
         if (moving.contains(n.id))
@@ -529,15 +511,15 @@ void Editor::endResize()
 void Editor::beginWaypointDrag(const QString &connectionId, int index, bool insert)
 {
     const Connection *c = m_document.connection(connectionId);
-    if (!c || !m_document.node(c->fromNode) || !m_document.node(c->toNode))
+    const auto route = c ? m_document.route(*c) : std::nullopt;
+    if (!route)
         return;
     const Connection original = *c;
     Connection current = original;
     if (insert) {
-        const auto route = Geometry::route(m_document.node(c->fromNode)->rect, m_document.node(c->toNode)->rect, *c);
-        if (index < 0 || index >= route.midpoints.size())
+        if (index < 0 || index >= route->midpoints.size())
             return;
-        current.waypoints.insert(index, route.midpoints[index]);
+        current.waypoints.insert(index, route->midpoints[index]);
     }
     if (index < 0 || index >= current.waypoints.size())
         return;
@@ -589,13 +571,9 @@ QString Editor::connectionAt(QPointF point, qreal tolerance) const
 {
     const QVector<Connection> &connections = m_document.connections();
     for (auto it = connections.crbegin(); it != connections.crend(); ++it) {
-        const Node *from = m_document.node(it->fromNode);
-        const Node *to = m_document.node(it->toNode);
-        if (!from || !to)
-            continue;
+        const auto route = m_document.route(*it);
         // The label counts too: it can stick out far from the line.
-        const Geometry::Route route = Geometry::route(from->rect, to->rect, *it);
-        if (Geometry::hits(route, point, tolerance) || CanvasPainter::labelRect(route, it->label).contains(point))
+        if (route && (Geometry::hits(*route, point, tolerance) || CanvasPainter::labelRect(*route, it->label).contains(point)))
             return it->id;
     }
     return {};
@@ -662,19 +640,14 @@ void Editor::removeWaypoint(const QString &connectionId, int index)
     const Connection *existing = m_document.connection(connectionId);
     if (!existing || index < 0 || index >= existing->waypoints.size())
         return;
-    Connection c = *existing;
-    c.waypoints.removeAt(index);
-    commit({{*existing, c}}, tr("Remove waypoint"));
+    commit({edited(*existing, [&](Connection &c) { c.waypoints.removeAt(index); })}, tr("Remove waypoint"));
 }
 
 void Editor::setConnectionStyle(const QString &style)
 {
     Transaction t;
-    for (const Connection &c : selectedConnections()) {
-        Connection changed = c;
-        changed.style = pathStyleFromString(style, c.style);
-        t.append({c, changed});
-    }
+    for (const Connection &c : selectedConnections())
+        t.append(edited(c, [&](Connection &changed) { changed.style = pathStyleFromString(style, c.style); }));
     commit(t, tr("Change path style"));
 }
 
@@ -682,10 +655,10 @@ void Editor::setArrows(bool fromArrow, bool toArrow)
 {
     Transaction t;
     for (const Connection &c : selectedConnections()) {
-        Connection changed = c;
-        changed.fromArrow = fromArrow;
-        changed.toArrow = toArrow;
-        t.append({c, changed});
+        t.append(edited(c, [&](Connection &changed) {
+            changed.fromArrow = fromArrow;
+            changed.toArrow = toArrow;
+        }));
     }
     commit(t, tr("Change arrows"));
 }
@@ -694,11 +667,8 @@ void Editor::setConnectionLabel(const QString &connectionId, const QString &labe
 {
     const Connection *existing = m_document.connection(connectionId);
     const QString trimmed = label.trimmed();   // a label of only spaces would be an empty box
-    if (!existing || existing->label == trimmed)
-        return;
-    Connection c = *existing;
-    c.label = trimmed;
-    commit({{*existing, c}}, tr("Edit label"));
+    if (existing)
+        commit({edited(*existing, [&](Connection &c) { c.label = trimmed; })}, tr("Edit label"));
 }
 
 void Editor::setLabels(const QString &text)
@@ -706,15 +676,10 @@ void Editor::setLabels(const QString &text)
     const QString label = text.trimmed();   // like setConnectionLabel: only spaces means no label
     Transaction t;
     for (const QString &id : m_selection) {
-        if (const Node *n = m_document.node(id); n && n->kind == NodeKind::Group) {
-            Node changed = *n;
-            changed.label = label;
-            t.append({*n, changed});
-        } else if (const Connection *c = m_document.connection(id)) {
-            Connection changed = *c;
-            changed.label = label;
-            t.append({*c, changed});
-        }
+        if (const Node *n = m_document.node(id); n && n->kind == NodeKind::Group)
+            t.append(edited(*n, [&](Node &changed) { changed.label = label; }));
+        else if (const Connection *c = m_document.connection(id))
+            t.append(edited(*c, [&](Connection &changed) { changed.label = label; }));
     }
     commit(t, tr("Edit label"));
 }
@@ -722,36 +687,17 @@ void Editor::setLabels(const QString &text)
 void Editor::removeConnectionLabels()
 {
     Transaction t;
-    for (const Connection &c : selectedConnections()) {
-        Connection changed = c;
-        changed.label.clear();
-        t.append({c, changed});
-    }
+    for (const Connection &c : selectedConnections())
+        t.append(edited(c, [](Connection &changed) { changed.label.clear(); }));
     commit(t, tr("Remove label"));
 }
 
 // ---- Clipboard ----
 // The clipboard holds a small JSON Canvas: the selected nodes plus the Connections between them.
 
-// The nodes copy() takes: the selected ones, and a selected Group brings the cards inside it along.
-QSet<QString> Editor::copiedNodeIds() const
-{
-    QSet<QString> ids;
-    for (const QString &id : m_selection) {
-        if (const Node *n = m_document.node(id)) {
-            ids.insert(id);
-            if (n->kind == NodeKind::Group) {
-                for (const QString &inside : m_document.nodesInside(*n))
-                    ids.insert(inside);
-            }
-        }
-    }
-    return ids;
-}
-
 QJsonObject Editor::selectionToJson() const
 {
-    const QSet<QString> ids = copiedNodeIds();
+    const QSet<QString> ids = m_document.nodesWithContents(m_selection);
     QJsonArray nodes, edges;
     for (const Node &n : m_document.nodes()) {   // document order keeps Groups behind their cards
         if (ids.contains(n.id))
@@ -800,7 +746,7 @@ void Editor::insertJson(const QJsonObject &json, QPointF offset)
 // selected Connections (a Connection alone can't be pasted, but cutting it still removes it).
 void Editor::cut()
 {
-    const QSet<QString> ids = copiedNodeIds();
+    const QSet<QString> ids = m_document.nodesWithContents(m_selection);
     if (ids.isEmpty() && selectedConnections().isEmpty())
         return;
     copy();
@@ -953,16 +899,8 @@ void Editor::rememberView(QPointF center, qreal zoom)
 bool Editor::exportImage(const QUrl &url, const QVariantMap &palette)
 {
     // Exports the selection, or the whole Canvas when nothing is selected.
-    QStringList ids;
-    for (const QString &id : m_selection) {
-        if (const Node *n = m_document.node(id)) {
-            ids.append(id);
-            if (n->kind == NodeKind::Group)
-                ids += m_document.nodesInside(*n);
-        }
-    }
     QString error;
-    if (!CanvasPainter::exportCanvas(m_document, ids, url.toLocalFile(), Palette::fromVariantMap(palette), &error)) {
+    if (!CanvasPainter::exportCanvas(m_document, m_document.nodesWithContents(m_selection), url.toLocalFile(), Palette::fromVariantMap(palette), &error)) {
         emit errorOccurred(error);
         return false;
     }

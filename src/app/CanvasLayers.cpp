@@ -18,9 +18,15 @@ void ConnectionLayer::setEditor(Editor *editor)
 {
     if (editor == m_editor)
         return;
-    if (m_editor)
+    if (m_editor) {
         disconnect(m_editor, nullptr, this, nullptr);
+        disconnect(&m_editor->document(), nullptr, this, nullptr);
+    }
     m_editor = editor;
+    emit editorChanged();
+    update();
+    if (!editor)
+        return;
 
     // Repaint whenever anything that affects a line changes.
     auto repaint = [this] { update(); };
@@ -31,7 +37,6 @@ void ConnectionLayer::setEditor(Editor *editor)
     connect(document, &Document::reset, this, repaint);
     connect(editor, &Editor::selectionChanged, this, repaint);
     connect(editor, &Editor::previewChanged, this, repaint);
-    emit editorChanged();
 }
 
 void ConnectionLayer::paint(QPainter *painter)
@@ -44,13 +49,10 @@ void ConnectionLayer::paint(QPainter *painter)
     painter->setTransform(view());
 
     for (const Connection &c : document.connections()) {
-        const Node *from = document.node(c.fromNode);
-        const Node *to = document.node(c.toNode);
-        if (from && to) {
-            const Geometry::Route route = Geometry::route(from->rect, to->rect, c);
-            CanvasPainter::drawConnection(*painter, route, c, palette, m_editor->selection().contains(c.id),
+        if (const auto route = document.route(c)) {
+            CanvasPainter::drawConnection(*painter, *route, c, palette, m_editor->selection().contains(c.id),
                                           c.id != m_hiddenLabel,
-                                          CanvasPainter::colorUnder(route.labelPosition, document.nodes(), palette));
+                                          CanvasPainter::colorUnder(route->labelPosition, document.nodes(), palette));
         }
     }
 

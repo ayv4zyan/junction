@@ -1,7 +1,9 @@
 #include "Document.h"
 #include "TransactionCommand.h"
 
+#include <QFile>
 #include <QJsonArray>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QUndoStack>
 
@@ -113,6 +115,50 @@ private slots:
         QCOMPARE(fromObsidian.toSide, Side::None);
         QVERIFY(fromObsidian.toArrow);
         QCOMPARE(fromObsidian.style, PathStyle::Curved);
+    }
+
+    // Valid JSON that is not an object is not a canvas: loading fails and the file is not
+    // treated as an empty canvas (which the next save would write over it).
+    void loadRejectsNonObjectJson()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath("list.canvas");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("[1, 2, 3]");
+        file.close();
+
+        Document doc;
+        doc.apply(Change{std::nullopt, card("kept", {0, 0, 10, 10})});
+        QString error;
+        QVERIFY(!doc.load(path, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(doc.node("kept"));
+    }
+
+    void missingAndDuplicateIdsAreReplaced()
+    {
+        const QJsonObject a{{"id", "a"}, {"type", "text"}};
+        const QJsonObject noId{{"type", "text"}};
+        Document doc;
+        doc.fromJson({{"nodes", QJsonArray{a, a, noId}}});
+        QSet<QString> ids;
+        for (const Node &n : doc.nodes())
+            ids.insert(n.id);
+        QCOMPARE(ids.size(), 3);
+        QVERIFY(ids.contains("a"));
+        QVERIFY(!ids.contains(QString()));
+    }
+
+    // A Connection to a node the file doesn't have is kept, not silently dropped on save.
+    void danglingConnectionsAreWrittenBack()
+    {
+        const QJsonObject edge{{"id", "e"}, {"fromNode", "a"}, {"toNode", "missing"}};
+        Document doc;
+        doc.fromJson({{"nodes", QJsonArray{QJsonObject{{"id", "a"}, {"type", "text"}}}}, {"edges", QJsonArray{edge}}});
+        const QJsonArray edges = doc.toJson()["edges"].toArray();
+        QCOMPARE(edges.size(), 1);
+        QCOMPARE(edges[0]["toNode"].toString(), QString("missing"));
     }
 };
 

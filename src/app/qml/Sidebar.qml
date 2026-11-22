@@ -75,7 +75,15 @@ Rectangle {
                     () => library.deleteProject(project))
     }
 
-    function askToDeleteCanvas(project, canvas) {
+    // A Project keeps at least one Canvas, so deleting its only one deletes the Project.
+    function askToDeleteCanvas(project, canvas, count) {
+        if (count === 1) {
+            confirm.ask(qsTr("Delete project “%1”?").arg(project),
+                        qsTr("“%1” is the only canvas in “%2”, so the project will be moved to the trash with it.")
+                            .arg(canvas).arg(project),
+                        () => library.deleteProject(project))
+            return
+        }
         confirm.ask(qsTr("Delete “%1”?").arg(canvas),
                     qsTr("“%1” will be moved to the trash.").arg(canvas),
                     () => library.deleteCanvas(project, canvas))
@@ -443,8 +451,8 @@ Rectangle {
         MenuSeparator {}
         MenuItem {
             text: qsTr("Delete…")
-            enabled: sidebar.menuData.canvasCount > 1   // a Project keeps at least one Canvas
-            onTriggered: sidebar.askToDeleteCanvas(sidebar.menuData.project, sidebar.menuData.name)
+            onTriggered: sidebar.askToDeleteCanvas(sidebar.menuData.project, sidebar.menuData.name,
+                                                   sidebar.menuData.canvasCount)
         }
     }
 }

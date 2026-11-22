@@ -24,6 +24,19 @@ Dialog {
     padding: 20
     topPadding: 18
 
+    // Dims the window behind, so the dialog sits above it. Its opacity follows the
+    // dialog's, so it fades in and out with the transitions below.
+    Overlay.modal: Rectangle {
+        color: Qt.alpha("black", Theme.dark ? 0.5 : 0.3)
+    }
+    enter: Transition {
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 120; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: 120; easing.type: Easing.OutCubic }
+    }
+    exit: Transition {
+        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 90; easing.type: Easing.InCubic }
+    }
+
     background: Rectangle {
         radius: 10
         color: Theme.panel
@@ -47,10 +60,29 @@ Dialog {
     footer: RowLayout {
         spacing: 8
         Item { Layout.fillWidth: true }
+        // Same shape as Delete, but neutral: only the destructive action is red.
         Button {
+            id: cancelButton
             text: qsTr("Cancel")
-            onClicked: dialog.reject()
             Layout.bottomMargin: 16
+            contentItem: Label {
+                text: cancelButton.text
+                color: Theme.text
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                implicitWidth: 80
+                implicitHeight: 30
+                radius: 4
+                // A grey fill over the panel, in either theme.
+                color: Qt.alpha(Theme.text, cancelButton.down ? 0.26 : cancelButton.hovered ? 0.19 : 0.13)
+                border.width: cancelButton.visualFocus ? 2 : 0
+                border.color: Theme.text
+            }
+            onClicked: dialog.reject()
+            Keys.onReturnPressed: dialog.reject()
+            Keys.onEnterPressed: dialog.reject()
         }
         Button {
             id: deleteButton

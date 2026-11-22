@@ -13,7 +13,7 @@ NodeItem {
 
     function finishEditing(text) {
         editor.setLabels([nodeId], text)
-        canvasView.endTextEditing(nodeId)
+        canvasView.endEditingInPlace(nodeId)
     }
 
     Rectangle {
@@ -69,7 +69,7 @@ NodeItem {
             nodeId: group.nodeId
             anchors.fill: parent
             visible: !group.editing   // hidden, not disabled, so the label's I-beam shows while editing
-            onDoubleClicked: group.canvasView.editText(group.nodeId)
+            onDoubleClicked: group.canvasView.editInPlace(group.nodeId)
         }
     }
 

@@ -13,8 +13,8 @@
 namespace {
 
 const QString IndexFile = QStringLiteral(".junction");
-const QString Extension = QStringLiteral(".canvas");
-const QString NewName = QStringLiteral("Untitled");
+const QString CanvasExtension = QStringLiteral(".canvas");
+const QString UntitledName = QStringLiteral("Untitled");   // what a new Project or Canvas is called
 constexpr auto SortOrder = QDir::Name | QDir::IgnoreCase | QDir::LocaleAware;
 
 bool sameName(const QString &a, const QString &b)
@@ -97,9 +97,9 @@ std::optional<LibraryIndex> Library::loadProjects()
         p.canvases = reconciled(p.canvases, canvasFiles(p.name), newCanvas);
         // A Project always has a Canvas to show; an empty folder gets a new one.
         if (p.canvases.isEmpty()) {
-            if (!createEmptyCanvasFile(canvasPath(p.name, NewName)))
+            if (!createEmptyCanvasFile(canvasPath(p.name, UntitledName)))
                 continue;
-            p.canvases.append(newCanvas(NewName));
+            p.canvases.append(newCanvas(UntitledName));
         }
         m_projects.append(p);
     }
@@ -142,8 +142,8 @@ void Library::openRemembered(const QString &project, const QString &canvas)
 QStringList Library::canvasFiles(const QString &project) const
 {
     QStringList names;
-    for (const QString &file : QDir(projectPath(project)).entryList({"*" + Extension}, QDir::Files, SortOrder))
-        names.append(file.chopped(Extension.size()));
+    for (const QString &file : QDir(projectPath(project)).entryList({"*" + CanvasExtension}, QDir::Files, SortOrder))
+        names.append(file.chopped(CanvasExtension.size()));
     return names;
 }
 
@@ -189,15 +189,8 @@ int Library::projectIndex(const QString &project) const
 
 int Library::canvasIndex(const QString &project, const QString &canvas) const
 {
-    const int p = projectIndex(project);
-    if (p < 0)
-        return -1;
-    const QVector<CanvasEntry> &canvases = m_projects[p].canvases;
-    for (int i = 0; i < canvases.size(); ++i) {
-        if (canvases[i].name == canvas)
-            return i;
-    }
-    return -1;
+    const auto found = findCanvas(project, canvas);
+    return found ? found->canvasIndex : -1;
 }
 
 std::optional<Library::FoundCanvas> Library::findCanvas(const QString &project, const QString &canvas) const
@@ -228,7 +221,7 @@ QString Library::canvasPath(const QString &project, const QString &canvas) const
 {
     if (project.isEmpty() || canvas.isEmpty())
         return {};
-    return QDir(projectPath(project)).filePath(canvas + Extension);
+    return QDir(projectPath(project)).filePath(canvas + CanvasExtension);
 }
 
 QStringList Library::projectNames() const
@@ -319,9 +312,13 @@ void Library::setCurrent(const QString &project, const QString &canvas)
 }
 
 // Only the open Canvas changes here, not the list: no projectsChanged().
-bool Library::open(const QString &projectName, const QString &canvasName)
+bool Library::openProject(const QString &projectName)
 {
-    const QString canvas = canvasName.isEmpty() ? lastCanvas(projectName) : canvasName;
+    return open(projectName, lastCanvas(projectName));
+}
+
+bool Library::open(const QString &projectName, const QString &canvas)
+{
     if (canvasIndex(projectName, canvas) < 0)
         return false;
     if (projectName == m_currentProject && canvas == m_currentCanvas) {
@@ -367,27 +364,26 @@ bool Library::createEmptyCanvasFile(const QString &path)
         emit errorOccurred(tr("Could not create the folder for %1.").arg(path));
         return false;
     }
-    QSaveFile file(path);
-    const QJsonObject empty{{"nodes", QJsonArray()}, {"edges", QJsonArray()}};
-    if (file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(empty).toJson()) >= 0 && file.commit())
+    QString error;
+    if (Document().save(path, &error))   // an empty Canvas
         return true;
-    emit errorOccurred(tr("Could not create %1: %2").arg(path, file.errorString()));
+    emit errorOccurred(tr("Could not create %1: %2").arg(path, error));
     return false;
 }
 
 // A new Project folder with one empty Canvas, inserted at `at`.
 QString Library::addProject(int at)
 {
-    const QString name = uniqueName(NewName, projectNames());
+    const QString name = uniqueName(UntitledName, projectNames());
     if (!QDir(m_root).mkpath(name)) {
         emit errorOccurred(tr("Could not create the folder %1.").arg(projectPath(name)));
         return {};
     }
-    if (!createEmptyCanvasFile(canvasPath(name, NewName))) {
+    if (!createEmptyCanvasFile(canvasPath(name, UntitledName))) {
         QDir(projectPath(name)).removeRecursively();
         return {};
     }
-    m_projects.insert(at, {name, {{NewName, std::nullopt}}, true, {}});
+    m_projects.insert(at, {name, {{UntitledName, std::nullopt}}, true, {}});
     return name;
 }
 
@@ -408,7 +404,7 @@ QString Library::createProject()
     const QString name = addProject(m_projects.size());
     if (name.isEmpty())
         return {};
-    setCurrent(name, NewName);
+    setCurrent(name, UntitledName);
     saveIndexAndNotify();
     emit createdEmpty(name, {});
     return name;
@@ -420,7 +416,7 @@ QString Library::createCanvas(const QString &projectName)
     if (!p)
         return {};
     emit aboutToChangeFiles();
-    const QString name = uniqueName(NewName, canvasNames(projectName));
+    const QString name = uniqueName(UntitledName, canvasNames(projectName));
     if (!createEmptyCanvasFile(canvasPath(projectName, name)))
         return {};
     addCanvas(p, p->canvases.size(), {name, std::nullopt});
@@ -501,6 +497,18 @@ void Library::importCanvases(const QList<QUrl> &files)
 
 // ---- Renaming ----
 
+// What renaming a Project and a Canvas share: a name with a `problem` is refused (and said so);
+// otherwise the open Canvas is saved and the folder or file renamed.
+bool Library::renameOnDisk(const QString &problem, const QString &from, const QString &to, const QString &failure)
+{
+    if (!problem.isEmpty()) {
+        emit errorOccurred(problem);
+        return false;
+    }
+    emit aboutToChangeFiles();
+    return renamePath(from, to, failure);
+}
+
 // Like QDir::rename, but never replaces an existing file, and a change of case only
 // ("auth" -> "Auth") also works where the file system ignores case.
 bool Library::renamePath(const QString &from, const QString &to, const QString &failure)
@@ -538,12 +546,8 @@ bool Library::renameProject(const QString &projectName, const QString &newName)
         return false;
     if (name == projectName)
         return true;   // nothing to do
-    if (QString problem = projectNameProblem(name, projectName); !problem.isEmpty()) {
-        emit errorOccurred(problem);
-        return false;
-    }
-    emit aboutToChangeFiles();
-    if (!renamePath(projectPath(projectName), projectPath(name), tr("Could not rename “%1” to “%2”.").arg(projectName, name)))
+    if (!renameOnDisk(projectNameProblem(name, projectName), projectPath(projectName), projectPath(name),
+                      tr("Could not rename “%1” to “%2”.").arg(projectName, name)))
         return false;
     p->name = name;
     for (const CanvasEntry &c : p->canvases)
@@ -562,14 +566,10 @@ bool Library::renameCanvas(const QString &projectName, const QString &canvas, co
         return false;
     if (name == canvas)
         return true;   // nothing to do
-    if (QString problem = canvasNameProblem(projectName, name, canvas); !problem.isEmpty()) {
-        emit errorOccurred(problem);
-        return false;
-    }
-    emit aboutToChangeFiles();
     const QString from = canvasPath(projectName, canvas);
     const QString to = canvasPath(projectName, name);
-    if (!renamePath(from, to, tr("Could not rename “%1” to “%2”.").arg(canvas, name)))
+    if (!renameOnDisk(canvasNameProblem(projectName, name, canvas), from, to,
+                      tr("Could not rename “%1” to “%2”.").arg(canvas, name)))
         return false;
     ProjectEntry &p = m_projects[at->projectIndex];
     p.canvases[at->canvasIndex].name = name;
@@ -642,8 +642,8 @@ bool Library::replaceLastProject()
         return false;
     }
     ProjectEntry &project = m_projects.first();
-    if (project.name != NewName && renamePath(projectPath(project.name), projectPath(NewName), {}))
-        project.name = NewName;
+    if (project.name != UntitledName && renamePath(projectPath(project.name), projectPath(UntitledName), {}))
+        project.name = UntitledName;
     setCurrent(project.name, project.firstCanvas());
     saveIndexAndNotify();
     return true;

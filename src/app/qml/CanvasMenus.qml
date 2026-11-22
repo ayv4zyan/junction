@@ -37,7 +37,7 @@ Item {
         else if (summary.connections === 1)
             canvasView.editLabel(targets[0])
         else
-            canvasView.editText(targets[0])
+            canvasView.editInPlace(targets[0])
     }
 
     function labelsText() {
@@ -66,7 +66,7 @@ Item {
         MenuEntry {
             text: qsTr("Edit text")
             enabled: menus.editor.selection.length === 1 && menus.editor.selectionSummary.editableCards === 1
-            onTriggered: menus.canvasView.editText(menus.editor.selection[0])
+            onTriggered: menus.canvasView.editInPlace(menus.editor.selection[0])
         }
         MenuEntry {
             text: menus.labelsText()

@@ -10,7 +10,7 @@ Exporter::Exporter(const Document *document, QObject *parent)
 QUrl Exporter::exportCanvasFile(const QUrl &url)
 {
     QString path = url.toLocalFile();
-    if (!path.endsWith(".canvas"))
+    if (!path.endsWith(".canvas", Qt::CaseInsensitive))
         path += ".canvas";
     QString error;
     if (!m_document->save(path, &error)) {

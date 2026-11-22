@@ -98,8 +98,10 @@ Item {
                 return
             if (event.button === Qt.RightButton)
                 row.sidebar.openMenu(row, row, event.x, event.y)
+            else if (row.isProject)
+                row.sidebar.library.openProject(row.project)
             else
-                row.sidebar.library.open(row.project, row.isProject ? "" : row.name)
+                row.sidebar.library.open(row.project, row.name)
         }
         onDoubleClicked: (event) => {
             if (event.button === Qt.LeftButton)

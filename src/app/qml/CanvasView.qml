@@ -23,7 +23,7 @@ Item {
     readonly property alias zoom: camera.zoom
     readonly property alias pan: camera.pan
     // What the user is doing. Read-only for the items on the canvas: they change it through the
-    // functions below (editText(), startConnection(), ...).
+    // functions below (editInPlace(), startConnection(), ...).
     readonly property alias editingNodeId: interaction.editingNodeId       // Card or Group whose text is being edited
     readonly property alias editingLabelId: interaction.editingLabelId     // Connection whose label is being edited
     readonly property alias connectFrom: interaction.connectFrom   // Card a new Connection is being dragged from
@@ -58,16 +58,16 @@ Item {
         property point connectPressPoint   // where the new Connection's drag began, in screen coordinates
     }
 
-    // ---- Editing text (called by CardItem, GroupItem and the menus) ----
+    // ---- Editing a Card's text or a Group's Label in place (called by CardItem, GroupItem, the menus) ----
 
-    function editText(nodeId) { interaction.editingNodeId = nodeId }
+    function editInPlace(nodeId) { interaction.editingNodeId = nodeId }
     // A Card or Group just made: its text is typed straight away. "" when it couldn't be made.
     function editNew(nodeId) {
         if (nodeId)
-            editText(nodeId)
+            editInPlace(nodeId)
     }
-    function stopTextEditing() { interaction.editingNodeId = "" }
-    function endTextEditing(nodeId) {
+    function stopEditingInPlace() { interaction.editingNodeId = "" }
+    function endEditingInPlace(nodeId) {
         if (interaction.editingNodeId === nodeId)
             interaction.editingNodeId = ""
     }
@@ -240,7 +240,7 @@ Item {
         target: canvasView.editor
         function onCanvasOpened() {
             canvasView.cancelConnection()
-            canvasView.stopTextEditing()
+            canvasView.stopEditingInPlace()
             if (canvasView.editingLabelId) {   // the Connection belonged to the Canvas shown before
                 canvasView.endLabelEditing()
                 canvasView.forceActiveFocus()

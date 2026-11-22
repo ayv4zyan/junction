@@ -54,8 +54,8 @@ public:
     QString currentProject() const { return m_currentProject; }
     QString currentCanvas() const { return m_currentCanvas; }
     QString currentPath() const { return canvasPath(m_currentProject, m_currentCanvas); }
-    // Without a Canvas, the one last open in the Project.
-    Q_INVOKABLE bool open(const QString &project, const QString &canvas = {});
+    Q_INVOKABLE bool open(const QString &project, const QString &canvas);
+    Q_INVOKABLE bool openProject(const QString &project);   // the Canvas last open in it
     Q_INVOKABLE void openAdjacent(int step);   // the previous (-1) or next (1) Canvas in the Project
     QString lastCanvas(const QString &project) const;   // or its first, if that one is gone
 
@@ -131,6 +131,7 @@ private:
     // Never replaces an existing file; a change of case only ("auth" -> "Auth") also works where
     // the file system ignores case. On failure it says `failure` ("" to say nothing).
     bool renamePath(const QString &from, const QString &to, const QString &failure);
+    bool renameOnDisk(const QString &problem, const QString &from, const QString &to, const QString &failure);
     static bool moveFile(const QString &from, const QString &to, QString *stranded);
     // Every change ends here: saves the index, emits projectsChanged(), then currentChanged() if
     // currentPath() is no longer the one last announced.

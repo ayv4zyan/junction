@@ -298,7 +298,7 @@ private slots:
         library.load();
         library.createCanvas("Untitled");   // Untitled 2, open
         library.createProject();
-        QVERIFY(library.open("Untitled"));
+        QVERIFY(library.openProject("Untitled"));
         QCOMPARE(library.currentCanvas(), QString("Untitled 2"));
         library.openAdjacent(-1);
         QCOMPARE(library.currentCanvas(), QString("Untitled"));

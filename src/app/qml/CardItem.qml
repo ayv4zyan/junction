@@ -19,7 +19,7 @@ NodeItem {
 
     function finishEditing(text) {
         editor.setCardText(nodeId, text)
-        canvasView.endTextEditing(nodeId)
+        canvasView.endEditingInPlace(nodeId)
     }
 
     Rectangle {
@@ -145,7 +145,7 @@ NodeItem {
         anchors.fill: parent
         visible: !card.editing   // hidden, not disabled, so the text's I-beam shows while editing
         hoverEnabled: true
-        onDoubleClicked: { if (card.isText) card.canvasView.editText(card.nodeId) }
+        onDoubleClicked: { if (card.isText) card.canvasView.editInPlace(card.nodeId) }
     }
 
     // Resizing by dragging a side or corner. Declared before the Handles so that a Handle in

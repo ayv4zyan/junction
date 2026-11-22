@@ -20,6 +20,9 @@ qt_add_qml_module(junction
         qml/Sidebar.qml
         qml/SidebarRow.qml
         qml/ConfirmDialog.qml
+        qml/LabelDialog.qml
+        qml/MenuEntry.qml
+        qml/TextMenu.qml
         qml/Toast.qml
     RESOURCES
         icons/style-straight.svg icons/style-curved.svg icons/style-elbow.svg

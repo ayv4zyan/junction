@@ -38,6 +38,7 @@ Item {
             onDragStarted: edges.canvas.editor.beginResize(edges.nodeId, horizontal, vertical)
             onDragged: (delta, invertSnap) => edges.canvas.editor.updateResize(delta, invertSnap)
             onDragFinished: edges.canvas.editor.endResize()
+            onMenuRequested: edges.canvas.openMenuFor(edges.nodeId)
         }
     }
 }

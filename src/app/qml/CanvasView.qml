@@ -126,6 +126,40 @@ Item {
         labelEditor.selectAll()
     }
 
+    // ---- Right-click menus ----
+    // Right-clicking an item first makes it the selection, unless it is already part of it.
+    // Then: only Connections selected -> connectionMenu; any Card or Group -> selectionMenu.
+    // Right-clicking empty space opens canvasMenu (see the background MouseArea).
+
+    function openMenuFor(id, waypointIndex) {
+        if (!editor.selection.includes(id))
+            editor.select(id)
+        const info = editor.selectionInfo
+        if (info.cards + info.groups === 0) {
+            connectionMenu.waypoint = waypointIndex ?? -1
+            connectionMenu.popup()
+        } else {
+            selectionMenu.popup()
+        }
+    }
+
+    // One Label is edited in place, like double-clicking it; several get the dialog.
+    function editLabels() {
+        const info = editor.selectionInfo
+        const targets = info.labelTargets
+        if (targets.length > 1)
+            labelDialog.ask(targets.length, info.sharedLabel, (text) => editor.setLabels(text))
+        else if (info.connections === 1)
+            editLabel(targets[0])
+        else
+            editingId = targets[0]
+    }
+
+    function labelsText() {
+        const count = editor.selectionInfo.labelTargets.length
+        return count > 1 ? qsTr("Edit %1 labels…").arg(count) : qsTr("Edit label")
+    }
+
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Space && !event.isAutoRepeat) {
             spaceHeld = true
@@ -237,13 +271,18 @@ Item {
                 mode = "pan"
                 return
             }
+            const hit = view.editor.connectionAt(view.toWorld(last), 6 / view.zoom)
             if (mouse.button === Qt.RightButton) {
-                contextMenu.at = view.toWorld(last)
-                contextMenu.popup()
+                if (hit) {
+                    view.openMenuFor(hit)
+                } else {
+                    view.editor.clearSelection()
+                    canvasMenu.at = view.toWorld(last)
+                    canvasMenu.popup()
+                }
                 return
             }
             const additive = view.isToggle(mouse.modifiers)
-            const hit = view.editor.connectionAt(view.toWorld(last), 6 / view.zoom)
             if (hit) {
                 view.editor.select(hit, additive)
                 mode = ""
@@ -357,9 +396,10 @@ Item {
         width: 200
         placeholderText: qsTr("Label")
         horizontalAlignment: TextInput.AlignHCenter
+        ContextMenu.menu: TextMenu { id: labelMenu; editor: labelEditor }
         onAccepted: view.forceActiveFocus()
         onActiveFocusChanged: {
-            if (!activeFocus && visible) {
+            if (!activeFocus && visible && !labelMenu.visible) {
                 view.editor.setConnectionLabel(connectionId, text)
                 visible = false
             }
@@ -367,18 +407,63 @@ Item {
         Keys.onEscapePressed: view.forceActiveFocus()
     }
 
+    // Right-click on empty space: make something here.
     Menu {
-        id: contextMenu
+        id: canvasMenu
         property point at
-        MenuItem { text: qsTr("New card"); onTriggered: view.editingId = view.editor.createCard(contextMenu.at) }
-        // With something selected this groups it; otherwise it adds an empty Group here.
-        MenuItem {
-            text: view.editor.selection.length > 0 ? qsTr("Group selection") : qsTr("New group")
-            onTriggered: view.editingId = view.editor.createGroup(contextMenu.at)
+        MenuEntry { text: qsTr("New card"); onTriggered: view.editingId = view.editor.createCard(canvasMenu.at) }
+        MenuEntry { text: qsTr("New group"); onTriggered: view.editingId = view.editor.createGroup(canvasMenu.at) }
+        MenuSeparator {}
+        MenuEntry { text: qsTr("Paste"); hint: "Ctrl+V"; onTriggered: view.editor.paste(canvasMenu.at) }
+    }
+
+    // Right-click on a selection holding a Card or Group.
+    Menu {
+        id: selectionMenu
+        MenuEntry {
+            text: qsTr("Edit text")
+            enabled: view.editor.selection.length === 1 && view.editor.selectionInfo.editableCards === 1
+            onTriggered: view.editingId = view.editor.selection[0]
+        }
+        MenuEntry {
+            text: view.labelsText()
+            enabled: view.editor.selectionInfo.labelTargets.length > 0
+            onTriggered: view.editLabels()
         }
         MenuSeparator {}
-        MenuItem { text: qsTr("Paste"); onTriggered: view.editor.paste(contextMenu.at) }
+        MenuEntry { text: qsTr("Cut"); hint: "Ctrl+X"; onTriggered: view.editor.cut() }
+        MenuEntry { text: qsTr("Copy"); hint: "Ctrl+C"; onTriggered: view.editor.copy() }
+        MenuEntry { text: qsTr("Duplicate"); hint: "Ctrl+D"; onTriggered: view.editor.duplicate() }
+        MenuEntry {
+            text: qsTr("Group")
+            hint: "Ctrl+G"
+            onTriggered: view.editingId = view.editor.createGroup(view.pointerWorld())
+        }
+        MenuSeparator {}
+        MenuEntry { text: qsTr("Delete"); hint: "Del"; onTriggered: view.editor.deleteSelection() }
     }
+
+    // Right-click on a selection of only Connections.
+    Menu {
+        id: connectionMenu
+        property int waypoint: -1   // the Waypoint right-clicked, if any; set by openMenuFor()
+        MenuEntry {
+            text: qsTr("Remove waypoint")
+            visible: connectionMenu.waypoint >= 0
+            height: visible ? implicitHeight : 0
+            onTriggered: view.editor.removeWaypoint(view.editor.selection[0], connectionMenu.waypoint)
+        }
+        MenuEntry { text: view.labelsText(); onTriggered: view.editLabels() }
+        MenuEntry {
+            text: qsTr("Remove label")
+            enabled: view.editor.selectionInfo.labeledConnections > 0
+            onTriggered: view.editor.removeConnectionLabels()
+        }
+        MenuSeparator {}
+        MenuEntry { text: qsTr("Delete"); hint: "Del"; onTriggered: view.editor.deleteSelection() }
+    }
+
+    LabelDialog { id: labelDialog }
 
     HoverHandler { id: hover }
 

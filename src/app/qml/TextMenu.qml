@@ -1,0 +1,38 @@
+import QtQuick
+import QtQuick.Controls
+
+// The right-click menu while typing (a Card's text, a Group's or Connection's Label):
+// it acts on the text, not on the Canvas.
+Menu {
+    id: menu
+    required property Item editor   // a TextEdit, TextInput or TextField
+
+    // The menu takes keyboard focus while open. Editors don't stop editing while it is open
+    // (they check `visible`), and get the focus back when it closes.
+    onClosed: menu.editor.forceActiveFocus()
+
+    MenuEntry {
+        text: qsTr("Cut")
+        hint: "Ctrl+X"
+        enabled: menu.editor.selectedText !== ""
+        onTriggered: menu.editor.cut()
+    }
+    MenuEntry {
+        text: qsTr("Copy")
+        hint: "Ctrl+C"
+        enabled: menu.editor.selectedText !== ""
+        onTriggered: menu.editor.copy()
+    }
+    MenuEntry {
+        text: qsTr("Paste")
+        hint: "Ctrl+V"
+        enabled: menu.editor.canPaste
+        onTriggered: menu.editor.paste()
+    }
+    MenuSeparator {}
+    MenuEntry {
+        text: qsTr("Select all")
+        hint: "Ctrl+A"
+        onTriggered: menu.editor.selectAll()
+    }
+}

@@ -30,18 +30,20 @@ ctest --test-dir build          # core unit tests
 | Connect to a new card | drag from a Handle into empty space |
 | Pin a side | drop the connection on a Handle (otherwise ends float) |
 | Add a Waypoint | select a connection, drag a hollow midpoint dot |
-| Remove a Waypoint | double-click it |
+| Remove a Waypoint | double-click it, or right-click → Remove waypoint |
 | Re-attach an end | select a connection, drag its end dot onto a card or Handle |
-| Label a connection | double-click it (or its middle dot when selected) |
+| Label a connection | double-click it (or its middle dot when selected), or right-click → Edit label |
+| Label several at once | select Groups/Connections, right-click → Edit N labels… |
 | Pan | scroll, middle-drag or Space+drag |
 | Zoom | Ctrl+scroll; Ctrl+0 resets, Ctrl+1 fits |
 | Resize | drag any side or corner of a card or group |
-| Group | Ctrl+G or right-click → Group selection (with nothing selected: an empty group) |
+| Group | Ctrl+G or right-click the selection → Group; right-click empty space → New group for an empty one |
+| Right-click | on a selected item: actions for the selection (or only its Connections); on empty space: New card, New group, Paste |
 | Nudge | arrow keys move the selection one grid step |
 | Snap | toolbar toggle; hold Alt while dragging for the opposite |
 
-Undo/redo (each Canvas keeps its own history while the app runs), copy/paste, Ctrl+D duplicate
-(a Group comes with its cards), Delete. Export PNG/SVG from the ☰ menu (exports the selection,
+Undo/redo (each Canvas keeps its own history while the app runs), cut/copy/paste, Ctrl+D duplicate
+(a Group comes with its cards), Delete (a Group's cards stay). Export PNG/SVG from the ☰ menu (exports the selection,
 or everything when nothing is selected).
 
 ### Projects and Canvases

@@ -5,15 +5,18 @@ import QtQuick
 //
 // A drag only starts once the mouse has moved a few pixels, so a plain click (or the first
 // click of a double-click) never changes anything; it is reported as `tapped` instead.
+// A right-click never drags: it is reported as `menuRequested`.
 MouseArea {
     id: area
     required property var canvas
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
 
     signal grabbed(var mouse)                         // pressed (not while Space pans)
     signal dragStarted()
     signal dragged(point delta, bool invertSnap)
     signal dragFinished()
     signal tapped(int modifiers)                      // released without dragging
+    signal menuRequested()                            // right-clicked
 
     property point pressPoint
     property bool dragging: false
@@ -24,12 +27,16 @@ MouseArea {
             return
         }
         canvas.forceActiveFocus()
+        if (mouse.button === Qt.RightButton) {
+            menuRequested()
+            return
+        }
         pressPoint = mapToItem(canvas, mouse.x, mouse.y)
         dragging = false
         grabbed(mouse)
     }
     onPositionChanged: (mouse) => {
-        if (!pressed)
+        if (!(pressedButtons & Qt.LeftButton))
             return
         const p = mapToItem(canvas, mouse.x, mouse.y)
         if (!dragging) {
@@ -42,6 +49,8 @@ MouseArea {
                 (mouse.modifiers & Qt.AltModifier) !== 0)
     }
     onReleased: (mouse) => {
+        if (mouse.button !== Qt.LeftButton)
+            return
         if (dragging) {
             dragging = false
             dragFinished()

@@ -376,6 +376,7 @@ ApplicationWindow {
     Shortcut { sequences: [StandardKey.Redo]; enabled: window.canEdit; onActivated: canvasEditor.redo() }
     Shortcut { sequences: ["Delete", "Backspace"]; enabled: window.canEdit; onActivated: canvasEditor.deleteSelection() }
     Shortcut { sequences: [StandardKey.SelectAll]; enabled: window.canEdit; onActivated: canvasEditor.selectAll() }
+    Shortcut { sequences: [StandardKey.Cut]; enabled: window.canEdit; onActivated: canvasEditor.cut() }
     Shortcut { sequences: [StandardKey.Copy]; enabled: window.canEdit; onActivated: canvasEditor.copy() }
     Shortcut { sequences: [StandardKey.Paste]; enabled: window.canEdit; onActivated: canvasEditor.paste(canvasView.pointerWorld()) }
     Shortcut { sequence: "Ctrl+D"; enabled: window.canEdit; onActivated: canvasEditor.duplicate() }

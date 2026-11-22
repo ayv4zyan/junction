@@ -9,10 +9,18 @@ CanvasLayer::CanvasLayer(QQuickItem *parent)
     connect(this, &CanvasLayer::viewChanged, this, [this] { update(); });
 }
 
+void CanvasLayer::setColors(const QVariantMap &colors)
+{
+    m_palette = Palette::fromVariantMap(colors);
+    if (!m_palette)
+        qWarning("CanvasLayer: Colors.forPainter is missing a color; nothing is painted");
+    update();
+}
+
 void GridLayer::paint(QPainter *painter)
 {
-    if (const auto palette = colors())
-        CanvasPainter::drawGrid(*painter, view(), size(), *palette);
+    if (palette())
+        CanvasPainter::drawGrid(*painter, view(), size(), *palette());
 }
 
 void ConnectionLayer::setEditor(Editor *editor)
@@ -37,15 +45,13 @@ void ConnectionLayer::setEditor(Editor *editor)
     connect(document, &Document::connectionsChanged, this, repaint);
     connect(document, &Document::reset, this, repaint);
     connect(editor, &Editor::selectionChanged, this, repaint);
-    connect(editor, &Editor::previewChanged, this, repaint);
 }
 
 void ConnectionLayer::paint(QPainter *painter)
 {
-    const auto colorsSet = colors();
-    if (!m_editor || !colorsSet)
+    if (!m_editor || !this->palette())
         return;
-    const Palette &palette = *colorsSet;
+    const Palette &palette = *this->palette();
     const Document &document = m_editor->document();
     painter->setRenderHint(QPainter::Antialiasing);
     painter->setTransform(view());
@@ -58,14 +64,12 @@ void ConnectionLayer::paint(QPainter *painter)
         }
     }
 
-    // The Connection being dragged out of a Handle. Without a target it ends at the pointer.
-    const auto &preview = m_editor->connectionPreview();
-    const Node *from = preview ? document.node(preview->fromNode) : nullptr;
-    if (from) {
-        const Node *target = document.node(preview->targetNode);
-        const QRectF to = target ? target->rect : QRectF(preview->pointer, QSizeF(0, 0));
+    // The new Connection being dragged out of a Handle.
+    if (const Node *from = document.node(m_connectFrom)) {
+        const Node *target = document.node(m_dropTarget);
+        const QRectF to = target ? target->rect : QRectF(m_connectPointer, QSizeF(0, 0));
         Connection c;
-        c.toSide = preview->targetSide;
+        c.toSide = m_dropSide;
         CanvasPainter::drawConnection(*painter, Geometry::route(from->rect, to, c), c, palette, true);
     }
 }

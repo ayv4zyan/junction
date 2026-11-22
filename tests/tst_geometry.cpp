@@ -232,7 +232,7 @@ private slots:
     {
         const QRectF card(0, 0, 100, 50);
         QCOMPARE(Geometry::handleAt(card, {101, 24}, 8), Side::Right);
-        QCOMPARE(Geometry::handleAt(card, {50, 25}, 8), Side::None);
+        QCOMPARE(Geometry::handleAt(card, {50, 25}, 8), Side::Floating);
     }
 };
 

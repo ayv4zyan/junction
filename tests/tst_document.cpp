@@ -111,8 +111,8 @@ private slots:
         // Written by Obsidian: no "pathStyle", so its sides are not kept.
         const Connection fromObsidian = Connection::fromJson(
             {{"id", "e"}, {"fromNode", "a"}, {"fromSide", "right"}, {"toNode", "b"}, {"toSide", "left"}});
-        QCOMPARE(fromObsidian.fromSide, Side::None);
-        QCOMPARE(fromObsidian.toSide, Side::None);
+        QCOMPARE(fromObsidian.fromSide, Side::Floating);
+        QCOMPARE(fromObsidian.toSide, Side::Floating);
         QVERIFY(fromObsidian.toArrow);
         QCOMPARE(fromObsidian.style, PathStyle::Curved);
     }

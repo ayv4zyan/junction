@@ -26,6 +26,16 @@ Item translated(Item item, QPointF delta)
     return item;
 }
 
+Connection newConnection(const QString &from, const QString &to, Side toSide)
+{
+    Connection c;
+    c.id = Document::newId();
+    c.fromNode = from;
+    c.toNode = to;
+    c.toSide = toSide;
+    return c;
+}
+
 // The Change that applies `edit` to a copy of `item`.
 template <typename T, typename Edit>
 Change edited(const T &item, Edit edit)
@@ -237,13 +247,19 @@ QRectF Editor::selectionBounds() const
 
 // ---- Creating and editing ----
 
+// A rectangle of `size` centered on `center`, with its corner on the grid when snapping.
+QRectF Editor::placed(QPointF center, QSizeF size) const
+{
+    const QPointF topLeft = center - QPointF(size.width(), size.height()) / 2;
+    return QRectF(snapping(false) ? Geometry::snap(topLeft) : topLeft, size);
+}
+
 Node Editor::newCard(QPointF center, const QString &text) const
 {
     Node card;
     card.id = Document::newId();
     card.text = text;
-    const QPointF topLeft = center - QPointF(CardSize.width(), CardSize.height()) / 2;
-    card.rect = QRectF(snapping(false) ? Geometry::snap(topLeft) : topLeft, CardSize);
+    card.rect = placed(center, CardSize);
     return card;
 }
 
@@ -269,13 +285,8 @@ QString Editor::createGroup(QPointF center)
     group.id = Document::newId();
     group.kind = NodeKind::Group;
     group.label = tr("Group");
-    if (!bounds.isEmpty()) {
-        const qreal margin = Geometry::GridSize * 2;
-        group.rect = bounds.adjusted(-margin, -margin, margin, margin);
-    } else {
-        const QPointF topLeft = center - QPointF(GroupSize.width(), GroupSize.height()) / 2;
-        group.rect = QRectF(snapping(false) ? Geometry::snap(topLeft) : topLeft, GroupSize);
-    }
+    const qreal margin = Geometry::GridSize * 2;
+    group.rect = bounds.isEmpty() ? placed(center, GroupSize) : bounds.adjusted(-margin, -margin, margin, margin);
     commit({{std::nullopt, group}}, tr("Group"));
     setSelection({group.id});
     return group.id;
@@ -315,29 +326,31 @@ void Editor::setColor(const QString &color)
            tr("Change color"));
 }
 
-void Editor::deleteSelection()
+// The Changes that remove the nodes in `nodeIds`, every Connection touching them, and the
+// Connections among `connectionIds`.
+Transaction Editor::removal(const QSet<QString> &nodeIds, const QStringList &connectionIds) const
 {
     Transaction t;
-    QSet<QString> removedConnections;
-    auto removeConnection = [&](const Connection &c) {
-        if (!removedConnections.contains(c.id)) {
-            removedConnections.insert(c.id);
+    for (const Connection &c : document().connections()) {
+        if (nodeIds.contains(c.fromNode) || nodeIds.contains(c.toNode) || connectionIds.contains(c.id))
             t.append({c, std::nullopt});
-        }
-    };
+    }
+    for (const Node &n : document().nodes()) {
+        if (nodeIds.contains(n.id))
+            t.append({n, std::nullopt});
+    }
+    return t;
+}
 
+// Removes what is selected; a Group's Cards stay (cut takes them along).
+void Editor::deleteSelection()
+{
+    QSet<QString> nodes;
     for (const QString &id : m_selection) {
-        if (const Connection *c = document().connection(id))
-            removeConnection(*c);
+        if (document().node(id))
+            nodes.insert(id);
     }
-    for (const QString &id : m_selection) {
-        if (const Node *n = document().node(id)) {
-            for (const Connection &c : document().connectionsOf(id))
-                removeConnection(c);
-            t.append({*n, std::nullopt});
-        }
-    }
-    commit(t, tr("Delete"));
+    commit(removal(nodes, m_selection), tr("Delete"));
 }
 
 // ---- Dragging ----
@@ -543,7 +556,7 @@ QString Editor::cardAt(QPointF point, qreal margin) const
 Side Editor::handleAt(const QString &nodeId, QPointF point, qreal radius) const
 {
     const Node *n = document().node(nodeId);
-    return n ? Geometry::handleAt(n->rect, point, radius) : Side::None;
+    return n ? Geometry::handleAt(n->rect, point, radius) : Side::Floating;
 }
 
 QString Editor::connectionAt(QPointF point, qreal tolerance) const
@@ -558,28 +571,11 @@ QString Editor::connectionAt(QPointF point, qreal tolerance) const
     return {};
 }
 
-void Editor::setConnectionPreview(const QString &fromNode, QPointF pointer, const QString &targetNode,
-                                  Side targetSide)
-{
-    m_preview = ConnectionPreview{fromNode, pointer, targetNode, targetSide};
-    emit previewChanged();
-}
-
-void Editor::clearConnectionPreview()
-{
-    m_preview.reset();
-    emit previewChanged();
-}
-
 void Editor::connectNodes(const QString &from, const QString &to, Side toSide)
 {
     if (from == to || !document().node(from) || !document().node(to))
         return;
-    Connection c;
-    c.id = Document::newId();
-    c.fromNode = from;
-    c.toNode = to;
-    c.toSide = toSide;
+    const Connection c = newConnection(from, to, toSide);
     commit({{std::nullopt, c}}, tr("Connect"));
     setSelection({c.id});
 }
@@ -589,11 +585,7 @@ QString Editor::connectToNewCard(const QString &from, QPointF center)
     if (!document().node(from))
         return {};
     const Node card = newCard(center);
-    Connection c;
-    c.id = Document::newId();
-    c.fromNode = from;
-    c.toNode = card.id;
-    commit({{std::nullopt, card}, {std::nullopt, c}}, tr("Add connected card"));
+    commit({{std::nullopt, card}, {std::nullopt, newConnection(from, card.id, Side::Floating)}}, tr("Add connected card"));
     setSelection({card.id});
     return card.id;
 }
@@ -685,16 +677,7 @@ void Editor::cut()
     if (ids.isEmpty() && selectionSummary().connections == 0)
         return;
     copy();
-    Transaction t;
-    for (const Connection &c : document().connections()) {
-        if (ids.contains(c.fromNode) || ids.contains(c.toNode) || m_selection.contains(c.id))
-            t.append({c, std::nullopt});
-    }
-    for (const Node &n : document().nodes()) {
-        if (ids.contains(n.id))
-            t.append({n, std::nullopt});
-    }
-    commit(t, tr("Cut"));
+    commit(removal(ids, m_selection), tr("Cut"));
 }
 
 void Editor::copy()
@@ -736,7 +719,6 @@ void Editor::loadCurrent()
         return;   // the open file was only renamed or moved; OpenCanvas::fileMoved() has followed it
     cancelDrag();
     setSelection({});
-    clearConnectionPreview();
     if (path.isEmpty())
         m_canvas.openNothing(tr("The library folder %1 can't be written to.").arg(m_library->root()));
     else
@@ -765,12 +747,17 @@ QUrl Editor::exportImage(const QUrl &url, const QVariantMap &palette)
 {
     // Exports the selection, or the whole Canvas when nothing is selected.
     const std::optional<Palette> colors = Palette::fromVariantMap(palette);
-    QString error = tr("The colors to export with are incomplete.");
-    if (colors && CanvasPainter::exportCanvas(document(), document().nodesWithContents(m_selection),
-                                              url.toLocalFile(), *colors, &error))
-        return url;
-    emit errorOccurred(error);
-    return {};
+    if (!colors) {
+        emit errorOccurred(tr("The colors to export with are incomplete."));
+        return {};
+    }
+    QString error;
+    if (!CanvasPainter::exportCanvas(document(), document().nodesWithContents(m_selection), url.toLocalFile(),
+                                     *colors, &error)) {
+        emit errorOccurred(error);
+        return {};
+    }
+    return url;
 }
 
 QRectF Editor::contentBounds() const

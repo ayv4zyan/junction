@@ -42,7 +42,6 @@ public:
     // The given nodes plus every node lying completely inside the Groups among them (nested
     // ones too). Other ids are left out. This is what moves, copies and exports with a selection.
     QSet<QString> nodesWithContents(const QStringList &ids) const;
-    QVector<Connection> connectionsOf(const QString &nodeId) const;
     // The path a Connection takes between its nodes, or nothing if one of them is missing.
     std::optional<Geometry::Route> route(const Connection &connection) const;
 

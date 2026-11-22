@@ -13,7 +13,7 @@
 // In a namespace of their own only so that QML can use them too (registered by the app).
 namespace CanvasEnums {
 Q_NAMESPACE
-enum class Side { None, Top, Right, Bottom, Left };   // None = Floating End
+enum class Side { Floating, Top, Right, Bottom, Left };   // Floating: no Pinned side, see GLOSSARY.md
 Q_ENUM_NS(Side)
 enum class PathStyle { Straight, Curved, Elbow };
 Q_ENUM_NS(PathStyle)
@@ -56,8 +56,8 @@ struct Connection
     QString id;
     QString fromNode;
     QString toNode;
-    Side fromSide = Side::None;   // None means the end floats
-    Side toSide = Side::None;
+    Side fromSide = Side::Floating;   // the Pinned side, or Floating
+    Side toSide = Side::Floating;
     bool fromArrow = false;
     bool toArrow = true;
     QString color;

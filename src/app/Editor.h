@@ -100,22 +100,11 @@ class Editor : public QObject
     Q_PROPERTY(bool snapToGrid READ snapToGrid WRITE setSnapToGrid NOTIFY snapToGridChanged)
 
 public:
-    // The Connection being dragged out of a Handle, drawn by ConnectionLayer. It ends on
-    // `targetNode` when the pointer is over one, otherwise at the pointer.
-    struct ConnectionPreview
-    {
-        QString fromNode;
-        QPointF pointer;
-        QString targetNode;
-        Side targetSide = Side::None;
-    };
-
     // Shows the Library's current Canvas, and follows it.
     // `clipboard` is the system clipboard, for cut, copy and paste.
     Editor(Library *library, QClipboard *clipboard, QObject *parent = nullptr);
 
     const Document &document() const { return m_canvas.document(); }
-    const std::optional<ConnectionPreview> &connectionPreview() const { return m_preview; }
     NodeModel *cards() { return &m_cards; }
     NodeModel *groups() { return &m_groups; }
     QStringList selection() const { return m_selection; }
@@ -162,16 +151,13 @@ public:
 
     // Connections
     Q_INVOKABLE QString cardAt(QPointF point, qreal margin = 0) const;
-    Q_INVOKABLE CanvasEnums::Side handleAt(const QString &nodeId, QPointF point, qreal radius) const;   // or None
+    Q_INVOKABLE CanvasEnums::Side handleAt(const QString &nodeId, QPointF point, qreal radius) const;   // Floating when there is none
     Q_INVOKABLE QString connectionAt(QPointF point, qreal tolerance) const;
     // Where the floating selection toolbar goes (see Geometry::floatingPosition), in view coordinates.
     Q_INVOKABLE QPointF floatingPosition(const QRectF &selection, const QSizeF &size, const QRectF &view, qreal gap) const
     {
         return Geometry::floatingPosition(selection, size, view, gap);
     }
-    Q_INVOKABLE void setConnectionPreview(const QString &fromNode, QPointF pointer, const QString &targetNode,
-                                          CanvasEnums::Side targetSide);
-    Q_INVOKABLE void clearConnectionPreview();
     Q_INVOKABLE void connectNodes(const QString &from, const QString &to, CanvasEnums::Side toSide);
     Q_INVOKABLE QString connectToNewCard(const QString &from, QPointF center);
     Q_INVOKABLE void reattach(const QString &connectionId, bool fromEnd, const QString &nodeId, CanvasEnums::Side side);
@@ -203,7 +189,6 @@ signals:
     void historyChanged();
     void filePathChanged();
     void snapToGridChanged();
-    void previewChanged();
     void canvasOpened();   // another Canvas is shown; the Document was replaced
     void draggingChanged();
     void errorOccurred(const QString &message);
@@ -236,7 +221,9 @@ private:
     void pruneSelection();
     bool snapping(bool invert) const { return m_snapToGrid != invert; }
 
+    QRectF placed(QPointF center, QSizeF size) const;
     Node newCard(QPointF center, const QString &text = {}) const;
+    Transaction removal(const QSet<QString> &nodeIds, const QStringList &connectionIds) const;
     QVector<Item> itemsMovingWithSelection() const;
     template <typename Kind>
     const Kind *activeDrag() const;   // the drag in progress, if it is of that kind
@@ -262,7 +249,6 @@ private:
     NodeModel m_cards{&m_canvas.document(), NodeModel::Cards};
     NodeModel m_groups{&m_canvas.document(), NodeModel::Groups};
     QStringList m_selection;
-    std::optional<ConnectionPreview> m_preview;
     std::optional<Drag> m_drag;
     bool m_snapToGrid = true;
 };

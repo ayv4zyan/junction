@@ -195,7 +195,7 @@ QPointF sidePoint(const QRectF &rect, Side side)
     case Side::Right: return {rect.right(), rect.center().y()};
     case Side::Bottom: return {rect.center().x(), rect.bottom()};
     case Side::Left: return {rect.left(), rect.center().y()};
-    case Side::None: break;
+    case Side::Floating: break;
     }
     return rect.center();
 }
@@ -207,7 +207,7 @@ QPointF sideNormal(Side side)
     case Side::Right: return {1, 0};
     case Side::Bottom: return {0, 1};
     case Side::Left: return {-1, 0};
-    case Side::None: break;
+    case Side::Floating: break;
     }
     return {};
 }
@@ -254,9 +254,9 @@ std::pair<Side, Side> resolveSides(const QRectF &from, const QRectF &to, const C
             toSide = toIsBelow ? Side::Top : Side::Bottom;
         }
     }
-    if (c.fromSide != Side::None)
+    if (c.fromSide != Side::Floating)
         fromSide = c.fromSide;
-    if (c.toSide != Side::None)
+    if (c.toSide != Side::Floating)
         toSide = c.toSide;
     return {fromSide, toSide};
 }
@@ -272,9 +272,9 @@ Route route(const QRectF &from, const QRectF &to, const Connection &c)
         // A straight line doesn't need to leave perpendicular to a side, so a Floating End
         // sits where the line towards the other end crosses the border. It slides smoothly
         // as cards move instead of jumping between sides.
-        if (c.fromSide == Side::None)
+        if (c.fromSide == Side::Floating)
             r.start = borderPoint(from, c.waypoints.isEmpty() ? to.center() : c.waypoints.first());
-        if (c.toSide == Side::None)
+        if (c.toSide == Side::Floating)
             r.end = borderPoint(to, c.waypoints.isEmpty() ? from.center() : c.waypoints.last());
     }
     const QVector<QPointF> controls = QVector<QPointF>{r.start} + c.waypoints + QVector<QPointF>{r.end};
@@ -301,7 +301,7 @@ Side handleAt(const QRectF &rect, QPointF point, qreal radius)
         if (QLineF(sidePoint(rect, side), point).length() <= radius)
             return side;
     }
-    return Side::None;
+    return Side::Floating;
 }
 
 qreal snap(qreal value)

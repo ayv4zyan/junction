@@ -60,16 +60,6 @@ QSet<QString> Document::nodesWithContents(const QStringList &ids) const
     return result;
 }
 
-QVector<Connection> Document::connectionsOf(const QString &nodeId) const
-{
-    QVector<Connection> result;
-    for (const Connection &c : m_connections) {
-        if (c.fromNode == nodeId || c.toNode == nodeId)
-            result.append(c);
-    }
-    return result;
-}
-
 std::optional<Geometry::Route> Document::route(const Connection &connection) const
 {
     const Node *from = node(connection.fromNode);

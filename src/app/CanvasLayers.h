@@ -14,22 +14,24 @@ class CanvasLayer : public QQuickPaintedItem
     QML_ANONYMOUS
     Q_PROPERTY(qreal zoom MEMBER m_zoom NOTIFY viewChanged)
     Q_PROPERTY(QPointF pan MEMBER m_pan NOTIFY viewChanged)
-    Q_PROPERTY(QVariantMap colors MEMBER m_colors NOTIFY viewChanged)
+    // From Colors.forPainter (src/design); read into a Palette once, when set.
+    Q_PROPERTY(QVariantMap colors WRITE setColors)
 
 public:
     explicit CanvasLayer(QQuickItem *parent = nullptr);
+    void setColors(const QVariantMap &colors);
 
 signals:
     void viewChanged();
 
 protected:
     QTransform view() const { return QTransform(m_zoom, 0, 0, m_zoom, m_pan.x(), m_pan.y()); }
-    std::optional<Palette> colors() const { return Palette::fromVariantMap(m_colors); }   // nothing until set
+    const std::optional<Palette> &palette() const { return m_palette; }   // nothing until colors are set
 
 private:
     qreal m_zoom = 1;
     QPointF m_pan;
-    QVariantMap m_colors;   // from Colors.forPainter (src/design)
+    std::optional<Palette> m_palette;
 };
 
 class GridLayer : public CanvasLayer
@@ -49,6 +51,13 @@ class ConnectionLayer : public CanvasLayer
     Q_PROPERTY(Editor *editor READ editor WRITE setEditor NOTIFY editorChanged)
     // The Connection whose label is being edited: its label is not drawn, LabelEditor shows it.
     Q_PROPERTY(QString labelEditedOn MEMBER m_labelEditedOn NOTIFY viewChanged)
+    // The new Connection being dragged out of a Handle of the Card `connectFrom` (none while
+    // that is ""). It ends on `dropTarget` (at `dropSide`) when the pointer is over a Card,
+    // otherwise at `connectPointer` (world coordinates).
+    Q_PROPERTY(QString connectFrom MEMBER m_connectFrom NOTIFY viewChanged)
+    Q_PROPERTY(QPointF connectPointer MEMBER m_connectPointer NOTIFY viewChanged)
+    Q_PROPERTY(QString dropTarget MEMBER m_dropTarget NOTIFY viewChanged)
+    Q_PROPERTY(CanvasEnums::Side dropSide MEMBER m_dropSide NOTIFY viewChanged)
 
 public:
     using CanvasLayer::CanvasLayer;
@@ -62,4 +71,8 @@ signals:
 private:
     Editor *m_editor = nullptr;
     QString m_labelEditedOn;
+    QString m_connectFrom;
+    QPointF m_connectPointer;
+    QString m_dropTarget;
+    Side m_dropSide = Side::Floating;
 };

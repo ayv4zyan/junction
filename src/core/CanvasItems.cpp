@@ -10,7 +10,7 @@ QString sideToString(Side side)
     case Side::Right: return QStringLiteral("right");
     case Side::Bottom: return QStringLiteral("bottom");
     case Side::Left: return QStringLiteral("left");
-    case Side::None: break;
+    case Side::Floating: break;
     }
     return {};
 }
@@ -21,7 +21,7 @@ Side sideFromString(const QString &text)
     if (text == u"right") return Side::Right;
     if (text == u"bottom") return Side::Bottom;
     if (text == u"left") return Side::Left;
-    return Side::None;
+    return Side::Floating;
 }
 
 QString pathStyleToString(PathStyle style)
@@ -115,8 +115,8 @@ QJsonObject Connection::toJson(Side resolvedFrom, Side resolvedTo) const
 
     // Junction's own fields; other apps ignore them.
     json["pathStyle"] = pathStyleToString(style);
-    json["fromPinned"] = fromSide != Side::None;
-    json["toPinned"] = toSide != Side::None;
+    json["fromPinned"] = fromSide != Side::Floating;
+    json["toPinned"] = toSide != Side::Floating;
     if (!waypoints.isEmpty()) {
         QJsonArray points;
         for (const QPointF &p : waypoints)

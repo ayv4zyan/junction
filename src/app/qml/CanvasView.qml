@@ -48,6 +48,8 @@ Item {
         property string labelingId: ""
         property string connectFrom: ""
         property string dropTarget: ""
+        property int dropSide: CanvasEnums.Side.Floating   // the dropTarget's Handle under the pointer, if any
+        property point connectPointer                   // where the new Connection's end is, in world coordinates
         property bool spaceHeld: false
         property point connectPress   // where the new Connection's drag began, in screen coordinates
     }
@@ -158,8 +160,8 @@ Item {
             return
         const world = toWorld(screenPoint)
         interaction.dropTarget = connectionTarget(world)
-        editor.setConnectionPreview(connectFrom, world, dropTarget,
-                                    dropTarget ? editor.handleAt(dropTarget, world, handleRadius) : CanvasEnums.Side.None)
+        interaction.dropSide = dropTarget ? editor.handleAt(dropTarget, world, handleRadius) : CanvasEnums.Side.Floating
+        interaction.connectPointer = world
     }
 
     function finishConnection(screenPoint) {
@@ -182,7 +184,6 @@ Item {
     function cancelConnection() {
         interaction.connectFrom = ""
         interaction.dropTarget = ""
-        editor.clearConnectionPreview()
     }
 
     // ---- Connection labels ----
@@ -224,6 +225,7 @@ Item {
     Connections {
         target: canvas.editor
         function onCanvasOpened() {
+            canvas.cancelConnection()
             canvas.editText("")
             if (canvas.labelingId) {   // the Connection belonged to the Canvas shown before
                 canvas.endLabelEditing()
@@ -367,6 +369,10 @@ Item {
         anchors.fill: parent
         editor: canvas.editor
         labelEditedOn: canvas.labelingId
+        connectFrom: canvas.connectFrom
+        connectPointer: interaction.connectPointer
+        dropTarget: canvas.dropTarget
+        dropSide: interaction.dropSide
         zoom: canvas.zoom
         pan: canvas.pan
         colors: Colors.forPainter

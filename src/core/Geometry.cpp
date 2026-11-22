@@ -81,92 +81,107 @@ void curvedRoute(Route &r, const QVector<QPointF> &controls, QPointF startNormal
     r.endDirection = -endNormal;
 }
 
+qreal dot(QPointF a, QPointF b)
+{
+    return a.x() * b.x() + a.y() * b.y();
+}
+
+// Builds an elbow path one leg at a time. Every choice is whether to keep going the way the
+// last leg went or to turn, so it remembers that direction (the heading).
+class ElbowPath
+{
+public:
+    explicit ElbowPath(QPointF start) : m_points{start} {}
+
+    const QVector<QPointF> &points() const { return m_points; }
+
+    void lineTo(QPointF p)
+    {
+        if (p != current())
+            m_heading = normalized(p - current());
+        m_points.append(p);
+    }
+
+    // To reach a Waypoint, keep going the way we were and turn once. If keeping going would
+    // run back along the last leg, turn first instead. If the Waypoint is straight behind us
+    // (turning first would go nowhere), step aside by a stub, then come back to it.
+    void reach(QPointF waypoint)
+    {
+        const QPointF keepGoing = movingHorizontally() ? horizontallyFirst(waypoint) : verticallyFirst(waypoint);
+        const QPointF turnFirst = movingHorizontally() ? verticallyFirst(waypoint) : horizontallyFirst(waypoint);
+        if (!goesBack(keepGoing)) {
+            lineTo(keepGoing);
+        } else if (turnFirst != current()) {
+            lineTo(turnFirst);
+        } else {
+            const QPointF aside = movingHorizontally() ? QPointF(0, ElbowStub) : QPointF(ElbowStub, 0);
+            lineTo(current() + aside);
+            lineTo(waypoint + aside);
+        }
+        lineTo(waypoint);
+    }
+
+    // Goes to `endStub`, the point a stub out from the end card's `side`.
+    // With the same direction at both ends the shape is a Z, turning halfway; otherwise an L
+    // with one corner. The preferred shape keeps going the way we were. It is no good if its
+    // first leg runs back along the last one, or if its last leg travels away from the end card
+    // (the path would double back through it). Then the other shape, which turns first, is
+    // used; it meets both legs at right angles, so it never has either problem.
+    void arriveAt(QPointF endStub, Side side)
+    {
+        const QPointF mid = (current() + endStub) / 2;
+        const QVector<QPointF> horizontalFirst = movingHorizontally() == isHorizontal(side)
+            ? QVector<QPointF>{horizontallyFirst(mid), QPointF(mid.x(), endStub.y())}   // Z
+            : QVector<QPointF>{horizontallyFirst(endStub)};                             // L
+        const QVector<QPointF> verticalFirst = movingHorizontally() == isHorizontal(side)
+            ? QVector<QPointF>{verticallyFirst(mid), QPointF(endStub.x(), mid.y())}
+            : QVector<QPointF>{verticallyFirst(endStub)};
+
+        const QVector<QPointF> preferred = movingHorizontally() ? horizontalFirst : verticalFirst;
+        const QVector<QPointF> other = movingHorizontally() ? verticalFirst : horizontalFirst;
+        const bool usable = !goesBack(preferred.first()) && dot(endStub - preferred.last(), -sideNormal(side)) >= 0;
+        for (QPointF corner : usable ? preferred : other)
+            lineTo(corner);
+        lineTo(endStub);
+    }
+
+private:
+    QPointF current() const { return m_points.last(); }
+    bool movingHorizontally() const { return m_heading.y() == 0; }
+    // Whether a leg to `p` would turn right round and run back along the last leg.
+    bool goesBack(QPointF p) const { return dot(p - current(), m_heading) < 0; }
+    // The corner on the way to `p` when moving horizontally first, or vertically first.
+    QPointF horizontallyFirst(QPointF p) const { return {p.x(), current().y()}; }
+    QPointF verticallyFirst(QPointF p) const { return {current().x(), p.y()}; }
+
+    QVector<QPointF> m_points;
+    QPointF m_heading;
+};
+
 // Only horizontal and vertical segments. Leaves the start card, passes through each Waypoint
 // (turning once to reach it), then turns into the end card.
 void elbowRoute(Route &r, const QVector<QPointF> &controls, Side fromSide, Side toSide)
 {
     const QPointF start = controls.first();
     const QPointF end = controls.last();
-    const QPointF endStub = end + sideNormal(toSide) * ElbowStub;
 
-    QVector<QPointF> points{start};
-    QVector<int> spanEnds;   // index in `points` where each span (control point to control point) ends
-    QPointF heading;         // direction of the last leg
-    auto lineTo = [&](QPointF p) {
-        if (p != points.last())
-            heading = normalized(p - points.last());
-        points.append(p);
-    };
-    // Whether a leg to `p` would turn right round and run back along the previous leg.
-    auto goesBack = [&](QPointF p) {
-        const QPointF leg = p - points.last();
-        return leg.x() * heading.x() + leg.y() * heading.y() < 0;
-    };
-    auto movingHorizontally = [&] { return heading.y() == 0; };
-
-    lineTo(start + sideNormal(fromSide) * ElbowStub);
-
-    // To reach a Waypoint, keep going the way we were and turn once. If keeping going would
-    // run back along the last leg, turn first instead. If the Waypoint is straight behind us
-    // (turning first would go nowhere), step aside by a stub, then come back to it.
+    ElbowPath path(start);
+    QVector<int> spanEnds;   // index in the path's points where each span between control points ends
+    path.lineTo(start + sideNormal(fromSide) * ElbowStub);
     for (int i = 1; i < controls.size() - 1; ++i) {
-        const QPointF waypoint = controls[i];
-        const QPointF current = points.last();
-        const QPointF keepGoing = movingHorizontally() ? QPointF(waypoint.x(), current.y())
-                                                       : QPointF(current.x(), waypoint.y());
-        const QPointF turnFirst = movingHorizontally() ? QPointF(current.x(), waypoint.y())
-                                                       : QPointF(waypoint.x(), current.y());
-        if (!goesBack(keepGoing)) {
-            lineTo(keepGoing);
-        } else if (turnFirst != current) {
-            lineTo(turnFirst);
-        } else {
-            const QPointF aside = movingHorizontally() ? QPointF(0, ElbowStub) : QPointF(ElbowStub, 0);
-            lineTo(current + aside);
-            lineTo(waypoint + aside);
-        }
-        lineTo(waypoint);
-        spanEnds.append(points.size() - 1);
+        path.reach(controls[i]);
+        spanEnds.append(path.points().size() - 1);
     }
-
-    // The simple shape keeps going the way we were. It is no good if its first leg runs back
-    // along the last one, or if the leg arriving at endStub travels away from the end card
-    // (the path would double back through it). Then we turn the other way first; that shape
-    // meets both legs at right angles, so it never has either problem.
-    const QPointF current = points.last();
-    const QPointF intoCard = -sideNormal(toSide);
-    auto approachesCard = [&](QPointF corner) {
-        const QPointF leg = endStub - corner;
-        return leg.x() * intoCard.x() + leg.y() * intoCard.y() >= 0;
-    };
-    const qreal midX = (current.x() + endStub.x()) / 2;
-    const qreal midY = (current.y() + endStub.y()) / 2;
-    const QPointF turnAtMidX[] = {QPointF(midX, current.y()), QPointF(midX, endStub.y())};
-    const QPointF turnAtMidY[] = {QPointF(current.x(), midY), QPointF(endStub.x(), midY)};
-
-    if (movingHorizontally() == isHorizontal(toSide)) {
-        // Same direction at both ends: a Z shape, turning halfway.
-        const QPointF *z = movingHorizontally() ? turnAtMidX : turnAtMidY;
-        if (goesBack(z[0]) || !approachesCard(z[1]))
-            z = movingHorizontally() ? turnAtMidY : turnAtMidX;
-        lineTo(z[0]);
-        lineTo(z[1]);
-    } else {
-        // Perpendicular: an L shape with one corner.
-        QPointF corner = movingHorizontally() ? QPointF(endStub.x(), current.y()) : QPointF(current.x(), endStub.y());
-        if (goesBack(corner) || !approachesCard(corner))
-            corner = movingHorizontally() ? QPointF(current.x(), endStub.y()) : QPointF(endStub.x(), current.y());
-        lineTo(corner);
-    }
-    points << endStub << end;
-    spanEnds.append(points.size() - 1);
+    path.arriveAt(end + sideNormal(toSide) * ElbowStub, toSide);
+    path.lineTo(end);
+    spanEnds.append(path.points().size() - 1);
 
     int spanStart = 0;
     for (int spanEnd : spanEnds) {
-        r.midpoints.append(pointHalfwayAlong(points.mid(spanStart, spanEnd - spanStart + 1)));
+        r.midpoints.append(pointHalfwayAlong(path.points().mid(spanStart, spanEnd - spanStart + 1)));
         spanStart = spanEnd;
     }
-    r.path = polylinePath(points);
+    r.path = polylinePath(path.points());
     r.startDirection = -sideNormal(fromSide);
     r.endDirection = -sideNormal(toSide);
 }

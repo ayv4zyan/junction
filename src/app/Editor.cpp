@@ -114,7 +114,7 @@ void Editor::setSelection(const QStringList &ids)
         return;
     m_selection = ids;
     emit selectionChanged();
-    emit selectedItemsChanged();
+    emit selectionDetailsChanged();
 }
 
 // The Document changed: the selection drops the ids of items that are gone (deleted, undone),
@@ -129,7 +129,7 @@ void Editor::syncSelectionWithDocument()
     if (kept != m_selection)
         setSelection(kept);
     else
-        emit selectedItemsChanged();   // the same items, but something about them changed
+        emit selectionDetailsChanged();   // the same items, but something about them changed
 }
 
 void Editor::select(const QString &id, bool toggle)

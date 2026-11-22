@@ -85,10 +85,10 @@ class Editor : public QObject
     Q_PROPERTY(NodeModel *cards READ cards CONSTANT)
     Q_PROPERTY(NodeModel *groups READ groups CONSTANT)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
-    Q_PROPERTY(QVariant selectedConnection READ selectedConnection NOTIFY selectedItemsChanged)
-    Q_PROPERTY(QString selectionColor READ selectionColor NOTIFY selectedItemsChanged)
-    Q_PROPERTY(SelectionSummary selectionSummary READ selectionSummary NOTIFY selectedItemsChanged)
-    Q_PROPERTY(QRectF selectionBounds READ selectionBounds NOTIFY selectedItemsChanged)
+    Q_PROPERTY(QVariant selectedConnection READ selectedConnection NOTIFY selectionDetailsChanged)
+    Q_PROPERTY(QString selectionColor READ selectionColor NOTIFY selectionDetailsChanged)
+    Q_PROPERTY(SelectionSummary selectionSummary READ selectionSummary NOTIFY selectionDetailsChanged)
+    Q_PROPERTY(QRectF selectionBounds READ selectionBounds NOTIFY selectionDetailsChanged)
     Q_PROPERTY(bool dragging READ isDragging NOTIFY draggingChanged)   // moving, resizing, or a Waypoint
     Q_PROPERTY(bool snapToGrid READ snapToGrid WRITE setSnapToGrid NOTIFY snapToGridChanged)
 
@@ -164,7 +164,7 @@ public:
 
 signals:
     void selectionChanged();
-    void selectedItemsChanged();   // the selection, or something about the selected items
+    void selectionDetailsChanged();   // the selection, or something about the selected items changed
     void snapToGridChanged();
     void canvasOpened();   // another Canvas is shown; the Document was replaced
     void draggingChanged();

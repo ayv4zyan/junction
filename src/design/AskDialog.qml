@@ -4,7 +4,7 @@ import QtQuick.Layouts
 
 // The one dialog for asking the user something, in two modes:
 //   ask.confirm({ title, message, action: qsTr("Delete"), destructive: true, onAccepted: () => ... })
-//   ask.text({ title, text, placeholder, action: qsTr("Save"), onAccepted: (text) => ... })
+//   ask.forText({ title, text, placeholder, action: qsTr("Save"), onAccepted: (text) => ... })
 // Enter accepts (the action button shows the focus ring), Esc cancels. The action is red only
 // when it destroys something.
 Dialog {
@@ -22,7 +22,7 @@ Dialog {
         open()
     }
 
-    function text(options) {
+    function forText(options) {
         asksText = true
         field.text = options.text ?? ""
         field.placeholderText = options.placeholder ?? ""

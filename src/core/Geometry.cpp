@@ -121,26 +121,18 @@ public:
         lineTo(waypoint);
     }
 
-    // Goes to `endStub`, the point a stub out from the end card's `side`.
-    // With the same direction at both ends the shape is a Z, turning halfway; otherwise an L
-    // with one corner. The preferred shape keeps going the way we were. It is no good if its
-    // first leg runs back along the last one, or if its last leg travels away from the end card
-    // (the path would double back through it). Then the other shape, which turns first, is
-    // used; it meets both legs at right angles, so it never has either problem.
+    // Goes to `endStub`, the point a stub out from the end card's `side`. The preferred shape
+    // keeps going the way we were. It is no good if its first leg runs back along the last one,
+    // or if its last leg travels away from the end card (the path would double back through
+    // it). Then the shape that turns first is used; it meets both legs at right angles, so it
+    // never has either problem.
     void arriveAt(QPointF endStub, Side side)
     {
-        const QPointF mid = (current() + endStub) / 2;
-        const QVector<QPointF> horizontalFirst = movingHorizontally() == isHorizontal(side)
-            ? QVector<QPointF>{horizontallyFirst(mid), QPointF(mid.x(), endStub.y())}   // Z
-            : QVector<QPointF>{horizontallyFirst(endStub)};                             // L
-        const QVector<QPointF> verticalFirst = movingHorizontally() == isHorizontal(side)
-            ? QVector<QPointF>{verticallyFirst(mid), QPointF(endStub.x(), mid.y())}
-            : QVector<QPointF>{verticallyFirst(endStub)};
-
-        const QVector<QPointF> preferred = movingHorizontally() ? horizontalFirst : verticalFirst;
-        const QVector<QPointF> other = movingHorizontally() ? verticalFirst : horizontalFirst;
-        const bool usable = !goesBack(preferred.first()) && dot(endStub - preferred.last(), -sideNormal(side)) >= 0;
-        for (QPointF corner : usable ? preferred : other)
+        const bool zShape = movingHorizontally() == isHorizontal(side);
+        const QVector<QPointF> preferred = cornersTo(endStub, zShape, movingHorizontally());
+        const bool headsIntoCard = dot(endStub - preferred.last(), -sideNormal(side)) >= 0;
+        const bool usable = !goesBack(preferred.first()) && headsIntoCard;
+        for (QPointF corner : usable ? preferred : cornersTo(endStub, zShape, !movingHorizontally()))
             lineTo(corner);
         lineTo(endStub);
     }
@@ -153,6 +145,17 @@ private:
     // The corner on the way to `p` when moving horizontally first, or vertically first.
     QPointF horizontallyFirst(QPointF p) const { return {p.x(), current().y()}; }
     QPointF verticallyFirst(QPointF p) const { return {current().x(), p.y()}; }
+    // The corners on the way to `endStub`, setting off horizontally or vertically: with the same
+    // direction at both ends a Z, turning halfway; otherwise an L with one corner.
+    QVector<QPointF> cornersTo(QPointF endStub, bool zShape, bool horizontalFirst) const
+    {
+        if (!zShape)
+            return {horizontalFirst ? horizontallyFirst(endStub) : verticallyFirst(endStub)};
+        const QPointF mid = (current() + endStub) / 2;
+        if (horizontalFirst)
+            return {horizontallyFirst(mid), QPointF(mid.x(), endStub.y())};
+        return {verticallyFirst(mid), QPointF(endStub.x(), mid.y())};
+    }
 
     QVector<QPointF> m_points;
     QPointF m_heading;

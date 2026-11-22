@@ -31,7 +31,7 @@ Item {
         const summary = editor.selectionSummary
         const targets = summary.labelTargets
         if (targets.length > 1)
-            menus.ask.text({ title: qsTr("Edit %1 labels").arg(targets.length), text: summary.sharedLabel,
+            menus.ask.forText({ title: qsTr("Edit %1 labels").arg(targets.length), text: summary.sharedLabel,
                        placeholder: qsTr("Label"), action: qsTr("Save"),
                        onAccepted: (text) => editor.setLabels(targets, text) })
         else if (summary.connections === 1)

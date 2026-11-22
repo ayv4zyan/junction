@@ -12,7 +12,7 @@ import JunctionDesign
 // Layers, bottom to top: grid, Groups, Connections, Cards, selected Connection handles,
 // the label editor.
 Item {
-    id: view
+    id: canvas
     required property Editor editor
     required property Library library   // remembers where each Canvas was viewed
     required property AskDialog ask     // the window's questions
@@ -83,7 +83,7 @@ Item {
         camera.pan = newPan
     }
 
-    // The user moved the view.
+    // The user moved the canvas.
     function panBy(dx, dy) {
         placeView(zoom, Qt.point(pan.x + dx, pan.y + dy))
         userMoved()
@@ -225,22 +225,22 @@ Item {
     }
 
     Connections {
-        target: view.editor
+        target: canvas.editor
         function onCanvasOpened() {
-            view.editText("")
-            if (view.labelingId) {   // the Connection belonged to the Canvas shown before
-                view.endLabelEditing()
-                view.forceActiveFocus()
+            canvas.editText("")
+            if (canvas.labelingId) {   // the Connection belonged to the Canvas shown before
+                canvas.endLabelEditing()
+                canvas.forceActiveFocus()
             }
-            const saved = view.library.currentView()
+            const saved = canvas.library.currentView()
             if (saved) {
-                view.keepOnResize = "center"
-                view.keptCenter = saved.center
-                view.placeView(saved.zoom, view.pan)
-                view.centerOn(view.keptCenter)
+                canvas.keepOnResize = "center"
+                canvas.keptCenter = saved.center
+                canvas.placeView(saved.zoom, canvas.pan)
+                canvas.centerOn(canvas.keptCenter)
             } else {
-                view.keepOnResize = "fit"
-                Qt.callLater(view.fitToContent)
+                canvas.keepOnResize = "fit"
+                Qt.callLater(canvas.fitToContent)
             }
         }
     }
@@ -252,8 +252,8 @@ Item {
 
     GridLayer {
         anchors.fill: parent
-        zoom: view.zoom
-        pan: view.pan
+        zoom: canvas.zoom
+        pan: canvas.pan
         colors: Colors.forPainter
     }
 
@@ -265,7 +265,7 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
         hoverEnabled: true
         cursorShape: mode === "pan" ? Qt.ClosedHandCursor
-                   : view.spaceHeld ? Qt.OpenHandCursor
+                   : canvas.spaceHeld ? Qt.OpenHandCursor
                    : overConnection ? Qt.PointingHandCursor : Qt.ArrowCursor
         property string mode: ""   // "pan", "select" or ""
         property bool overConnection: false
@@ -274,40 +274,40 @@ Item {
         property var rubberBase: []   // what stays selected besides the rectangle's catch (Shift/Ctrl)
 
         onPressed: (mouse) => {
-            view.forceActiveFocus()
+            canvas.forceActiveFocus()
             last = Qt.point(mouse.x, mouse.y)
-            if (mouse.button === Qt.MiddleButton || view.spaceHeld) {
+            if (mouse.button === Qt.MiddleButton || canvas.spaceHeld) {
                 mode = "pan"
                 return
             }
-            const hit = view.editor.connectionAt(view.toWorld(last), 6 / view.zoom)
+            const hit = canvas.editor.connectionAt(canvas.toWorld(last), 6 / canvas.zoom)
             if (mouse.button === Qt.RightButton) {
                 if (hit) {
-                    view.openMenuFor(hit)
+                    canvas.openMenuFor(hit)
                 } else {
-                    view.editor.clearSelection()
-                    menus.openAt(view.toWorld(last))
+                    canvas.editor.clearSelection()
+                    menus.openAt(canvas.toWorld(last))
                 }
                 return
             }
-            const additive = view.isToggle(mouse.modifiers)
+            const additive = canvas.isToggle(mouse.modifiers)
             if (hit) {
-                view.editor.select(hit, additive)
+                canvas.editor.select(hit, additive)
                 mode = ""
                 return
             }
             if (!additive)
-                view.editor.clearSelection()
+                canvas.editor.clearSelection()
             mode = "select"
             rubberStart = last
-            rubberBase = view.editor.selection
+            rubberBase = canvas.editor.selection
         }
 
         onPositionChanged: (mouse) => {
             if (!pressed) {
-                overConnection = view.editor.connectionAt(view.toWorld(Qt.point(mouse.x, mouse.y)), 6 / view.zoom) !== ""
+                overConnection = canvas.editor.connectionAt(canvas.toWorld(Qt.point(mouse.x, mouse.y)), 6 / canvas.zoom) !== ""
             } else if (mode === "pan") {
-                view.panBy(mouse.x - last.x, mouse.y - last.y)
+                canvas.panBy(mouse.x - last.x, mouse.y - last.y)
                 last = Qt.point(mouse.x, mouse.y)
             } else if (mode === "select") {
                 rubberBand.x = Math.min(rubberStart.x, mouse.x)
@@ -316,9 +316,9 @@ Item {
                 rubberBand.height = Math.abs(mouse.y - rubberStart.y)
                 rubberBand.visible = true
                 // The selection follows the rectangle as it is dragged, not only on release.
-                const a = view.toWorld(Qt.point(rubberBand.x, rubberBand.y))
-                view.editor.selectInRect(Qt.rect(a.x, a.y, rubberBand.width / view.zoom,
-                                                   rubberBand.height / view.zoom), rubberBase)
+                const a = canvas.toWorld(Qt.point(rubberBand.x, rubberBand.y))
+                canvas.editor.selectInRect(Qt.rect(a.x, a.y, rubberBand.width / canvas.zoom,
+                                                   rubberBand.height / canvas.zoom), rubberBase)
             }
         }
 
@@ -330,63 +330,63 @@ Item {
         onDoubleClicked: (mouse) => {
             if (mouse.button !== Qt.LeftButton)
                 return
-            const world = view.toWorld(Qt.point(mouse.x, mouse.y))
-            const hit = view.editor.connectionAt(world, 6 / view.zoom)
+            const world = canvas.toWorld(Qt.point(mouse.x, mouse.y))
+            const hit = canvas.editor.connectionAt(world, 6 / canvas.zoom)
             if (hit)
-                view.editLabel(hit)
+                canvas.editLabel(hit)
             else
-                view.editText(view.editor.createCard(world))
+                canvas.editText(canvas.editor.createCard(world))
         }
 
         onWheel: (wheel) => {
             if (wheel.modifiers & Qt.ControlModifier) {
-                view.zoomAt(Qt.point(wheel.x, wheel.y), Math.pow(1.0015, wheel.angleDelta.y))
+                canvas.zoomAt(Qt.point(wheel.x, wheel.y), Math.pow(1.0015, wheel.angleDelta.y))
                 return
             }
-            const delta = view.wheelDelta(wheel)
+            const delta = canvas.wheelDelta(wheel)
             let dx = delta.x
             let dy = delta.y
             if ((wheel.modifiers & Qt.ShiftModifier) && dx === 0) {
                 dx = dy
                 dy = 0
             }
-            view.panBy(dx, dy)
+            canvas.panBy(dx, dy)
         }
     }
 
     Item {
         transform: [
-            Scale { xScale: view.zoom; yScale: view.zoom },
-            Translate { x: view.pan.x; y: view.pan.y }
+            Scale { xScale: canvas.zoom; yScale: canvas.zoom },
+            Translate { x: canvas.pan.x; y: canvas.pan.y }
         ]
         Repeater {
             id: groupRepeater
-            model: view.editor.groups
-            delegate: GroupItem { canvas: view }
+            model: canvas.editor.groups
+            delegate: GroupItem { canvas: canvas }
         }
     }
 
     ConnectionLayer {
         anchors.fill: parent
-        editor: view.editor
-        labelEditedOn: view.labelingId
-        zoom: view.zoom
-        pan: view.pan
+        editor: canvas.editor
+        labelEditedOn: canvas.labelingId
+        zoom: canvas.zoom
+        pan: canvas.pan
         colors: Colors.forPainter
     }
 
     Item {
         transform: [
-            Scale { xScale: view.zoom; yScale: view.zoom },
-            Translate { x: view.pan.x; y: view.pan.y }
+            Scale { xScale: canvas.zoom; yScale: canvas.zoom },
+            Translate { x: canvas.pan.x; y: canvas.pan.y }
         ]
         Repeater {
             id: cardRepeater
-            model: view.editor.cards
-            delegate: CardItem { canvas: view }
+            model: canvas.editor.cards
+            delegate: CardItem { canvas: canvas }
         }
-        ConnectionOverlay { canvas: view }
-        LabelEditor { canvas: view }
+        ConnectionOverlay { canvas: canvas }
+        LabelEditor { canvas: canvas }
     }
 
     Rectangle {
@@ -399,8 +399,8 @@ Item {
     CanvasMenus {
         id: menus
         anchors.fill: parent
-        view: view
-        ask: view.ask
+        canvas: canvas
+        ask: canvas.ask
     }
 
     HoverHandler { id: hover }
@@ -408,7 +408,7 @@ Item {
     // Touchpad pinch zooms around the fingers.
     PinchHandler {
         target: null
-        onScaleChanged: (delta) => view.zoomAt(centroid.position, delta)
+        onScaleChanged: (delta) => canvas.zoomAt(centroid.position, delta)
     }
 
     Text {

@@ -23,12 +23,12 @@ Item {
     required property real canvasIndent   // where a Canvas row's name starts (see Sidebar)
     required property real projectIndent  // ...and a Project row's
 
-    property var item: null   // the dragged row's data (SidebarRow.rowData())
-    readonly property bool active: item !== null
+    property var draggedRow: null   // the dragged row's data (SidebarRow.rowData())
+    readonly property bool active: draggedRow !== null
     property var drop: null
     property point point      // the pointer, in list coordinates
 
-    function start(data) { item = data }
+    function start(rowData) { draggedRow = rowData }
 
     function move(pointInList) {
         point = pointInList
@@ -43,7 +43,7 @@ Item {
     }
 
     function cancel() {
-        item = null
+        draggedRow = null
         drop = null
     }
 
@@ -61,7 +61,7 @@ Item {
         if (!rowItem)
             return null
         const row = libraryRows.rowAt(i)
-        return item.kind === "canvas" ? canvasDrop(row, i, rowItem, y) : projectDrop(row, y)
+        return draggedRow.kind === "canvas" ? canvasDrop(row, i, rowItem, y) : projectDrop(row, y)
     }
 
     // A Canvas lands before or after the Canvas row under the pointer, whichever half it is in;
@@ -72,7 +72,7 @@ Item {
                     : row.expanded ? 0 : row.canvasCount
         const lineY = row.kind === "canvas" ? rowItem.y + (after ? rowItem.height : 0)
                     : row.expanded ? rowItem.y + rowItem.height : -1
-        const dragged = item
+        const dragged = draggedRow
         return {
             lineY: lineY,
             intoRow: lineY < 0 ? rowIndex : -1,
@@ -89,7 +89,7 @@ Item {
             return null
         const before = y < (top.y + bottom.y + bottom.height) / 2
         const index = row.projectIndex + (before ? 0 : 1)
-        const dragged = item
+        const dragged = draggedRow
         return {
             lineY: before ? top.y : bottom.y + bottom.height,
             intoRow: -1,
@@ -117,7 +117,7 @@ Item {
     // Where the dragged row would land.
     Rectangle {
         visible: rowDrag.active && rowDrag.drop !== null && !rowDrag.drop.noOp && rowDrag.drop.lineY >= 0
-        x: rowDrag.item && rowDrag.item.kind === "canvas" ? rowDrag.canvasIndent : rowDrag.projectIndent
+        x: rowDrag.draggedRow && rowDrag.draggedRow.kind === "canvas" ? rowDrag.canvasIndent : rowDrag.projectIndent
         y: rowDrag.list.y + (rowDrag.drop ? rowDrag.drop.lineY : 0) - rowDrag.list.contentY - 1
         width: rowDrag.width - x - Space.md
         height: 2
@@ -148,13 +148,13 @@ Item {
             anchors.rightMargin: Space.sm
             spacing: Space.sm
             IconImage {
-                source: rowDrag.item && rowDrag.item.kind === "canvas" ? "../icons/canvas.svg" : "../icons/project.svg"
+                source: rowDrag.draggedRow && rowDrag.draggedRow.kind === "canvas" ? "../icons/canvas.svg" : "../icons/project.svg"
                 sourceSize: Qt.size(Sizes.icon, Sizes.icon)
                 color: Colors.mutedText
             }
             Label {
                 Layout.fillWidth: true
-                text: rowDrag.item ? rowDrag.item.name : ""
+                text: rowDrag.draggedRow ? rowDrag.draggedRow.name : ""
                 elide: Text.ElideRight
             }
         }

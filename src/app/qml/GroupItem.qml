@@ -15,7 +15,7 @@ Item {
     required property real nodeY
     required property real nodeWidth
     required property real nodeHeight
-    required property string label
+    required property string nodeLabel
     required property string nodeColor
 
     readonly property Editor editor: canvas.editor
@@ -53,7 +53,7 @@ Item {
             id: labelText
             anchors.centerIn: parent
             visible: !group.editing
-            text: group.label || qsTr("Group")
+            text: group.nodeLabel || qsTr("Group")
             color: group.selected ? Colors.onAccent : Colors.text
             font.pixelSize: Fonts.canvas
             renderType: Text.CurveRendering   // sharp at every zoom level, like Card text
@@ -76,8 +76,8 @@ Item {
         // Above the TextInput, which would take the right-click for the text menu itself.
         TextEditSession {
             anchors.fill: parent
-            editor: labelInput
-            startText: group.label
+            field: labelInput
+            startText: group.nodeLabel
             onFinished: (text) => group.finishEditing(text)
         }
 

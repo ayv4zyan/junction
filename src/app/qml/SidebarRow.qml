@@ -26,8 +26,8 @@ Item {
 
     readonly property bool isProject: kind === "project"
     readonly property bool hovered: mouse.containsMouse || plusButton.hovered || moreButton.hovered
-    readonly property bool dragged: sidebar.rowDrag.item !== null && sidebar.rowDrag.item.kind === kind
-                                    && sidebar.rowDrag.item.project === project && sidebar.rowDrag.item.name === name
+    readonly property bool dragged: sidebar.rowDrag.draggedRow !== null && sidebar.rowDrag.draggedRow.kind === kind
+                                    && sidebar.rowDrag.draggedRow.project === project && sidebar.rowDrag.draggedRow.name === name
 
     function rename() { nameLabel.edit() }
     function rowData() {

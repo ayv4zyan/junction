@@ -10,16 +10,17 @@ Item {
     id: card
     required property CanvasView canvas
     required property string nodeId
-    required property string kind
+    required property string nodeKind
     required property real nodeX
     required property real nodeY
     required property real nodeWidth
     required property real nodeHeight
-    required property string text          // the Markdown, as typed
-    required property string displayText   // what the card shows (see NodeModel)
+    required property string nodeText          // the Markdown, as typed
+    required property string nodeDisplayText   // what the card shows (see NodeModel)
     required property string nodeColor
 
     readonly property Editor editor: canvas.editor
+    readonly property bool isText: nodeKind === "text"   // otherwise Unsupported: shown, never edited
     readonly property bool selected: editor.selection.includes(nodeId)
     readonly property bool editing: canvas.editingId === nodeId
     readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
@@ -63,8 +64,8 @@ Item {
 
     TextEditSession {
         id: textSession
-        editor: textEdit
-        startText: card.text
+        field: textEdit
+        startText: card.nodeText
         selectAll: false
         onFinished: (text) => card.finishEditing(text)
     }
@@ -92,11 +93,11 @@ Item {
             width: scroller.width
             height: Math.max(implicitHeight, scroller.height)
             visible: !card.editing
-            text: card.displayText
-            textFormat: card.kind === "text" ? Text.MarkdownText : Text.PlainText
-            color: card.kind === "text" ? Colors.text : Colors.mutedText
-            horizontalAlignment: card.kind === "text" ? Text.AlignLeft : Text.AlignHCenter
-            verticalAlignment: card.kind === "text" ? Text.AlignTop : Text.AlignVCenter
+            text: card.nodeDisplayText
+            textFormat: card.isText ? Text.MarkdownText : Text.PlainText
+            color: card.isText ? Colors.text : Colors.mutedText
+            horizontalAlignment: card.isText ? Text.AlignLeft : Text.AlignHCenter
+            verticalAlignment: card.isText ? Text.AlignTop : Text.AlignVCenter
             wrapMode: Text.Wrap
             font.pixelSize: Fonts.canvas
             // Cards are scaled with the canvas: drawn as curves, the text stays sharp at every zoom.
@@ -156,7 +157,7 @@ Item {
         anchors.fill: parent
         visible: !card.editing   // hidden, not disabled, so the text's I-beam shows while editing
         hoverEnabled: true
-        onDoubleClicked: { if (card.kind === "text") card.canvas.editText(card.nodeId) }
+        onDoubleClicked: { if (card.isText) card.canvas.editText(card.nodeId) }
     }
 
     // Resizing by dragging a side or corner. Declared before the Handles so that a Handle in

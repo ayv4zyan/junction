@@ -71,7 +71,7 @@ Rectangle {
     TextEditSession {
         id: textSession
         anchors.fill: parent
-        editor: input
+        field: input
         startText: box.editor.selectedConnection.label
         onFinished: (text) => box.finish(text)
     }

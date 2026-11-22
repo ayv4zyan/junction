@@ -12,7 +12,7 @@ ToolBar {
     required property Library library
     required property LibraryModel libraryRows
     required property Editor editor
-    required property CanvasView canvasView
+    required property CanvasView canvas
     required property bool sidebarOpen
     required property bool snapToGrid
 
@@ -103,7 +103,7 @@ ToolBar {
             ToolTip.delay: Motion.tooltipDelay
             ToolTip.text: qsTr("Hold Alt while dragging to do the opposite")
         }
-        ToolButton { focusPolicy: Qt.NoFocus; text: Math.round(toolbar.canvasView.zoom * 100) + "%"; onClicked: toolbar.canvasView.resetZoom() }
-        ToolButton { focusPolicy: Qt.NoFocus; text: qsTr("Fit"); onClicked: toolbar.canvasView.userFit() }
+        ToolButton { focusPolicy: Qt.NoFocus; text: Math.round(toolbar.canvas.zoom * 100) + "%"; onClicked: toolbar.canvas.resetZoom() }
+        ToolButton { focusPolicy: Qt.NoFocus; text: qsTr("Fit"); onClicked: toolbar.canvas.userFit() }
     }
 }

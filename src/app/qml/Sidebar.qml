@@ -25,7 +25,7 @@ Rectangle {
     readonly property int canvasIndent: rowInset + Space.xs + chevronSize + Space.xs
     readonly property alias rowDrag: rowDrag   // dragging rows to reorder them
     property int menuRow: -1               // the row whose menu is open
-    property var menuData: ({})
+    property var menuRowData: ({})
 
     signal hideRequested()
     signal canvasFocusRequested()           // done here: the keyboard goes back to the canvas
@@ -69,7 +69,7 @@ Rectangle {
 
     function openMenu(row, item, x, y) {
         menuRow = row.index
-        menuData = row.rowData()
+        menuRowData = row.rowData()
         if (row.isProject)
             projectMenu.popup(item, x, y)
         else
@@ -264,21 +264,21 @@ Rectangle {
         onClosed: sidebar.menuRow = -1
         MenuItem {
             text: qsTr("New canvas")
-            onTriggered: Qt.callLater(sidebar.libraryRows.createCanvas, sidebar.menuData.project)
+            onTriggered: Qt.callLater(sidebar.libraryRows.createCanvas, sidebar.menuRowData.project)
         }
         MenuItem {
             text: qsTr("Rename")
-            onTriggered: sidebar.renameRow(sidebar.menuData.project, "")
+            onTriggered: sidebar.renameRow(sidebar.menuRowData.project, "")
         }
         MenuItem {
             text: qsTr("Duplicate")
-            onTriggered: Qt.callLater(sidebar.library.duplicateProject, sidebar.menuData.project)
+            onTriggered: Qt.callLater(sidebar.library.duplicateProject, sidebar.menuRowData.project)
         }
         MenuSeparator {}
         MenuEntry {
             text: qsTr("Delete…")
             destructive: true
-            onTriggered: sidebar.askToDeleteProject(sidebar.menuData.project, sidebar.menuData.canvasCount)
+            onTriggered: sidebar.askToDeleteProject(sidebar.menuRowData.project, sidebar.menuRowData.canvasCount)
         }
     }
 
@@ -287,24 +287,24 @@ Rectangle {
         onClosed: sidebar.menuRow = -1
         MenuItem {
             text: qsTr("Rename")
-            onTriggered: sidebar.renameRow(sidebar.menuData.project, sidebar.menuData.name)
+            onTriggered: sidebar.renameRow(sidebar.menuRowData.project, sidebar.menuRowData.name)
         }
         MenuItem {
             text: qsTr("Duplicate")
-            onTriggered: Qt.callLater(sidebar.library.duplicateCanvas, sidebar.menuData.project, sidebar.menuData.name)
+            onTriggered: Qt.callLater(sidebar.library.duplicateCanvas, sidebar.menuRowData.project, sidebar.menuRowData.name)
         }
         Menu {
             id: moveMenu
             title: qsTr("Move to")
-            enabled: sidebar.library.projectNames.length > 1 && sidebar.menuData.canvasCount > 1
+            enabled: sidebar.library.projectNames.length > 1 && sidebar.menuRowData.canvasCount > 1
             Instantiator {
                 model: sidebar.library.projectNames
                 delegate: MenuItem {
                     required property string modelData
                     text: modelData
-                    enabled: modelData !== sidebar.menuData.project
+                    enabled: modelData !== sidebar.menuRowData.project
                     onTriggered: {
-                        const data = sidebar.menuData
+                        const data = sidebar.menuRowData
                         const target = modelData
                         Qt.callLater(() => sidebar.library.moveCanvas(data.project, data.name, target,
                                                                      sidebar.library.canvasCount(target)))
@@ -318,8 +318,8 @@ Rectangle {
         MenuEntry {
             text: qsTr("Delete…")
             destructive: true
-            onTriggered: sidebar.askToDeleteCanvas(sidebar.menuData.project, sidebar.menuData.name,
-                                                   sidebar.menuData.canvasCount)
+            onTriggered: sidebar.askToDeleteCanvas(sidebar.menuRowData.project, sidebar.menuRowData.name,
+                                                   sidebar.menuRowData.canvasCount)
         }
     }
 }

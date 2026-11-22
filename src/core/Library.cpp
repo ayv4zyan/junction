@@ -190,7 +190,7 @@ void Library::saveIndex()
 void Library::saveAndAnnounce()
 {
     saveIndex();
-    emit changed();
+    emit projectsChanged();
     announceCurrent();
 }
 
@@ -330,7 +330,7 @@ void Library::setCurrent(const QString &project, const QString &canvas)
         p->lastCanvas = canvas;
 }
 
-// Only the open Canvas changes here, not the list: no changed().
+// Only the open Canvas changes here, not the list: no projectsChanged().
 bool Library::open(const QString &projectName, const QString &canvas)
 {
     if (canvasIndex(projectName, canvas) < 0)

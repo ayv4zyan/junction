@@ -10,9 +10,9 @@ import JunctionDesign
 // Right-clicking empty space opens canvasMenu.
 Item {
     id: menus
-    required property CanvasView view
+    required property CanvasView canvas
     required property AskDialog ask   // for editing several Labels at once
-    readonly property Editor editor: view.editor
+    readonly property Editor editor: canvas.editor
 
     function openFor(id, waypointIndex) {
         if (!editor.selection.includes(id))
@@ -35,9 +35,9 @@ Item {
                        placeholder: qsTr("Label"), action: qsTr("Save"),
                        onAccepted: (text) => editor.setLabels(text) })
         else if (summary.connections === 1)
-            view.editLabel(targets[0])
+            canvas.editLabel(targets[0])
         else
-            view.editText(targets[0])
+            canvas.editText(targets[0])
     }
 
     function labelsText() {
@@ -54,8 +54,8 @@ Item {
     Menu {
         id: canvasMenu
         property point at
-        MenuEntry { text: qsTr("New card"); onTriggered: menus.view.editText(menus.editor.createCard(canvasMenu.at)) }
-        MenuEntry { text: qsTr("New group"); onTriggered: menus.view.editText(menus.editor.createGroup(canvasMenu.at)) }
+        MenuEntry { text: qsTr("New card"); onTriggered: menus.canvas.editText(menus.editor.createCard(canvasMenu.at)) }
+        MenuEntry { text: qsTr("New group"); onTriggered: menus.canvas.editText(menus.editor.createGroup(canvasMenu.at)) }
         MenuSeparator {}
         MenuEntry { text: qsTr("Paste"); hint: "Ctrl+V"; onTriggered: menus.editor.paste(canvasMenu.at) }
     }
@@ -66,7 +66,7 @@ Item {
         MenuEntry {
             text: qsTr("Edit text")
             enabled: menus.editor.selection.length === 1 && menus.editor.selectionSummary.editableCards === 1
-            onTriggered: menus.view.editText(menus.editor.selection[0])
+            onTriggered: menus.canvas.editText(menus.editor.selection[0])
         }
         MenuEntry {
             text: menus.labelsText()
@@ -80,7 +80,7 @@ Item {
         MenuEntry {
             text: qsTr("Group")
             hint: "Ctrl+G"
-            onTriggered: menus.view.editText(menus.editor.createGroup(menus.view.pointerWorld()))
+            onTriggered: menus.canvas.editText(menus.editor.createGroup(menus.canvas.pointerWorld()))
         }
         MenuSeparator {}
         MenuEntry { text: qsTr("Delete"); hint: "Del"; destructive: true; onTriggered: menus.editor.deleteSelection() }

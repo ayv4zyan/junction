@@ -358,7 +358,7 @@ private slots:
         library.load();
         library.createCanvas("Untitled");
         library.setExpanded("Untitled", false);
-        QSignalSpy changed(&library, &Library::changed);
+        QSignalSpy changed(&library, &Library::projectsChanged);
         QSignalSpy expanded(&library, &Library::expandedChanged);
         library.open("Untitled", "Untitled");
         QCOMPARE(changed.size(), 0);

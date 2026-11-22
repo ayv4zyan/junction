@@ -53,7 +53,7 @@ class Library : public QObject
     Q_OBJECT
     Q_PROPERTY(QString currentProject READ currentProject NOTIFY currentChanged)
     Q_PROPERTY(QString currentCanvas READ currentCanvas NOTIFY currentChanged)
-    Q_PROPERTY(QStringList projectNames READ projectNames NOTIFY changed)
+    Q_PROPERTY(QStringList projectNames READ projectNames NOTIFY projectsChanged)
     Q_PROPERTY(QUrl folder READ folder CONSTANT)
 
 public:
@@ -121,7 +121,7 @@ public:
 signals:
     void loaded();          // load() is done; currentPath() is empty if the folder can't be written
     void aboutToChange();   // files are about to change or another Canvas to open: save now
-    void changed();         // Projects or Canvases were added, removed, renamed or reordered
+    void projectsChanged(); // Projects or Canvases were added, removed, renamed or reordered
     void expandedChanged(const QString &project);
     void currentChanged();  // currentPath() changed: another Canvas is open, or it was renamed or moved
     void canvasMoved(const QString &oldPath, const QString &newPath);   // renamed or moved
@@ -136,7 +136,7 @@ private:
     void setCurrent(const QString &project, const QString &canvas);
     bool createEmptyCanvasFile(const QString &path);
     bool renamePath(const QString &from, const QString &to);
-    // Every change ends here: saves the index, emits changed(), then currentChanged() if
+    // Every change ends here: saves the index, emits projectsChanged(), then currentChanged() if
     // currentPath() is no longer the one last announced.
     void saveAndAnnounce();
     void announceCurrent();

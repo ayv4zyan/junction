@@ -3,7 +3,7 @@
 LibraryModel::LibraryModel(Library *library, QObject *parent)
     : QAbstractListModel(parent), m_library(library)
 {
-    connect(m_library, &Library::changed, this, &LibraryModel::rebuild);
+    connect(m_library, &Library::projectsChanged, this, &LibraryModel::rebuild);
     connect(m_library, &Library::expandedChanged, this, &LibraryModel::expandedChanged);
     connect(m_library, &Library::currentChanged, this, [this] {
         if (!m_rows.isEmpty())

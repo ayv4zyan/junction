@@ -81,10 +81,10 @@ QVariant NodeModel::data(const QModelIndex &index, int role) const
 QHash<int, QByteArray> NodeModel::roleNames() const
 {
     return {
-        {IdRole, "nodeId"},     {KindRole, "kind"},
+        {IdRole, "nodeId"},     {KindRole, "nodeKind"},
         {XRole, "nodeX"},       {YRole, "nodeY"},
         {WidthRole, "nodeWidth"}, {HeightRole, "nodeHeight"},
-        {TextRole, "text"},     {LabelRole, "label"},
-        {DisplayTextRole, "displayText"}, {ColorRole, "nodeColor"},
+        {TextRole, "nodeText"}, {LabelRole, "nodeLabel"},
+        {DisplayTextRole, "nodeDisplayText"}, {ColorRole, "nodeColor"},
     };
 }

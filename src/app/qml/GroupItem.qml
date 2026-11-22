@@ -57,6 +57,7 @@ Item {
             text: group.text || qsTr("Group")
             color: group.selected ? Colors.onAccent : Colors.text
             font.pixelSize: Fonts.canvas
+            renderType: Text.CurveRendering   // sharp at every zoom level, like Card text
             font.bold: true
         }
 
@@ -66,6 +67,7 @@ Item {
             visible: group.editing
             color: Colors.text
             font.pixelSize: Fonts.canvas
+            renderType: Text.CurveRendering   // sharp at every zoom level, like Card text
             font.bold: true
             onVisibleChanged: {
                 if (visible) {

@@ -98,6 +98,8 @@ Item {
             verticalAlignment: card.kind === "text" ? Text.AlignTop : Text.AlignVCenter
             wrapMode: Text.Wrap
             font.pixelSize: Fonts.canvas
+            // Cards are scaled with the canvas: drawn as curves, the text stays sharp at every zoom.
+            renderType: Text.CurveRendering
         }
 
         TextEdit {
@@ -111,6 +113,7 @@ Item {
             selectionColor: Colors.accentFill
             selectedTextColor: Colors.onAccent
             font.pixelSize: Fonts.canvas
+            renderType: Text.CurveRendering
             // Shown when editing starts; only a visible item can take keyboard focus.
             onVisibleChanged: {
                 if (visible) {

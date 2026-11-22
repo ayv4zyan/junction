@@ -35,10 +35,17 @@ namespace CanvasPainter {
 // `view` maps world coordinates to the screen; the grid is drawn in screen space.
 void drawGrid(QPainter &painter, const QTransform &view, const QSizeF &screenSize, const Palette &palette);
 
+// The Canvas's color at `point` as drawn: the background, tinted by each of `nodes`' Groups that
+// the point lies in. A Connection's label box is filled with it, so the label sits on the same
+// color as its surroundings (inside a Group too).
+QColor colorUnder(QPointF point, const QVector<Node> &nodes, const Palette &palette);
+
 // These draw in world coordinates (set the painter's transform first).
 // `showLabel` is false while the label is being edited: the editor takes its place.
+// `labelFill` is the label box's color (see colorUnder); the background when not given.
 void drawConnection(QPainter &painter, const Geometry::Route &route, const Connection &connection,
-                    const Palette &palette, bool selected, bool showLabel = true);
+                    const Palette &palette, bool selected, bool showLabel = true,
+                    const QColor &labelFill = QColor());
 void drawNode(QPainter &painter, const Node &node, const Palette &palette);
 
 // The box a Connection's label is drawn in, centred on the route's label position (world

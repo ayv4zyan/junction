@@ -10,6 +10,7 @@
 namespace {
 
 constexpr qreal CardPadding = 12;
+constexpr qreal GroupTint = 0.08;      // how strongly a Group tints the Canvas (GroupItem.qml too)
 constexpr qreal ArrowLength = 12;
 constexpr qreal LineWidth = 2;
 constexpr int LabelFontSize = 13;      // LabelEditor.qml uses the same sizes
@@ -109,8 +110,23 @@ void drawGrid(QPainter &painter, const QTransform &view, const QSizeF &screenSiz
     painter.drawPoints(dots.constData(), dots.size());
 }
 
+QColor colorUnder(QPointF point, const QVector<Node> &nodes, const Palette &palette)
+{
+    QColor color = palette.background;
+    for (const Node &n : nodes) {
+        if (n.kind != NodeKind::Group || !n.rect.contains(point))
+            continue;
+        // Each Group is painted over what is below it at GroupTint opacity.
+        const QColor tint = palette.resolve(n.color, palette.cardBorder);
+        color = QColor::fromRgbF(color.redF() + (tint.redF() - color.redF()) * GroupTint,
+                                 color.greenF() + (tint.greenF() - color.greenF()) * GroupTint,
+                                 color.blueF() + (tint.blueF() - color.blueF()) * GroupTint);
+    }
+    return color;
+}
+
 void drawConnection(QPainter &painter, const Geometry::Route &route, const Connection &connection,
-                    const Palette &palette, bool selected, bool showLabel)
+                    const Palette &palette, bool selected, bool showLabel, const QColor &labelFill)
 {
     const QColor color = selected ? palette.selection : palette.resolve(connection.color, palette.line);
 
@@ -126,7 +142,7 @@ void drawConnection(QPainter &painter, const Geometry::Route &route, const Conne
     if (showLabel && !connection.label.isEmpty()) {
         const QRectF box = labelRect(route, connection.label);
         painter.setPen(Qt::NoPen);
-        painter.setBrush(palette.background);
+        painter.setBrush(labelFill.isValid() ? labelFill : palette.background);
         painter.drawRoundedRect(box, palette.radius, palette.radius);
         painter.setFont(font(LabelFontSize));
         painter.setPen(palette.text);
@@ -149,8 +165,8 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
     painter.setPen(QPen(accent, 1.5));
 
     if (node.kind == NodeKind::Group) {
-        QColor fill = node.color.isEmpty() ? palette.cardBorder : accent;
-        fill.setAlphaF(0.08);
+        QColor fill = accent;
+        fill.setAlphaF(GroupTint);
         painter.setBrush(fill);
         painter.drawRoundedRect(node.rect, palette.radius, palette.radius);
         painter.setFont(font(15, QFont::Bold));
@@ -214,7 +230,8 @@ bool exportCanvas(const Document &document, const QStringList &onlyIds, const QS
         for (const Node &n : groups)
             drawNode(painter, n, palette);
         for (const auto &[connection, route] : connections)
-            drawConnection(painter, route, connection, palette, false);
+            drawConnection(painter, route, connection, palette, false, true,
+                           colorUnder(route.labelPosition, groups, palette));
         for (const Node &n : cards)
             drawNode(painter, n, palette);
     };

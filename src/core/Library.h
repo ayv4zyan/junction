@@ -62,7 +62,7 @@ public:
 
     // Reads the index and the folders. Afterwards there is always at least one Project, each
     // with at least one Canvas, and one of them is current.
-    void load();
+    Q_INVOKABLE void load();
     void saveIndex();
 
     QString root() const { return m_root; }

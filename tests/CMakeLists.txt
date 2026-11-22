@@ -28,3 +28,8 @@ qt_add_executable(tst_design_values tst_design_values.cpp)
 target_link_libraries(tst_design_values PRIVATE junction_render junction_design junction_designplugin Qt6::Test Qt6::Qml Qt6::Gui)
 add_test(NAME tst_design_values COMMAND tst_design_values)
 set_tests_properties(tst_design_values PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+
+# The real app starts on a small Library without any QML error (see app_starts_cleanly.cmake).
+add_test(NAME app_starts_cleanly
+    COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:junction> -DWORK=${CMAKE_CURRENT_BINARY_DIR}/app_starts_cleanly
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/app_starts_cleanly.cmake)

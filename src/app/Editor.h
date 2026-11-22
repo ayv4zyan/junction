@@ -23,13 +23,6 @@
 #include <optional>
 #include <variant>
 
-// The core's Side and PathStyle, for QML: CanvasEnums.Side.Top, CanvasEnums.PathStyle.Curved, ...
-namespace CanvasEnumsForeign {
-Q_NAMESPACE
-QML_FOREIGN_NAMESPACE(CanvasEnums)
-QML_NAMED_ELEMENT(CanvasEnums)
-} // namespace CanvasEnumsForeign
-
 // What the right-click menus need to know about the selection.
 struct SelectionSummary
 {

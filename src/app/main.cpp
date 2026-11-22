@@ -1,5 +1,5 @@
 #include "Editor.h"
-#include "LibraryModel.h"
+#include "LibraryRows.h"
 #include "JunctionDesign.h"
 
 #include <QCryptographicHash>
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
     // These outlive the engine, which is destroyed first.
     Library library(libraryFolder);
-    LibraryModel libraryRows(&library);
+    LibraryRows libraryRows(&library);
     Editor editor(&library, QGuiApplication::clipboard());
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,

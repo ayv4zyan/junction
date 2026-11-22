@@ -1,10 +1,11 @@
-#include "LibraryModel.h"
+#include "LibraryRows.h"
 
-LibraryModel::LibraryModel(Library *library, QObject *parent)
+LibraryRows::LibraryRows(Library *library, QObject *parent)
     : QAbstractListModel(parent), m_library(library)
 {
-    connect(m_library, &Library::projectsChanged, this, &LibraryModel::rebuild);
-    connect(m_library, &Library::expandedChanged, this, &LibraryModel::expandedChanged);
+    connect(m_library, &Library::projectsChanged, this, &LibraryRows::rebuild);
+    connect(m_library, &Library::created, this, [this] { setFilter({}); });   // so the new row can be seen
+    connect(m_library, &Library::expandedChanged, this, &LibraryRows::expandedChanged);
     connect(m_library, &Library::currentChanged, this, [this] {
         if (!m_rows.isEmpty())
             emit dataChanged(index(0), index(m_rows.size() - 1), {CurrentRole});
@@ -12,7 +13,7 @@ LibraryModel::LibraryModel(Library *library, QObject *parent)
 }
 
 // Rebuilt in one go after every change: the lists are short, and it keeps this simple.
-void LibraryModel::rebuild()
+void LibraryRows::rebuild()
 {
     beginResetModel();
     m_rows.clear();
@@ -35,7 +36,7 @@ void LibraryModel::rebuild()
 
 // Expanding or collapsing only inserts or removes that Project's rows, so the rest of the list
 // (and a row being clicked or double-clicked) stays as it is.
-void LibraryModel::expandedChanged(const QString &project)
+void LibraryRows::expandedChanged(const QString &project)
 {
     if (!m_filter.isEmpty())
         return;   // while searching, every Project is shown expanded anyway
@@ -59,12 +60,12 @@ void LibraryModel::expandedChanged(const QString &project)
     emit dataChanged(changed, changed, {ExpandedRole});
 }
 
-bool LibraryModel::matches(const QString &name) const
+bool LibraryRows::matches(const QString &name) const
 {
     return name.contains(m_filter.trimmed(), Qt::CaseInsensitive);
 }
 
-void LibraryModel::setFilter(const QString &filter)
+void LibraryRows::setFilter(const QString &filter)
 {
     if (filter == m_filter)
         return;
@@ -73,12 +74,12 @@ void LibraryModel::setFilter(const QString &filter)
     rebuild();
 }
 
-int LibraryModel::rowCount(const QModelIndex &parent) const
+int LibraryRows::rowCount(const QModelIndex &parent) const
 {
     return parent.isValid() ? 0 : m_rows.size();
 }
 
-QVariant LibraryModel::data(const QModelIndex &index, int role) const
+QVariant LibraryRows::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.row() >= m_rows.size())
         return {};
@@ -86,8 +87,8 @@ QVariant LibraryModel::data(const QModelIndex &index, int role) const
     const ProjectEntry &project = m_library->projects()[row.project];
     const bool isProject = row.canvas < 0;
     switch (role) {
-    case KindRole:
-        return isProject ? QStringLiteral("project") : QStringLiteral("canvas");
+    case IsProjectRole:
+        return isProject;
     case NameRole:
         return isProject ? project.name : project.canvases[row.canvas].name;
     case ProjectRole:
@@ -106,10 +107,10 @@ QVariant LibraryModel::data(const QModelIndex &index, int role) const
     return {};
 }
 
-QHash<int, QByteArray> LibraryModel::roleNames() const
+QHash<int, QByteArray> LibraryRows::roleNames() const
 {
     return {
-        {KindRole, "kind"},
+        {IsProjectRole, "isProject"},
         {NameRole, "name"},
         {ProjectRole, "project"},
         {ProjectIndexRole, "projectIndex"},
@@ -120,7 +121,7 @@ QHash<int, QByteArray> LibraryModel::roleNames() const
     };
 }
 
-QVariantMap LibraryModel::rowAt(int row) const
+QVariantMap LibraryRows::rowAt(int row) const
 {
     QVariantMap map;
     if (row < 0 || row >= m_rows.size())
@@ -131,7 +132,7 @@ QVariantMap LibraryModel::rowAt(int row) const
     return map;
 }
 
-int LibraryModel::rowOf(const QString &project, const QString &canvas) const
+int LibraryRows::rowOf(const QString &project, const QString &canvas) const
 {
     const int p = m_library->projectIndex(project);
     const int c = canvas.isEmpty() ? -1 : m_library->canvasIndex(project, canvas);
@@ -144,7 +145,7 @@ int LibraryModel::rowOf(const QString &project, const QString &canvas) const
     return -1;
 }
 
-int LibraryModel::lastRowOf(const QString &project) const
+int LibraryRows::lastRowOf(const QString &project) const
 {
     const int p = m_library->projectIndex(project);
     int last = -1;
@@ -155,25 +156,7 @@ int LibraryModel::lastRowOf(const QString &project) const
     return last;
 }
 
-// ---- Actions ----
-
-void LibraryModel::open(const QString &project, const QString &canvas)
-{
-    m_library->open(project, canvas.isEmpty() ? m_library->lastCanvas(project) : canvas);
-}
-
-void LibraryModel::openAdjacent(int step)
-{
-    const int p = m_library->projectIndex(m_library->currentProject());
-    if (p < 0)
-        return;
-    const QVector<CanvasEntry> &canvases = m_library->projects()[p].canvases;
-    const int next = m_library->canvasIndex(m_library->currentProject(), m_library->currentCanvas()) + step;
-    if (next >= 0 && next < canvases.size())
-        m_library->open(m_library->currentProject(), canvases[next].name);
-}
-
-bool LibraryModel::openFirstMatch()
+bool LibraryRows::openFirstMatch()
 {
     for (const Row &row : std::as_const(m_rows)) {
         if (row.canvas >= 0) {
@@ -183,28 +166,4 @@ bool LibraryModel::openFirstMatch()
         }
     }
     return false;
-}
-
-void LibraryModel::createProject()
-{
-    setFilter({});   // so the new row can be seen
-    const QString name = m_library->createProject();
-    if (!name.isEmpty())
-        emit renameRequested(name, {});
-}
-
-void LibraryModel::createCanvas(const QString &project)
-{
-    setFilter({});
-    const QString name = m_library->createCanvas(project);
-    if (!name.isEmpty())
-        emit renameRequested(project, name);
-}
-
-void LibraryModel::importCanvases(const QList<QUrl> &urls)
-{
-    for (const QUrl &url : urls) {
-        if (url.isLocalFile())
-            m_library->importCanvas(url.toLocalFile(), m_library->currentProject());
-    }
 }

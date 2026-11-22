@@ -12,7 +12,7 @@ Rectangle {
     id: sidebar
 
     required property Library library
-    required property LibraryModel libraryRows   // the rows shown
+    required property LibraryRows libraryRows   // the rows shown
     required property AskDialog ask
     property real headerHeight: 40
     property alias list: list
@@ -177,7 +177,7 @@ Rectangle {
                 tip: qsTr("New project (Ctrl+Shift+N)")
                 onClicked: {
                     sidebar.focusCanvas()
-                    sidebar.libraryRows.createProject()
+                    sidebar.library.createProject()
                 }
             }
             IconButton {
@@ -264,7 +264,7 @@ Rectangle {
         onClosed: sidebar.menuRow = -1
         MenuItem {
             text: qsTr("New canvas")
-            onTriggered: Qt.callLater(sidebar.libraryRows.createCanvas, sidebar.menuRowData.project)
+            onTriggered: Qt.callLater(sidebar.library.createCanvas, sidebar.menuRowData.project)
         }
         MenuItem {
             text: qsTr("Rename")

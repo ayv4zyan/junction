@@ -2,33 +2,14 @@
 
 // The Library as the sidebar shows it: one flat list of rows, a Project row followed by its
 // Canvas rows (while it is expanded). With a search filter, only matching rows are shown, all
-// expanded. Also the sidebar's ways of opening, creating and importing that depend on those
-// rows or the search; everything else QML asks of the Library directly.
+// expanded. QML changes the Library itself; this only shows it.
 
 #include "Library.h"
 
 #include <QAbstractListModel>
 #include <QQmlEngine>
-#include <QUrl>
 
-// Library (in the core, which knows nothing about QML) as a QML type, for properties declared with it.
-struct LibraryForeign
-{
-    Q_GADGET
-    QML_FOREIGN(Library)
-    QML_NAMED_ELEMENT(Library)
-    QML_UNCREATABLE("Created by main.cpp")
-};
-
-// Viewport (also in the core), for QML reading the view Library::currentView() returns.
-struct ViewportForeign
-{
-    Q_GADGET
-    QML_FOREIGN(Viewport)
-    QML_VALUE_TYPE(viewport)
-};
-
-class LibraryModel : public QAbstractListModel
+class LibraryRows : public QAbstractListModel
 {
     Q_OBJECT
     QML_ELEMENT
@@ -38,7 +19,7 @@ class LibraryModel : public QAbstractListModel
 
 public:
     enum Role {
-        KindRole = Qt::UserRole + 1,   // "project" or "canvas"
+        IsProjectRole = Qt::UserRole + 1,   // a Project row; otherwise a Canvas row
         NameRole,
         ProjectRole,          // the Project's name (for Canvas rows: the Project it is in)
         ProjectIndexRole,     // position of that Project in the Library
@@ -48,7 +29,7 @@ public:
         CurrentRole,          // the open Canvas, or the Project it is in
     };
 
-    explicit LibraryModel(Library *library, QObject *parent = nullptr);
+    explicit LibraryRows(Library *library, QObject *parent = nullptr);
 
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
@@ -61,20 +42,10 @@ public:
     Q_INVOKABLE int rowOf(const QString &project, const QString &canvas = {}) const;
     Q_INVOKABLE int lastRowOf(const QString &project) const;   // its last visible Canvas row
 
-    Q_INVOKABLE void open(const QString &project, const QString &canvas = {});   // no Canvas: the last one open there
-    Q_INVOKABLE void openAdjacent(int step);   // the previous (-1) or next (1) Canvas in the Project
-    Q_INVOKABLE bool openFirstMatch();          // the first Canvas the search shows
-
-    // These clear the search, so the new row can be seen, and then ask for it to be named.
-    Q_INVOKABLE void createProject();
-    Q_INVOKABLE void createCanvas(const QString &project);
-    Q_INVOKABLE void importCanvases(const QList<QUrl> &urls);   // into the current Project
+    Q_INVOKABLE bool openFirstMatch();   // opens the first Canvas the search shows, if any
 
 signals:
     void filterChanged();
-    // A new Project or Canvas was made: the UI lets the user name it right away.
-    // `canvas` is empty for a Project.
-    void renameRequested(const QString &project, const QString &canvas);
 
 private:
     struct Row

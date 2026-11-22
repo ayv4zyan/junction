@@ -5,6 +5,7 @@ add_library(junction_core STATIC
     Document.h Document.cpp
     OpenCanvas.h OpenCanvas.cpp
     Fragment.h Fragment.cpp
+    LibraryIndex.h LibraryIndex.cpp
     Library.h Library.cpp
     TransactionCommand.h
     Geometry.h Geometry.cpp

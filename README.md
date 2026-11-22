@@ -83,7 +83,7 @@ starting it again brings the window forward.
 - `src/design` — the design system (`JunctionDesign`): tokens, the Qt Quick Controls style, shared
   components and the Geist typeface, plus `junction-gallery`. Knows nothing about the app; see
   [its README](src/design/README.md) for the rules.
-- `src/app` — `Editor` (what QML edits the open Canvas through), `NodeModel`, `LibraryModel` (the
+- `src/app` — `Editor` (what QML edits the open Canvas through), `NodeModel`, `LibraryRows` (the
   sidebar's rows), the painted grid/connection layers, and the QML screens, built from `src/design`.
   `main.cpp` creates the Library, its rows and the Editor and hands them to QML.
 - `tests` — Qt Test unit tests for the core and the Editor, the design check's rules, and that the

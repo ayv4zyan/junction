@@ -34,7 +34,8 @@ qt_add_qml_module(junction
         icons/close.svg icons/canvas.svg icons/project.svg
     SOURCES
         Editor.h Editor.cpp
-        LibraryModel.h LibraryModel.cpp
+        LibraryRows.h LibraryRows.cpp
+        CoreTypes.h
         NodeModel.h NodeModel.cpp
         CanvasLayers.h CanvasLayers.cpp
 )

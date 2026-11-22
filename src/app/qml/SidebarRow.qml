@@ -14,7 +14,7 @@ Item {
     id: row
 
     required property int index
-    required property string kind
+    required property bool isProject   // otherwise a Canvas row
     required property string name
     required property string project
     required property int projectIndex
@@ -24,14 +24,13 @@ Item {
     required property bool current
     required property Sidebar sidebar
 
-    readonly property bool isProject: kind === "project"
     readonly property bool hovered: mouse.containsMouse || plusButton.hovered || moreButton.hovered
-    readonly property bool dragged: sidebar.rowDrag.draggedRow !== null && sidebar.rowDrag.draggedRow.kind === kind
+    readonly property bool dragged: sidebar.rowDrag.draggedRow !== null && sidebar.rowDrag.draggedRow.isProject === isProject
                                     && sidebar.rowDrag.draggedRow.project === project && sidebar.rowDrag.draggedRow.name === name
 
     function rename() { nameLabel.edit() }
     function rowData() {
-        return { kind: kind, name: name, project: project, projectIndex: projectIndex,
+        return { isProject: isProject, name: name, project: project, projectIndex: projectIndex,
                  canvasIndex: canvasIndex, canvasCount: canvasCount }
     }
 
@@ -105,7 +104,7 @@ Item {
             if (event.button === Qt.RightButton)
                 row.sidebar.openMenu(row, row, event.x, event.y)
             else
-                row.sidebar.libraryRows.open(row.project, row.isProject ? "" : row.name)
+                row.sidebar.library.open(row.project, row.isProject ? "" : row.name)
         }
         onDoubleClicked: (event) => {
             if (event.button === Qt.LeftButton)
@@ -184,7 +183,7 @@ Item {
             tip: qsTr("New canvas in %1").arg(row.project)
             onClicked: {
                 row.sidebar.focusCanvas()
-                row.sidebar.libraryRows.createCanvas(row.project)
+                row.sidebar.library.createCanvas(row.project)
             }
         }
 

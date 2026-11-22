@@ -13,7 +13,8 @@
 // the index always matches the folders. Folders changed behind the app's back are picked up by
 // load(): unlisted files go to the end, listed ones that are gone are skipped.
 
-#include <QJsonObject>
+#include "LibraryIndex.h"
+
 #include <QObject>
 #include <QPointF>
 #include <QTimer>
@@ -21,33 +22,7 @@
 #include <QVector>
 #include <optional>
 
-// What part of a Canvas was on screen: the world point at the center of the view, and the zoom.
-struct Viewport
-{
-    Q_GADGET
-    Q_PROPERTY(QPointF center MEMBER center)
-    Q_PROPERTY(qreal zoom MEMBER zoom)
-
-public:
-    QPointF center;
-    qreal zoom = 1;
-};
-
-struct CanvasEntry
-{
-    QString name;
-    std::optional<Viewport> view;   // empty until the user pans or zooms it
-};
-
-struct ProjectEntry
-{
-    QString name;
-    QVector<CanvasEntry> canvases;   // never empty
-    bool expanded = true;            // shown open in the sidebar
-    QString lastCanvas;              // the Canvas last open in this Project
-};
-
-// QML calls the Q_INVOKABLE methods directly (the sidebar's list itself is LibraryModel).
+// QML calls the Q_INVOKABLE methods directly (the sidebar shows it through LibraryRows).
 class Library : public QObject
 {
     Q_OBJECT
@@ -79,7 +54,9 @@ public:
     QString currentProject() const { return m_currentProject; }
     QString currentCanvas() const { return m_currentCanvas; }
     QString currentPath() const { return canvasPath(m_currentProject, m_currentCanvas); }
-    bool open(const QString &project, const QString &canvas);
+    // Without a Canvas, the one last open in the Project.
+    Q_INVOKABLE bool open(const QString &project, const QString &canvas = {});
+    Q_INVOKABLE void openAdjacent(int step);   // the previous (-1) or next (1) Canvas in the Project
     QString lastCanvas(const QString &project) const;   // or its first, if that one is gone
 
     // Why a name can't be used, or "" when it can. `except` is the item being renamed.
@@ -87,11 +64,13 @@ public:
     Q_INVOKABLE QString canvasNameProblem(const QString &project, const QString &name, const QString &except = {}) const;
 
     // Each returns the new item's name ("" on failure) and opens it.
-    QString createProject();
-    QString createCanvas(const QString &project);
+    // These two also say `created`, so the UI can have the new item named right away.
+    Q_INVOKABLE QString createProject();
+    Q_INVOKABLE QString createCanvas(const QString &project);
     Q_INVOKABLE QString duplicateProject(const QString &project);
     Q_INVOKABLE QString duplicateCanvas(const QString &project, const QString &canvas);
     QString importCanvas(const QString &filePath, const QString &project);
+    Q_INVOKABLE void importCanvases(const QList<QUrl> &files);   // into the open Project
 
     Q_INVOKABLE bool renameProject(const QString &project, const QString &newName);
     Q_INVOKABLE bool renameCanvas(const QString &project, const QString &canvas, const QString &newName);
@@ -122,6 +101,7 @@ signals:
     void loaded();          // load() is done; currentPath() is empty if the folder can't be written
     void aboutToChange();   // files are about to change or another Canvas to open: save now
     void projectsChanged(); // Projects or Canvases were added, removed, renamed or reordered
+    void created(const QString &project, const QString &canvas);   // a new empty one; `canvas` is "" for a Project
     void expandedChanged(const QString &project);
     void currentChanged();  // currentPath() changed: another Canvas is open, or it was renamed or moved
     void canvasMoved(const QString &oldPath, const QString &newPath);   // renamed or moved
@@ -131,7 +111,7 @@ signals:
 private:
     ProjectEntry *project(const QString &name);
     QStringList canvasNames(const QString &project) const;
-    QJsonObject readIndex();
+    LibraryIndex readIndex();
     void openRemembered(const QString &project, const QString &canvas);
     QStringList canvasFiles(const QString &project) const;   // names of the .canvas files in its folder
     void setCurrent(const QString &project, const QString &canvas);
@@ -141,6 +121,7 @@ private:
     // currentPath() is no longer the one last announced.
     void saveAndAnnounce();
     void announceCurrent();
+    QString addCanvas(ProjectEntry *project, int at, const CanvasEntry &entry);
     QString addProject(int at);
 
     QString m_root;

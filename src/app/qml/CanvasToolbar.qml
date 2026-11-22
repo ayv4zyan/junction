@@ -10,7 +10,7 @@ import JunctionDesign
 ToolBar {
     id: toolbar
     required property Library library
-    required property LibraryModel libraryRows
+    required property LibraryRows libraryRows
     required property Editor editor
     required property CanvasView canvas
     required property bool sidebarOpen
@@ -44,8 +44,8 @@ ToolBar {
             }
             Menu {
                 id: fileMenu
-                MenuItem { text: qsTr("New canvas"); onTriggered: toolbar.libraryRows.createCanvas(toolbar.library.currentProject) }
-                MenuItem { text: qsTr("New project"); onTriggered: toolbar.libraryRows.createProject() }
+                MenuItem { text: qsTr("New canvas"); onTriggered: toolbar.library.createCanvas(toolbar.library.currentProject) }
+                MenuItem { text: qsTr("New project"); onTriggered: toolbar.library.createProject() }
                 MenuSeparator {}
                 MenuItem { text: qsTr("Import canvas…"); onTriggered: toolbar.importRequested() }
                 MenuItem { text: qsTr("Export as canvas file…"); onTriggered: toolbar.exportRequested("canvas") }

@@ -279,6 +279,33 @@ private slots:
         QCOMPARE(library.currentProject(), QString("Untitled 2"));
     }
 
+    // A new empty Project or Canvas is announced, so the UI can have it named right away.
+    void creatingSaysWhatWasCreated()
+    {
+        Library library(m_root);
+        library.load();
+        QSignalSpy created(&library, &Library::created);
+        library.createCanvas("Untitled");
+        library.createProject();
+        QCOMPARE(created.count(), 2);
+        QCOMPARE(created[0], (QVariantList{"Untitled", "Untitled 2"}));
+        QCOMPARE(created[1], (QVariantList{"Untitled 2", QString()}));
+    }
+
+    void openingWithoutACanvasOpensTheLastOneThereAndSteppingMovesAlong()
+    {
+        Library library(m_root);
+        library.load();
+        library.createCanvas("Untitled");   // Untitled 2, open
+        library.createProject();
+        QVERIFY(library.open("Untitled"));
+        QCOMPARE(library.currentCanvas(), QString("Untitled 2"));
+        library.openAdjacent(-1);
+        QCOMPARE(library.currentCanvas(), QString("Untitled"));
+        library.openAdjacent(-1);   // already the first: stays
+        QCOMPARE(library.currentCanvas(), QString("Untitled"));
+    }
+
     void reorderingCountsPositionsBeforeTheMove()
     {
         Library library(m_root);

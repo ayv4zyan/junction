@@ -1,5 +1,7 @@
 #include "Library.h"
 
+#include "Document.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -18,49 +20,6 @@ constexpr auto SortOrder = QDir::Name | QDir::IgnoreCase | QDir::LocaleAware;
 bool sameName(const QString &a, const QString &b)
 {
     return a.compare(b, Qt::CaseInsensitive) == 0;
-}
-
-QJsonObject viewToJson(const Viewport &view)
-{
-    return {{"x", view.center.x()}, {"y", view.center.y()}, {"zoom", view.zoom}};
-}
-
-std::optional<Viewport> viewFromJson(const QJsonValue &value)
-{
-    const QJsonObject json = value.toObject();
-    const qreal zoom = json["zoom"].toDouble();
-    if (zoom <= 0)
-        return std::nullopt;
-    return Viewport{QPointF(json["x"].toDouble(), json["y"].toDouble()), zoom};
-}
-
-QVector<ProjectEntry> projectsFromJson(const QJsonArray &array)
-{
-    QVector<ProjectEntry> projects;
-    for (const QJsonValue &value : array) {
-        const QJsonObject json = value.toObject();
-        ProjectEntry project{json["name"].toString(), {}, json["expanded"].toBool(true), json["last"].toString()};
-        for (const QJsonValue &canvas : json["canvases"].toArray())
-            project.canvases.append({canvas["name"].toString(), viewFromJson(canvas["view"])});
-        projects.append(project);
-    }
-    return projects;
-}
-
-QJsonArray projectsToJson(const QVector<ProjectEntry> &projects)
-{
-    QJsonArray array;
-    for (const ProjectEntry &p : projects) {
-        QJsonArray canvases;
-        for (const CanvasEntry &c : p.canvases) {
-            QJsonObject canvas{{"name", c.name}};
-            if (c.view)
-                canvas["view"] = viewToJson(*c.view);
-            canvases.append(canvas);
-        }
-        array.append(QJsonObject{{"name", p.name}, {"expanded", p.expanded}, {"last", p.lastCanvas}, {"canvases", canvases}});
-    }
-    return array;
 }
 
 // What is really on disk wins over what the index lists: the listed entries that exist keep
@@ -112,13 +71,13 @@ Library::~Library()
 void Library::load()
 {
     QDir().mkpath(m_root);
-    const QJsonObject index = readIndex();
+    const LibraryIndex index = readIndex();
 
     m_projects.clear();
     const QStringList folders = QDir(m_root).entryList(QDir::Dirs | QDir::NoDotAndDotDot, SortOrder);
     const auto newProject = [](const QString &name) { return ProjectEntry{name, {}, true, {}}; };
     const auto newCanvas = [](const QString &name) { return CanvasEntry{name, std::nullopt}; };
-    for (ProjectEntry p : reconciled(projectsFromJson(index["projects"].toArray()), folders, newProject)) {
+    for (ProjectEntry p : reconciled(index.projects, folders, newProject)) {
         p.canvases = reconciled(p.canvases, canvasFiles(p.name), newCanvas);
         // A Project always has a Canvas to show; an empty folder gets a new one.
         if (p.canvases.isEmpty()) {
@@ -133,8 +92,7 @@ void Library::load()
         return;
     }
 
-    const QJsonObject current = index["current"].toObject();
-    openRemembered(current["project"].toString(), current["canvas"].toString());
+    openRemembered(index.currentProject, index.currentCanvas);
     saveAndAnnounce();
     emit loaded();
 }
@@ -142,17 +100,15 @@ void Library::load()
 // The index: order, views, expanded state, the open Canvas. Empty the first time. An index
 // that can't be read is kept as ".junction.broken" (load() is about to write a new one), and
 // the user is told that the order and views were reset.
-QJsonObject Library::readIndex()
+LibraryIndex Library::readIndex()
 {
     const QString path = QDir(m_root).filePath(IndexFile);
     QFile file(path);
     if (!file.exists())
         return {};
-    QJsonParseError parseError;
-    const QJsonDocument json = file.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(file.readAll(), &parseError)
-                                                              : QJsonDocument();
+    const QJsonDocument json = file.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(file.readAll()) : QJsonDocument();
     if (json.isObject())
-        return json.object();
+        return LibraryIndex::fromJson(json.object());
     file.close();
     const QString broken = path + QStringLiteral(".broken");
     const bool kept = (!QFile::exists(broken) || QFile::remove(broken)) && QFile::copy(path, broken);
@@ -182,13 +138,10 @@ QStringList Library::canvasFiles(const QString &project) const
 
 void Library::saveIndex()
 {
-    const QJsonObject index{
-        {"projects", projectsToJson(m_projects)},
-        {"current", QJsonObject{{"project", m_currentProject}, {"canvas", m_currentCanvas}}},
-    };
+    const LibraryIndex index{m_projects, m_currentProject, m_currentCanvas};
     QSaveFile file(QDir(m_root).filePath(IndexFile));
     const bool written = file.open(QIODevice::WriteOnly)
-                         && file.write(QJsonDocument(index).toJson(QJsonDocument::Indented)) >= 0 && file.commit();
+                         && file.write(QJsonDocument(index.toJson()).toJson(QJsonDocument::Indented)) >= 0 && file.commit();
     if (!written)
         emit errorOccurred(tr("Could not save the library index: %1").arg(file.errorString()));
 }
@@ -337,8 +290,9 @@ void Library::setCurrent(const QString &project, const QString &canvas)
 }
 
 // Only the open Canvas changes here, not the list: no projectsChanged().
-bool Library::open(const QString &projectName, const QString &canvas)
+bool Library::open(const QString &projectName, const QString &canvasName)
 {
+    const QString canvas = canvasName.isEmpty() ? lastCanvas(projectName) : canvasName;
     if (canvasIndex(projectName, canvas) < 0)
         return false;
     if (projectName == m_currentProject && canvas == m_currentCanvas) {
@@ -355,6 +309,16 @@ bool Library::open(const QString &projectName, const QString &canvas)
         emit expandedChanged(projectName);
     announceCurrent();
     return true;
+}
+
+void Library::openAdjacent(int step)
+{
+    const int p = projectIndex(m_currentProject);
+    if (p < 0)
+        return;
+    const int next = canvasIndex(m_currentProject, m_currentCanvas) + step;
+    if (next >= 0 && next < m_projects[p].canvases.size())
+        open(m_currentProject, m_projects[p].canvases[next].name);
 }
 
 QString Library::lastCanvas(const QString &projectName) const
@@ -395,6 +359,17 @@ QString Library::addProject(int at)
     return name;
 }
 
+// The last step of every way of adding a Canvas: it goes into the Project at `at`, is shown,
+// and is opened.
+QString Library::addCanvas(ProjectEntry *p, int at, const CanvasEntry &entry)
+{
+    p->canvases.insert(at, entry);
+    p->expanded = true;
+    setCurrent(p->name, entry.name);
+    saveAndAnnounce();
+    return entry.name;
+}
+
 QString Library::createProject()
 {
     emit aboutToChange();
@@ -403,6 +378,7 @@ QString Library::createProject()
         return {};
     setCurrent(name, NewName);
     saveAndAnnounce();
+    emit created(name, {});
     return name;
 }
 
@@ -415,10 +391,8 @@ QString Library::createCanvas(const QString &projectName)
     const QString name = uniqueName(NewName, canvasNames(projectName));
     if (!createEmptyCanvasFile(canvasPath(projectName, name)))
         return {};
-    p->canvases.append({name, std::nullopt});
-    p->expanded = true;
-    setCurrent(projectName, name);
-    saveAndAnnounce();
+    addCanvas(p, p->canvases.size(), {name, std::nullopt});
+    emit created(projectName, name);
     return name;
 }
 
@@ -436,10 +410,7 @@ QString Library::duplicateCanvas(const QString &projectName, const QString &canv
     ProjectEntry *p = project(projectName);
     CanvasEntry copy = p->canvases[i];
     copy.name = name;
-    p->canvases.insert(i + 1, copy);
-    setCurrent(projectName, name);
-    saveAndAnnounce();
-    return name;
+    return addCanvas(p, i + 1, copy);
 }
 
 QString Library::duplicateProject(const QString &projectName)
@@ -470,15 +441,9 @@ QString Library::importCanvas(const QString &filePath, const QString &projectNam
     ProjectEntry *p = project(projectName);
     if (!p)
         return {};
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        emit errorOccurred(tr("Could not open %1: %2").arg(filePath, file.errorString()));
-        return {};
-    }
-    QJsonParseError parseError;
-    const QJsonDocument json = QJsonDocument::fromJson(file.readAll(), &parseError);
-    if (parseError.error != QJsonParseError::NoError || !json.isObject()) {
-        emit errorOccurred(tr("%1 is not a canvas file.").arg(QFileInfo(filePath).fileName()));
+    Document probe;   // only files that open as a Canvas are copied in
+    if (QString error; !probe.load(filePath, &error)) {
+        emit errorOccurred(tr("%1 can't be imported: %2").arg(QFileInfo(filePath).fileName(), error));
         return {};
     }
 
@@ -491,11 +456,15 @@ QString Library::importCanvas(const QString &filePath, const QString &projectNam
         emit errorOccurred(tr("Could not copy %1 into the project.").arg(filePath));
         return {};
     }
-    p->canvases.append({name, std::nullopt});
-    p->expanded = true;
-    setCurrent(projectName, name);
-    saveAndAnnounce();
-    return name;
+    return addCanvas(p, p->canvases.size(), {name, std::nullopt});
+}
+
+void Library::importCanvases(const QList<QUrl> &files)
+{
+    for (const QUrl &file : files) {
+        if (file.isLocalFile())
+            importCanvas(file.toLocalFile(), m_currentProject);
+    }
 }
 
 // ---- Renaming ----

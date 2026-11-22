@@ -18,8 +18,6 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QRectF>
-#include <QTimer>
-#include <QUrl>
 #include <optional>
 #include <variant>
 

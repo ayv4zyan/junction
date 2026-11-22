@@ -84,9 +84,12 @@ signals:
     void nodeRemoved(const QString &id);
     void nodeChanged(const QString &id);
     void connectionsChanged();
-    void reset();
+    void reset();     // everything was replaced (loaded or cleared)
+    void changed();   // after any of the above, for those that only need to know that
 
 private:
+    void putNode(const Node &node);
+    void putConnection(const Connection &connection);
     void remove(const Item &item);
 
     QVector<Node> m_nodes;

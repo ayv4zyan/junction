@@ -63,11 +63,7 @@ Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
     connect(&m_canvas, &OpenCanvas::opened, this, &Editor::canvasOpened);
 
     // Anything that changes in the Document may move the selected Connection's handles.
-    const Document *document = &m_canvas.document();
-    for (auto signal : {&Document::nodeChanged, &Document::nodeRemoved, &Document::nodeAdded})
-        connect(document, signal, this, &Editor::syncSelectionWithDocument);
-    connect(document, &Document::connectionsChanged, this, &Editor::syncSelectionWithDocument);
-    connect(document, &Document::reset, this, &Editor::syncSelectionWithDocument);
+    connect(&m_canvas.document(), &Document::changed, this, &Editor::syncSelectionWithDocument);
     connect(m_library, &Library::loaded, this, &Editor::loadCurrent);   // also when nothing could be opened
 }
 

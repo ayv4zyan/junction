@@ -18,17 +18,23 @@ NodeModel::NodeModel(const Document *document, Filter filter, QObject *parent)
         m_ids.removeAt(row);
         endRemoveRows();
     });
+    // A node whose kind changed (a Card that became a Group) moves to the other model.
     connect(document, &Document::nodeChanged, this, [this](const QString &id) {
         const int row = m_ids.indexOf(id);
-        if (row >= 0)
+        if (row >= 0 && accepts(id))
             emit dataChanged(index(row), index(row));
+        else if (row >= 0 || accepts(id))
+            rebuildAll();
     });
-    connect(document, &Document::reset, this, [this] {
-        beginResetModel();
-        rebuild();
-        endResetModel();
-    });
+    connect(document, &Document::reset, this, &NodeModel::rebuildAll);
     rebuild();
+}
+
+void NodeModel::rebuildAll()
+{
+    beginResetModel();
+    rebuild();
+    endResetModel();
 }
 
 bool NodeModel::accepts(const QString &id) const

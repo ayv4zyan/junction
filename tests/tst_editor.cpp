@@ -239,6 +239,23 @@ private slots:
         QCOMPARE(m_editor->document().nodes().size(), 1);
     }
 
+    // A node whose kind changes under the same id moves between the Cards and the Groups.
+    void aNodeThatChangesKindMovesToTheOtherModel()
+    {
+        Document doc;
+        NodeModel cards(&doc, NodeModel::Cards);
+        NodeModel groups(&doc, NodeModel::Groups);
+        Node n;
+        n.id = "x";
+        n.rect = {0, 0, 100, 50};
+        doc.put(n);
+        QCOMPARE(cards.rowCount(), 1);
+        n.content = GroupContent{"G"};
+        doc.put(n);
+        QCOMPARE(cards.rowCount(), 0);
+        QCOMPARE(groups.rowCount(), 1);
+    }
+
     void resizingKeepsAMinimumSize()
     {
         const QString a = m_editor->createCard({0, 0});

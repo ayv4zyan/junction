@@ -36,6 +36,7 @@ public:
 private:
     bool accepts(const QString &id) const;
     void rebuild();
+    void rebuildAll();   // rebuild() as a model reset
 
     const Document *m_document;
     Filter m_filter;

@@ -46,10 +46,7 @@ void ConnectionLayer::setEditor(Editor *editor)
     // Repaint whenever anything that affects a line changes.
     auto repaint = [this] { update(); };
     const Document *document = &editor->document();
-    connect(document, &Document::nodeChanged, this, repaint);
-    connect(document, &Document::nodeRemoved, this, repaint);
-    connect(document, &Document::connectionsChanged, this, repaint);
-    connect(document, &Document::reset, this, repaint);
+    connect(document, &Document::changed, this, repaint);
     connect(editor, &Editor::selectionChanged, this, repaint);
 }
 

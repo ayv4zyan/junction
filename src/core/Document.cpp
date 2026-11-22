@@ -85,28 +85,37 @@ void Document::apply(const Transaction &transaction)
 
 void Document::put(const Item &item)
 {
-    if (const Node *n = std::get_if<Node>(&item)) {
-        for (Node &existing : m_nodes) {
-            if (existing.id == n->id) {
-                existing = *n;
-                emit nodeChanged(n->id);
-                return;
-            }
+    if (const Node *n = std::get_if<Node>(&item))
+        putNode(*n);
+    else
+        putConnection(std::get<Connection>(item));
+    emit changed();
+}
+
+void Document::putNode(const Node &node)
+{
+    for (Node &existing : m_nodes) {
+        if (existing.id == node.id) {
+            existing = node;
+            emit nodeChanged(node.id);
+            return;
         }
-        m_nodes.append(*n);
-        emit nodeAdded(n->id);
-    } else {
-        const Connection &c = std::get<Connection>(item);
-        for (Connection &existing : m_connections) {
-            if (existing.id == c.id) {
-                existing = c;
-                emit connectionsChanged();
-                return;
-            }
-        }
-        m_connections.append(c);
-        emit connectionsChanged();
     }
+    m_nodes.append(node);
+    emit nodeAdded(node.id);
+}
+
+void Document::putConnection(const Connection &connection)
+{
+    for (Connection &existing : m_connections) {
+        if (existing.id == connection.id) {
+            existing = connection;
+            emit connectionsChanged();
+            return;
+        }
+    }
+    m_connections.append(connection);
+    emit connectionsChanged();
 }
 
 void Document::remove(const Item &item)
@@ -119,6 +128,7 @@ void Document::remove(const Item &item)
         if (m_connections.removeIf([&](const Connection &c) { return c.id == id; }) > 0)
             emit connectionsChanged();
     }
+    emit changed();
 }
 
 QJsonObject Document::toJson() const
@@ -163,6 +173,7 @@ void Document::fromJson(const QJsonObject &json)
         m_connections.append(c);
     }
     emit reset();
+    emit changed();
 }
 
 void Document::clear()

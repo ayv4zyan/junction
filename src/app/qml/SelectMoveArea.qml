@@ -8,12 +8,12 @@ import Junction
 DragArea {
     id: area
     required property string nodeId
-    readonly property Editor editor: canvas.editor
+    readonly property Editor editor: canvasView.editor
     readonly property bool selected: editor.selection.includes(nodeId)
     property bool moving: false
 
     onGrabbed: (mouse) => {
-        if (area.canvas.isToggle(mouse.modifiers))
+        if (area.canvasView.isToggle(mouse.modifiers))
             editor.select(nodeId, true)
         else if (!selected)
             editor.select(nodeId)
@@ -30,8 +30,8 @@ DragArea {
         moving = false
     }
     onTapped: (modifiers) => {
-        if (!area.canvas.isToggle(modifiers))
+        if (!area.canvasView.isToggle(modifiers))
             editor.select(nodeId)
     }
-    onMenuRequested: area.canvas.openMenuFor(nodeId)
+    onMenuRequested: area.canvasView.openMenuFor(nodeId)
 }

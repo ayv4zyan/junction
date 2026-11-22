@@ -13,6 +13,8 @@ namespace {
 
 using namespace DesignValues;   // LabelFontSize, CardFontSize, CardPadding, LabelPadding*, *Tint
 constexpr qreal ArrowLength = 12;
+constexpr qreal ExportMargin = 40;        // empty space around what is exported
+constexpr qreal GroupLabelBarTint = 0.3;  // as GroupItem's label bar
 constexpr qreal LineWidth = 2;
 
 // The application font (Geist, see JunctionDesign::installFonts) at a pixel size, matching the
@@ -169,9 +171,20 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
         fill.setAlphaF(GroupTint);
         painter.setBrush(fill);
         painter.drawRoundedRect(node.rect, palette.radius, palette.radius);
-        painter.setFont(font(CardFontSize, QFont::Bold));
+
+        // The label on its bar above the Group, as GroupItem shows it.
+        const QFont labelFont = font(CardFontSize, QFont::Bold);
+        const QString label = node.label.isEmpty() ? QCoreApplication::translate("GroupItem", "Group") : node.label;
+        const qreal width = QFontMetricsF(labelFont).horizontalAdvance(label) + 2 * CardPadding;
+        const QRectF bar(node.rect.left(), node.rect.top() - GroupLabelSpace, width, GroupLabelHeight);
+        QColor barFill = accent;
+        barFill.setAlphaF(GroupLabelBarTint);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(barFill);
+        painter.drawRoundedRect(bar, palette.radius, palette.radius);
+        painter.setFont(labelFont);
         painter.setPen(palette.text);
-        painter.drawText(node.rect.topLeft() + QPointF(4, -8), node.label);
+        painter.drawText(bar, Qt::AlignCenter, label);
         return;
     }
 
@@ -220,7 +233,7 @@ bool exportCanvas(const Document &document, const QSet<QString> &onlyIds, const 
             bounds = bounds.united(route->path.boundingRect());
         }
     }
-    bounds.adjust(-40, -60, 40, 40);   // extra room on top for Group labels
+    bounds.adjust(-ExportMargin, -ExportMargin - GroupLabelSpace, ExportMargin, ExportMargin);   // and Group label bars
 
     auto paint = [&](QPainter &painter) {
         painter.setRenderHint(QPainter::Antialiasing);

@@ -30,6 +30,13 @@ Item {
 
     function start(rowData) { draggedRow = rowData }
 
+    // For drawing the rows: the one being dragged, and a collapsed Project it would go into.
+    function isDragged(rowData) {
+        return draggedRow !== null && draggedRow.isProject === rowData.isProject
+            && draggedRow.project === rowData.project && draggedRow.name === rowData.name
+    }
+    function dropsInto(rowIndex) { return drop !== null && drop.intoRow === rowIndex }
+
     function move(pointInList) {
         point = pointInList
         drop = dropAt(point.y + list.contentY)

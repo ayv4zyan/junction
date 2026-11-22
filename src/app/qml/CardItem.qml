@@ -8,7 +8,7 @@ import "CanvasColors.js" as CanvasColors
 // One Card: Markdown text, Handles on hover, drag to move, double-click to edit.
 Item {
     id: card
-    required property CanvasView canvas
+    required property CanvasView canvasView
     required property string nodeId
     required property string nodeKind
     required property real nodeX
@@ -19,15 +19,15 @@ Item {
     required property string nodeDisplayText   // what the card shows (see NodeModel)
     required property string nodeColor
 
-    readonly property Editor editor: canvas.editor
+    readonly property Editor editor: canvasView.editor
     readonly property bool isText: nodeKind === "text"   // otherwise Unsupported: shown, never edited
     readonly property bool selected: editor.selection.includes(nodeId)
-    readonly property bool editing: canvas.editingId === nodeId
+    readonly property bool editing: canvasView.editingId === nodeId
     readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
     property int hoveredHandles: 0
     readonly property bool showHandles: !editing && (body.containsMouse || resizeEdges.hovered || hoveredHandles > 0
-                                                     || canvas.connectFrom === nodeId
-                                                     || canvas.dropTarget === nodeId)
+                                                     || canvasView.connectFrom === nodeId
+                                                     || canvasView.dropTarget === nodeId)
 
     x: nodeX
     y: nodeY
@@ -36,7 +36,7 @@ Item {
 
     function finishEditing(text) {
         editor.setCardText(nodeId, text)
-        canvas.endTextEditing(nodeId)
+        canvasView.endTextEditing(nodeId)
     }
 
     Rectangle {
@@ -100,7 +100,7 @@ Item {
             verticalAlignment: card.isText ? Text.AlignTop : Text.AlignVCenter
             wrapMode: Text.Wrap
             font.pixelSize: Fonts.canvas
-            // Cards are scaled with the canvas: drawn as curves, the text stays sharp at every zoom.
+            // Cards are scaled with the canvasView: drawn as curves, the text stays sharp at every zoom.
             renderType: Text.CurveRendering
         }
 
@@ -122,7 +122,7 @@ Item {
                 else if (cursorRectangle.y + cursorRectangle.height > scroller.contentY + scroller.height)
                     scroller.contentY = cursorRectangle.y + cursorRectangle.height - scroller.height
             }
-            Keys.onEscapePressed: card.canvas.forceActiveFocus()
+            Keys.onEscapePressed: card.canvasView.forceActiveFocus()
         }
 
         // the text got shorter (edited, or switched back from editing): don't stay scrolled past it
@@ -147,24 +147,24 @@ Item {
         // On Wayland, Qt reports mouse wheels as a "touchpad" device, so accept every device.
         acceptedDevices: PointerDevice.AllDevices
         target: null
-        onWheel: (event) => scroller.scrollBy(-card.canvas.wheelDelta(event).y / card.canvas.zoom)   // the card is scaled by the zoom
+        onWheel: (event) => scroller.scrollBy(-card.canvasView.wheelDelta(event).y / card.canvasView.zoom)   // the card is scaled by the zoom
     }
 
     SelectMoveArea {
         id: body
-        canvas: card.canvas
+        canvasView: card.canvasView
         nodeId: card.nodeId
         anchors.fill: parent
         visible: !card.editing   // hidden, not disabled, so the text's I-beam shows while editing
         hoverEnabled: true
-        onDoubleClicked: { if (card.isText) card.canvas.editText(card.nodeId) }
+        onDoubleClicked: { if (card.isText) card.canvasView.editText(card.nodeId) }
     }
 
     // Resizing by dragging a side or corner. Declared before the Handles so that a Handle in
     // the middle of a side wins over the side's resize strip.
     ResizeEdges {
         id: resizeEdges
-        canvas: card.canvas
+        canvasView: card.canvasView
         nodeId: card.nodeId
     }
 
@@ -174,7 +174,7 @@ Item {
         delegate: Dot {
             id: handle
             required property string modelData
-            canvas: card.canvas
+            canvasView: card.canvasView
             visible: card.showHandles
             filled: handleMouse.containsMouse
             center: Qt.point(modelData === "left" ? 0 : modelData === "right" ? card.width : card.width / 2,
@@ -183,20 +183,20 @@ Item {
             MouseArea {
                 id: handleMouse
                 anchors.fill: parent
-                anchors.margins: card ? -card.canvas.dotMargin : 0   // card is null while being destroyed
+                anchors.margins: card ? -card.canvasView.dotMargin : 0   // card is null while being destroyed
                 hoverEnabled: true
                 cursorShape: Qt.CrossCursor
                 onContainsMouseChanged: card.hoveredHandles += containsMouse ? 1 : -1
                 onPressed: (mouse) => {
-                    if (card.canvas.spaceHeld) {   // Space+drag pans
+                    if (card.canvasView.spaceHeld) {   // Space+drag pans
                         mouse.accepted = false
                         return
                     }
-                    card.canvas.startConnection(card.nodeId, mapToItem(card.canvas, mouse.x, mouse.y))
+                    card.canvasView.startConnection(card.nodeId, mapToItem(card.canvasView, mouse.x, mouse.y))
                 }
-                onPositionChanged: (mouse) => { if (pressed) card.canvas.moveConnection(mapToItem(card.canvas, mouse.x, mouse.y)) }
-                onReleased: (mouse) => card.canvas.finishConnection(mapToItem(card.canvas, mouse.x, mouse.y))
-                onCanceled: card.canvas.cancelConnection()
+                onPositionChanged: (mouse) => { if (pressed) card.canvasView.moveConnection(mapToItem(card.canvasView, mouse.x, mouse.y)) }
+                onReleased: (mouse) => card.canvasView.finishConnection(mapToItem(card.canvasView, mouse.x, mouse.y))
+                onCanceled: card.canvasView.cancelConnection()
             }
         }
     }

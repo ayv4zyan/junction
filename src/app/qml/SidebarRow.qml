@@ -25,8 +25,7 @@ Item {
     required property Sidebar sidebar
 
     readonly property bool hovered: mouse.containsMouse || plusButton.hovered || moreButton.hovered
-    readonly property bool dragged: sidebar.rowDrag.draggedRow !== null && sidebar.rowDrag.draggedRow.isProject === isProject
-                                    && sidebar.rowDrag.draggedRow.project === project && sidebar.rowDrag.draggedRow.name === name
+    readonly property bool dragged: sidebar.rowDrag.isDragged(rowData())
 
     function rename() { nameLabel.edit() }
     function rowData() {
@@ -54,7 +53,7 @@ Item {
         }
         Behavior on color { ColorAnimation { duration: Motion.fast } }
         // a collapsed Project a Canvas is being dropped into
-        border.width: row.sidebar.rowDrag.drop && row.sidebar.rowDrag.drop.intoRow === row.index ? 1.5 : 0
+        border.width: row.sidebar.rowDrag.dropsInto(row.index) ? 1.5 : 0
         border.color: Colors.selection
 
         // The open Canvas: an accent edge on the left, so "where am I" reads at a glance.

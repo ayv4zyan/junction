@@ -9,7 +9,7 @@ import "CanvasColors.js" as CanvasColors
 // with every Card inside it; double-click the label to rename it.
 Item {
     id: group
-    required property CanvasView canvas
+    required property CanvasView canvasView
     required property string nodeId
     required property real nodeX
     required property real nodeY
@@ -18,9 +18,9 @@ Item {
     required property string nodeLabel
     required property string nodeColor
 
-    readonly property Editor editor: canvas.editor
+    readonly property Editor editor: canvasView.editor
     readonly property bool selected: editor.selection.includes(nodeId)
-    readonly property bool editing: canvas.editingId === nodeId
+    readonly property bool editing: canvasView.editingId === nodeId
     readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)
 
     x: nodeX
@@ -30,7 +30,7 @@ Item {
 
     function finishEditing(text) {
         editor.setLabel(nodeId, text)
-        canvas.endTextEditing(nodeId)
+        canvasView.endTextEditing(nodeId)
     }
 
     Rectangle {
@@ -68,8 +68,8 @@ Item {
             font.pixelSize: Fonts.canvas
             renderType: Text.CurveRendering   // sharp at every zoom level, like Card text
             font.bold: true
-            onAccepted: group.canvas.forceActiveFocus()
-            Keys.onEscapePressed: group.canvas.forceActiveFocus()
+            onAccepted: group.canvasView.forceActiveFocus()
+            Keys.onEscapePressed: group.canvasView.forceActiveFocus()
             HoverHandler { cursorShape: Qt.IBeamCursor }   // a plain TextInput sets none
         }
 
@@ -82,16 +82,16 @@ Item {
         }
 
         SelectMoveArea {
-            canvas: group.canvas
+            canvasView: group.canvasView
             nodeId: group.nodeId
             anchors.fill: parent
             visible: !group.editing   // hidden, not disabled, so the label's I-beam shows while editing
-            onDoubleClicked: group.canvas.editText(group.nodeId)
+            onDoubleClicked: group.canvasView.editText(group.nodeId)
         }
     }
 
     ResizeEdges {
-        canvas: group.canvas
+        canvasView: group.canvasView
         nodeId: group.nodeId
     }
 }

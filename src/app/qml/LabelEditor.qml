@@ -10,9 +10,9 @@ import JunctionDesign
 // Opened by CanvasView.editLabel(). Enter, Esc or clicking away keeps the text.
 Rectangle {
     id: box
-    required property CanvasView canvas
-    readonly property Editor editor: canvas.editor
-    readonly property string connectionId: canvas.labelingId
+    required property CanvasView canvasView
+    readonly property Editor editor: canvasView.editor
+    readonly property string connectionId: canvasView.labelingId
     // The label stays where the Connection's middle is, even when its cards move (undo).
     readonly property point center: editor.selectedConnection.labelPosition
 
@@ -25,11 +25,11 @@ Rectangle {
     radius: Sizes.radius
     color: Colors.background
     border.color: Colors.selection
-    border.width: 1.5 / canvas.zoom   // as thin as the Dots at every zoom level
+    border.width: 1.5 / canvasView.zoom   // as thin as the Dots at every zoom level
 
     function finish(text) {
         const id = connectionId
-        canvas.endLabelEditing()
+        canvasView.endLabelEditing()
         editor.setLabel(id, text)
     }
 
@@ -41,7 +41,7 @@ Rectangle {
             if (box.visible && box.editor.selectedConnection.id !== box.connectionId) {
                 textSession.closeMenu()
                 box.finish(input.text)
-                box.canvas.forceActiveFocus()
+                box.canvasView.forceActiveFocus()
             }
         }
     }
@@ -62,8 +62,8 @@ Rectangle {
         color: Colors.text
         selectionColor: Colors.accentFill
         selectedTextColor: Colors.onAccent
-        onAccepted: box.canvas.forceActiveFocus()
-        Keys.onEscapePressed: box.canvas.forceActiveFocus()
+        onAccepted: box.canvasView.forceActiveFocus()
+        Keys.onEscapePressed: box.canvasView.forceActiveFocus()
         HoverHandler { cursorShape: Qt.IBeamCursor }   // a plain TextInput sets none
     }
 

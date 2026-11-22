@@ -33,6 +33,7 @@ private slots:
         QCOMPARE(DesignValues::CardPadding, token("Space", "md").toReal());
         QCOMPARE(DesignValues::LabelPaddingX, token("Space", "sm").toReal());
         QCOMPARE(DesignValues::LabelPaddingY, token("Space", "xs").toReal());
+        QCOMPARE(DesignValues::GroupLabelHeight, token("Sizes", "control").toReal());
         QCOMPARE(DesignValues::GroupLabelSpace, token("Sizes", "control").toReal() + token("Space", "xs").toReal());
         QCOMPARE(DesignValues::GroupTint, token("Colors", "groupTint").toReal());
         QCOMPARE(DesignValues::CardTint, token("Colors", "cardTint").toReal());

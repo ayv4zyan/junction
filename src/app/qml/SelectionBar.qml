@@ -13,16 +13,16 @@ import "CanvasColors.js" as CanvasColors
 Floating {
     id: bar
     required property Editor editor
-    required property CanvasView canvas
+    required property CanvasView canvasView
     readonly property var connection: editor.selectedConnection
     readonly property bool isConnection: connection.valid
-    readonly property bool shown: editor.selection.length > 0 && !editor.dragging && !canvas.manipulating
+    readonly property bool shown: editor.selection.length > 0 && !editor.dragging && !canvasView.manipulating
 
     // The selection on screen, in the canvas's coordinates.
     readonly property rect target: {
         const b = editor.selectionBounds
-        const topLeft = canvas.toScreen(Qt.point(b.x, b.y))
-        return Qt.rect(topLeft.x, topLeft.y, b.width * canvas.zoom, b.height * canvas.zoom)
+        const topLeft = canvasView.toScreen(Qt.point(b.x, b.y))
+        return Qt.rect(topLeft.x, topLeft.y, b.width * canvasView.zoom, b.height * canvasView.zoom)
     }
     // Where it sits, worked out only while it is shown: when it fades out (nothing selected any
     // more, or a drag starts) it stays where it was, instead of jumping to wherever an empty
@@ -31,13 +31,13 @@ Floating {
     Binding on position {
         when: bar.shown
         value: bar.editor.floatingPosition(bar.target, Qt.size(bar.width, bar.height),
-                                           Qt.rect(0, 0, bar.canvas.width, bar.canvas.height), Space.sm)
+                                           Qt.rect(0, 0, bar.canvasView.width, bar.canvasView.height), Space.sm)
         restoreMode: Binding.RestoreNone
     }
 
     // Follows the selection 1:1 (also while scrolling the canvas): never animated.
-    x: canvas.x + position.x
-    y: canvas.y + position.y + offset
+    x: canvasView.x + position.x
+    y: canvasView.y + position.y + offset
     width: row.implicitWidth + 2 * Space.xs
     height: Sizes.toolbar
 
@@ -129,7 +129,7 @@ Floating {
             visible: bar.isConnection
             iconName: "label"
             tip: qsTr("Label")
-            onClicked: bar.canvas.editLabel(bar.connection.id)
+            onClicked: bar.canvasView.editLabel(bar.connection.id)
         }
     }
 }

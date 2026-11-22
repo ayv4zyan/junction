@@ -5,9 +5,9 @@ import QtQuick
 // resize cursor, dragging it moves that side, or both sides at a corner.
 Item {
     id: edges
-    required property CanvasView canvas
+    required property CanvasView canvasView
     required property string nodeId
-    readonly property real thickness: 10 / canvas.zoom   // half inside the border, half outside
+    readonly property real thickness: 10 / canvasView.zoom   // half inside the border, half outside
     property int hoveredCount: 0
     readonly property bool hovered: hoveredCount > 0
 
@@ -26,7 +26,7 @@ Item {
             readonly property int vertical: sides & Qt.TopEdge ? -1 : sides & Qt.BottomEdge ? 1 : 0
             readonly property real t: edges.thickness
 
-            canvas: edges.canvas
+            canvasView: edges.canvasView
             hoverEnabled: true
             x: horizontal < 0 ? -t / 2 : horizontal > 0 ? edges.width - t / 2 : t / 2
             y: vertical < 0 ? -t / 2 : vertical > 0 ? edges.height - t / 2 : t / 2
@@ -37,11 +37,11 @@ Item {
                        : horizontal === vertical ? Qt.SizeFDiagCursor : Qt.SizeBDiagCursor
 
             onContainsMouseChanged: edges.hoveredCount += containsMouse ? 1 : -1
-            onTapped: (modifiers) => edges.canvas.editor.select(edges.nodeId, edges.canvas.isToggle(modifiers))
-            onDragStarted: edges.canvas.editor.beginResize(edges.nodeId, strip.sides)
-            onDragged: (delta, invertSnap) => edges.canvas.editor.updateResize(delta, invertSnap)
-            onDragFinished: edges.canvas.editor.endResize()
-            onMenuRequested: edges.canvas.openMenuFor(edges.nodeId)
+            onTapped: (modifiers) => edges.canvasView.editor.select(edges.nodeId, edges.canvasView.isToggle(modifiers))
+            onDragStarted: edges.canvasView.editor.beginResize(edges.nodeId, strip.sides)
+            onDragged: (delta, invertSnap) => edges.canvasView.editor.updateResize(delta, invertSnap)
+            onDragFinished: edges.canvasView.editor.endResize()
+            onMenuRequested: edges.canvasView.openMenuFor(edges.nodeId)
         }
     }
 }

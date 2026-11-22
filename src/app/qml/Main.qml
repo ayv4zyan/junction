@@ -30,18 +30,18 @@ ApplicationWindow {
 
     title: (library.currentCanvas ? library.currentCanvas + " · " + library.currentProject + " — " : "") + "Junction"
 
-    onClosing: canvas.forceActiveFocus()   // commits text still being edited
+    onClosing: canvasView.forceActiveFocus()   // commits text still being edited
 
     // When the window comes back, the text field that had focus may have been hidden
     // meanwhile; give the keyboard back to the canvas then.
     onActiveChanged: {
         if (active && (activeFocusItem === null || !activeFocusItem.visible))
-            canvas.forceActiveFocus()
+            canvasView.forceActiveFocus()
     }
 
     // Everything that switches Canvas or changes files first takes the keyboard back to the
     // canvas, which ends any text editing there (and so saves it to the Canvas it belongs to).
-    function focusCanvas() { canvas.forceActiveFocus() }
+    function focusCanvas() { canvasView.forceActiveFocus() }
 
     function toggleSidebar() {
         settings.sidebarOpen = !settings.sidebarOpen
@@ -176,7 +176,7 @@ ApplicationWindow {
             library: window.library
             libraryRows: window.libraryRows
             editor: window.editor
-            canvas: canvas
+            canvasView: canvasView
             sidebarOpen: settings.sidebarOpen
             snapToGrid: editorSettings.snapToGrid
             onSidebarToggleRequested: window.toggleSidebar()
@@ -190,7 +190,7 @@ ApplicationWindow {
         }
 
         CanvasView {
-            id: canvas
+            id: canvasView
             anchors.top: toolbar.bottom
             anchors.left: parent.left
             anchors.right: parent.right
@@ -203,19 +203,19 @@ ApplicationWindow {
 
         SelectionBar {
             editor: window.editor
-            canvas: canvas
+            canvasView: canvasView
         }
 
         LoadErrorPanel {
-            anchors.centerIn: canvas
-            width: Math.min(460, canvas.width - 2 * Space.xl)
+            anchors.centerIn: canvasView
+            width: Math.min(460, canvasView.width - 2 * Space.xl)
             message: window.editor.loadError
             folder: window.library.folder
         }
 
         Toast {
             id: toast
-            anchors.horizontalCenter: canvas.horizontalCenter
+            anchors.horizontalCenter: canvasView.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Space.xl
             z: 2
@@ -263,16 +263,16 @@ ApplicationWindow {
     Shortcut { sequences: [StandardKey.SelectAll]; enabled: window.canEdit; onActivated: window.editor.selectAll() }
     Shortcut { sequences: [StandardKey.Cut]; enabled: window.canEdit; onActivated: window.editor.cut() }
     Shortcut { sequences: [StandardKey.Copy]; enabled: window.canEdit; onActivated: window.editor.copy() }
-    Shortcut { sequences: [StandardKey.Paste]; enabled: window.canEdit; onActivated: window.editor.paste(canvas.pointerWorld()) }
+    Shortcut { sequences: [StandardKey.Paste]; enabled: window.canEdit; onActivated: window.editor.paste(canvasView.pointerWorld()) }
     Shortcut { sequence: "Ctrl+D"; enabled: window.canEdit; onActivated: window.editor.duplicate() }
-    Shortcut { sequence: "Ctrl+G"; enabled: window.canEdit; onActivated: canvas.editText(window.editor.createGroup(canvas.pointerWorld())) }
+    Shortcut { sequence: "Ctrl+G"; enabled: window.canEdit; onActivated: canvasView.editText(window.editor.createGroup(canvasView.pointerWorld())) }
     // Arrow keys nudge the selection by one grid step.
     Shortcut { sequence: "Left"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(-1, 0)) }
     Shortcut { sequence: "Right"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(1, 0)) }
     Shortcut { sequence: "Up"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(0, -1)) }
     Shortcut { sequence: "Down"; enabled: window.canEdit; onActivated: window.editor.nudge(Qt.point(0, 1)) }
-    Shortcut { sequence: "Ctrl+0"; onActivated: canvas.resetZoom() }
-    Shortcut { sequence: "Ctrl+1"; onActivated: canvas.userFit() }
+    Shortcut { sequence: "Ctrl+0"; onActivated: canvasView.resetZoom() }
+    Shortcut { sequence: "Ctrl+1"; onActivated: canvasView.userFit() }
 
     // The Library. Each first takes the keyboard back to the canvas (see focusCanvas).
     Shortcut {

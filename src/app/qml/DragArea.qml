@@ -8,7 +8,7 @@ import QtQuick
 // A right-click never drags: it is reported as `menuRequested`.
 MouseArea {
     id: area
-    required property CanvasView canvas
+    required property CanvasView canvasView
     acceptedButtons: Qt.LeftButton | Qt.RightButton
 
     signal grabbed(var mouse)                         // pressed (not while Space pans)
@@ -22,30 +22,30 @@ MouseArea {
     property bool dragging: false
 
     onPressed: (mouse) => {
-        if (canvas.spaceHeld) {   // Space+drag pans the canvas, even over a card
+        if (canvasView.spaceHeld) {   // Space+drag pans the canvas, even over a card
             mouse.accepted = false
             return
         }
-        canvas.forceActiveFocus()
+        canvasView.forceActiveFocus()
         if (mouse.button === Qt.RightButton) {
             menuRequested()
             return
         }
-        pressPoint = mapToItem(canvas, mouse.x, mouse.y)
+        pressPoint = mapToItem(canvasView, mouse.x, mouse.y)
         dragging = false
         grabbed(mouse)
     }
     onPositionChanged: (mouse) => {
         if (!(pressedButtons & Qt.LeftButton))
             return
-        const p = mapToItem(canvas, mouse.x, mouse.y)
+        const p = mapToItem(canvasView, mouse.x, mouse.y)
         if (!dragging) {
             if (Math.abs(p.x - pressPoint.x) + Math.abs(p.y - pressPoint.y) < 4)
                 return
             dragging = true
             dragStarted()
         }
-        dragged(Qt.point((p.x - pressPoint.x) / canvas.zoom, (p.y - pressPoint.y) / canvas.zoom),
+        dragged(Qt.point((p.x - pressPoint.x) / canvasView.zoom, (p.y - pressPoint.y) / canvasView.zoom),
                 (mouse.modifiers & Qt.AltModifier) !== 0)
     }
     onReleased: (mouse) => {

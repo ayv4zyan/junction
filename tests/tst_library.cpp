@@ -306,6 +306,21 @@ private slots:
         QCOMPARE(library.currentCanvas(), QString("Untitled"));
     }
 
+    // The order the Editor relies on (see Library.h): a renamed open Canvas is reported moved
+    // before it is reported current.
+    void renamingTheOpenCanvasSaysMovedBeforeCurrent()
+    {
+        Library library(m_root);
+        library.load();
+        QStringList heard;
+        connect(&library, &Library::aboutToChange, this, [&] { heard << "aboutToChange"; });
+        connect(&library, &Library::canvasMoved, this, [&] { heard << "canvasMoved"; });
+        connect(&library, &Library::projectsChanged, this, [&] { heard << "projectsChanged"; });
+        connect(&library, &Library::currentChanged, this, [&] { heard << "currentChanged"; });
+        QVERIFY(library.renameCanvas("Untitled", "Untitled", "Notes"));
+        QCOMPARE(heard, (QStringList{"aboutToChange", "canvasMoved", "projectsChanged", "currentChanged"}));
+    }
+
     void reorderingCountsPositionsBeforeTheMove()
     {
         Library library(m_root);

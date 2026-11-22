@@ -7,6 +7,7 @@
 #include "Library.h"
 
 #include <QAbstractListModel>
+#include <optional>
 #include <QQmlEngine>
 
 class LibraryRows : public QAbstractListModel
@@ -50,8 +51,8 @@ signals:
 private:
     struct Row
     {
-        int project;
-        int canvas;   // -1 for a Project row
+        int project;                 // position in the Library
+        std::optional<int> canvas;   // position in the Project; none for the Project's own row
     };
 
     void rebuild();

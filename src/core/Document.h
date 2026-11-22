@@ -15,7 +15,12 @@ class Change
 public:
     static Change added(const Item &item) { return {std::nullopt, item}; }
     static Change removed(const Item &item) { return {item, std::nullopt}; }
-    static Change updated(const Item &before, const Item &after) { return {before, after}; }
+    // Both states of the same item: the same id and the same type.
+    static Change updated(const Item &before, const Item &after)
+    {
+        Q_ASSERT(itemId(before) == itemId(after) && before.index() == after.index());
+        return {before, after};
+    }
 
     const std::optional<Item> &before() const { return m_before; }   // empty when added
     const std::optional<Item> &after() const { return m_after; }     // empty when removed

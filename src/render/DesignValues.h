@@ -17,5 +17,6 @@ constexpr qreal GroupLabelHeight = 28; // Sizes.control: GroupItem's label bar..
 constexpr qreal GroupLabelSpace = 32;  // Sizes.control + Space.xs: ...and how far above the Group it starts
 constexpr qreal GroupTint = 0.08;      // Colors.groupTint: how strongly a Group tints the Canvas
 constexpr qreal CardTint = 0.12;       // Colors.cardTint: how strongly a color tints a Card
+constexpr qreal GroupLabelTint = 0.3;  // Colors.groupLabelTint: ... and a Group's label bar
 
 } // namespace DesignValues

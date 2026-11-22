@@ -37,6 +37,7 @@ private slots:
         QCOMPARE(DesignValues::GroupLabelSpace, token("Sizes", "control").toReal() + token("Space", "xs").toReal());
         QCOMPARE(DesignValues::GroupTint, token("Colors", "groupTint").toReal());
         QCOMPARE(DesignValues::CardTint, token("Colors", "cardTint").toReal());
+        QCOMPARE(DesignValues::GroupLabelTint, token("Colors", "groupLabelTint").toReal());
     }
 
     // The painted layers and exports get their colors from Colors.forPainter, by key.

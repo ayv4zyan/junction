@@ -29,7 +29,7 @@ NodeItem {
         height: Sizes.control
         width: Math.max(labelText.implicitWidth, labelInput.implicitWidth) + 2 * Space.md
         radius: Sizes.radius
-        color: group.selected ? Colors.accentFill : Qt.alpha(group.accent, 0.3)
+        color: group.selected ? Colors.accentFill : Qt.alpha(group.accent, Colors.groupLabelTint)
 
         Text {
             id: labelText

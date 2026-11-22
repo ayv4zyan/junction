@@ -98,6 +98,9 @@ public:
     static QString uniqueName(const QString &base, const QStringList &taken);
 
 signals:
+    // In one change they come in this order: aboutToChange, then canvasMoved / canvasRemoved,
+    // then projectsChanged, then currentChanged. The Editor relies on it: by the time it hears
+    // currentChanged, the open file has already followed a rename.
     void loaded();          // load() is done; currentPath() is empty if the folder can't be written
     void aboutToChange();   // files are about to change or another Canvas to open: save now
     void projectsChanged(); // Projects or Canvases were added, removed, renamed or reordered
@@ -110,6 +113,13 @@ signals:
 
 private:
     ProjectEntry *project(const QString &name);
+    // Where a Canvas is: its Project's position in m_projects and its own in that Project.
+    struct CanvasPlace
+    {
+        int project;
+        int canvas;
+    };
+    std::optional<CanvasPlace> place(const QString &project, const QString &canvas) const;
     QStringList canvasNames(const QString &project) const;
     LibraryIndex readIndex();
     void openRemembered(const QString &project, const QString &canvas);

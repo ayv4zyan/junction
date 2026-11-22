@@ -51,6 +51,7 @@ QtObject {
     readonly property real disabledOpacity: 0.4   // a control that can't be used right now
     readonly property real groupTint: 0.08        // how strongly a Group tints the Canvas under it
     readonly property real cardTint: 0.12         // how strongly its color tints a Card
+    readonly property real groupLabelTint: 0.3    // how strongly its color tints a Group's label bar
 
     // Handed to C++ for the painted layers and for export (see Palette in CanvasPainter.h).
     readonly property var forPainter: ({

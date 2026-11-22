@@ -14,7 +14,6 @@ namespace {
 using namespace DesignValues;   // LabelFontSize, CardFontSize, CardPadding, LabelPadding*, *Tint
 constexpr qreal ArrowLength = 12;
 constexpr qreal ExportMargin = 40;        // empty space around what is exported
-constexpr qreal GroupLabelBarTint = 0.3;  // as GroupItem's label bar
 constexpr qreal LineWidth = 2;
 
 // The application font (Geist, see JunctionDesign::installFonts) at a pixel size, matching the
@@ -178,7 +177,7 @@ void drawNode(QPainter &painter, const Node &node, const Palette &palette)
         const qreal width = QFontMetricsF(labelFont).horizontalAdvance(label) + 2 * CardPadding;
         const QRectF bar(node.rect.left(), node.rect.top() - GroupLabelSpace, width, GroupLabelHeight);
         QColor barFill = accent;
-        barFill.setAlphaF(GroupLabelBarTint);
+        barFill.setAlphaF(GroupLabelTint);
         painter.setPen(Qt::NoPen);
         painter.setBrush(barFill);
         painter.drawRoundedRect(bar, palette.radius, palette.radius);

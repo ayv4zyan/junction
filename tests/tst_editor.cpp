@@ -44,8 +44,8 @@ private slots:
     {
         m_folder = std::make_unique<QTemporaryDir>();
         m_library = std::make_unique<Library>(m_folder->filePath("Library"));
-        m_editor = new Editor(m_library.get());
-        m_editor->start();
+        m_editor = new Editor(m_library.get(), QGuiApplication::clipboard());
+        m_library->load();
         QVERIFY(m_editor->loadError().isEmpty());
     }
 

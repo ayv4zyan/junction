@@ -14,6 +14,7 @@
 #include "NodeModel.h"
 #include "OpenCanvas.h"
 
+#include <QClipboard>
 #include <QObject>
 #include <QQmlEngine>
 #include <QRectF>
@@ -110,7 +111,8 @@ public:
     };
 
     // Shows the Library's current Canvas, and follows it.
-    explicit Editor(Library *library, QObject *parent = nullptr);
+    // `clipboard` is the system clipboard, for cut, copy and paste.
+    Editor(Library *library, QClipboard *clipboard, QObject *parent = nullptr);
 
     const Document &document() const { return m_canvas.document(); }
     const std::optional<ConnectionPreview> &connectionPreview() const { return m_preview; }
@@ -189,17 +191,11 @@ public:
     Q_INVOKABLE void redo();
 
     // Files. Every Canvas is saved automatically, shortly after each change.
-    Q_INVOKABLE void start();   // loads the Library and opens what was open last time
     Q_INVOKABLE void save();
     // Both return the file written, or an empty URL when that failed (errorOccurred says why).
     Q_INVOKABLE QUrl exportCanvas(const QUrl &url);   // a copy of the .canvas file
     Q_INVOKABLE QUrl exportImage(const QUrl &url, const QVariantMap &palette);
     Q_INVOKABLE QRectF contentBounds() const;
-
-    // The part of the Canvas on screen, kept per Canvas so switching back returns to it.
-    // savedView() is {x, y, zoom} with (x, y) the world point at the center, or empty.
-    Q_INVOKABLE QVariantMap savedView() const;
-    Q_INVOKABLE void rememberView(QPointF center, qreal zoom);
 
 signals:
     void selectionChanged();
@@ -253,12 +249,16 @@ private:
     void showDraggedWaypointAt(QPointF point);
 
     template <typename EditNode, typename EditConnection>
-    Transaction editedSelection(EditNode editNode, EditConnection editConnection) const;
+    Transaction editedItems(const QStringList &ids, EditNode editNode, EditConnection editConnection) const;
+    template <typename EditConnection>
+    Transaction editedSelectedConnections(EditConnection editConnection) const;
+    void setLabelsOf(const QStringList &ids, const QString &label);
     void insertFragment(const QJsonObject &fragment, QPointF offset);
 
     void loadCurrent();
 
     Library *m_library;
+    QClipboard *m_clipboard;
     OpenCanvas m_canvas;
     NodeModel m_cards{&m_canvas.document(), NodeModel::Cards};
     NodeModel m_groups{&m_canvas.document(), NodeModel::Groups};
@@ -266,5 +266,4 @@ private:
     std::optional<ConnectionPreview> m_preview;
     std::optional<Drag> m_drag;
     bool m_snapToGrid = true;
-    QTimer m_viewSaveTimer;   // writes the index a moment after the view stops moving
 };

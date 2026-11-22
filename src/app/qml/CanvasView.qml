@@ -14,6 +14,8 @@ import JunctionDesign
 Item {
     id: view
     required property Editor editor
+    required property Library library   // remembers where each Canvas was viewed
+    required property AskDialog ask     // the window's questions
 
     // screen = world * zoom + pan. Read-only outside; the user changes them with panBy() and
     // zoomAt(), the code with placeView().
@@ -98,7 +100,7 @@ Item {
     }
     function rememberView() {
         if (width > 0 && height > 0)
-            editor.rememberView(toWorld(Qt.point(width / 2, height / 2)), zoom)
+            library.rememberCurrentView(toWorld(Qt.point(width / 2, height / 2)), zoom)
     }
 
     function followResize() {
@@ -230,10 +232,10 @@ Item {
                 view.endLabelEditing()
                 view.forceActiveFocus()
             }
-            const saved = view.editor.savedView()
-            if (saved.zoom) {
+            const saved = view.library.currentView()
+            if (saved) {
                 view.keepOnResize = "center"
-                view.keptCenter = Qt.point(saved.x, saved.y)
+                view.keptCenter = saved.center
                 view.placeView(saved.zoom, view.pan)
                 view.centerOn(view.keptCenter)
             } else {
@@ -398,6 +400,7 @@ Item {
         id: menus
         anchors.fill: parent
         view: view
+        ask: view.ask
     }
 
     HoverHandler { id: hover }

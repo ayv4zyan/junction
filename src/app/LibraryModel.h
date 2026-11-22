@@ -20,6 +20,14 @@ struct LibraryForeign
     QML_UNCREATABLE("Created by main.cpp")
 };
 
+// Viewport (also in the core), for QML reading the view Library::currentView() returns.
+struct ViewportForeign
+{
+    Q_GADGET
+    QML_FOREIGN(Viewport)
+    QML_VALUE_TYPE(viewport)
+};
+
 class LibraryModel : public QAbstractListModel
 {
     Q_OBJECT

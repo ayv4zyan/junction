@@ -11,6 +11,7 @@ import JunctionDesign
 Item {
     id: menus
     required property CanvasView view
+    required property AskDialog ask   // for editing several Labels at once
     readonly property Editor editor: view.editor
 
     function openFor(id, waypointIndex) {
@@ -30,7 +31,7 @@ Item {
         const summary = editor.selectionSummary
         const targets = summary.labelTargets
         if (targets.length > 1)
-            ask.text({ title: qsTr("Edit %1 labels").arg(targets.length), text: summary.sharedLabel,
+            menus.ask.text({ title: qsTr("Edit %1 labels").arg(targets.length), text: summary.sharedLabel,
                        placeholder: qsTr("Label"), action: qsTr("Save"),
                        onAccepted: (text) => editor.setLabels(text) })
         else if (summary.connections === 1)
@@ -104,6 +105,4 @@ Item {
         MenuSeparator {}
         MenuEntry { text: qsTr("Delete"); hint: "Del"; destructive: true; onTriggered: menus.editor.deleteSelection() }
     }
-
-    AskDialog { id: ask }
 }

@@ -96,6 +96,9 @@ int movedPosition(int from, int toIndex, int count)
 Library::Library(const QString &root, QObject *parent)
     : QObject(parent), m_root(root)
 {
+    m_viewSaveTimer.setSingleShot(true);
+    m_viewSaveTimer.setInterval(1000);
+    connect(&m_viewSaveTimer, &QTimer::timeout, this, &Library::saveIndex);
 }
 
 Library::~Library()
@@ -125,8 +128,10 @@ void Library::load()
         }
         m_projects.append(p);
     }
-    if (m_projects.isEmpty() && addProject(0).isEmpty())
-        return;   // the folder can't be written; errorOccurred has said so
+    if (m_projects.isEmpty() && addProject(0).isEmpty()) {
+        emit loaded();   // the folder can't be written; errorOccurred has said so
+        return;
+    }
 
     // The Canvas open last time; if it is gone, the first of its Project, or else the very first.
     const QJsonObject current = index["current"].toObject();
@@ -136,6 +141,7 @@ void Library::load()
     setCurrent(project.name, canvasIndex(project.name, lastCanvas) >= 0 && project.name == lastProject
                                  ? lastCanvas : project.canvases.first().name);
     saveAndAnnounce();
+    emit loaded();
 }
 
 // The index: order, views, expanded state, the open Canvas. Empty the first time. An index
@@ -700,4 +706,16 @@ void Library::setView(const QString &projectName, const QString &canvas, const V
     const int i = canvasIndex(projectName, canvas);
     if (i >= 0)
         project(projectName)->canvases[i].view = view;
+}
+
+QVariant Library::currentView() const
+{
+    const std::optional<Viewport> saved = view(m_currentProject, m_currentCanvas);
+    return saved ? QVariant::fromValue(*saved) : QVariant();
+}
+
+void Library::rememberCurrentView(QPointF center, qreal zoom)
+{
+    setView(m_currentProject, m_currentCanvas, {center, zoom});
+    m_viewSaveTimer.start();
 }

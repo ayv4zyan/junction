@@ -6,7 +6,6 @@
 #include "Geometry.h"
 
 #include <QClipboard>
-#include <QGuiApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
 
@@ -27,9 +26,6 @@ Item translated(Item item, QPointF delta)
     return item;
 }
 
-// For editedSelection(): leaves the selected nodes as they are.
-void keepNode(Node &) {}
-
 // The Change that applies `edit` to a copy of `item`.
 template <typename T, typename Edit>
 Change edited(const T &item, Edit edit)
@@ -41,8 +37,8 @@ Change edited(const T &item, Edit edit)
 
 } // namespace
 
-Editor::Editor(Library *library, QObject *parent)
-    : QObject(parent), m_library(library)
+Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
+    : QObject(parent), m_library(library), m_clipboard(clipboard)
 {
     // The open Canvas follows the Library. Before the Library changes files or opens another
     // Canvas, the open one is saved, without a drag still in progress.
@@ -65,10 +61,7 @@ Editor::Editor(Library *library, QObject *parent)
         connect(document, signal, this, &Editor::pruneSelection);
     connect(document, &Document::connectionsChanged, this, &Editor::pruneSelection);
     connect(document, &Document::reset, this, &Editor::pruneSelection);
-
-    m_viewSaveTimer.setSingleShot(true);
-    m_viewSaveTimer.setInterval(1000);
-    connect(&m_viewSaveTimer, &QTimer::timeout, m_library, &Library::saveIndex);
+    connect(m_library, &Library::loaded, this, &Editor::loadCurrent);   // also when nothing could be opened
 }
 
 // Nothing else may change the Document while a drag is in progress: the drag's final
@@ -295,13 +288,13 @@ void Editor::setCardText(const QString &id, const QString &text)
         commit({edited(*existing, [&](Node &n) { n.text = text; })}, tr("Edit text"));
 }
 
-// The Changes that apply `editNode` to every selected node and `editConnection` to every
-// selected Connection. Items they leave as they were are dropped when committed.
+// The Changes that apply `editNode` to the nodes among `ids` and `editConnection` to the
+// Connections. Items they leave as they were are dropped when committed.
 template <typename EditNode, typename EditConnection>
-Transaction Editor::editedSelection(EditNode editNode, EditConnection editConnection) const
+Transaction Editor::editedItems(const QStringList &ids, EditNode editNode, EditConnection editConnection) const
 {
     Transaction t;
-    for (const QString &id : m_selection) {
+    for (const QString &id : ids) {
         if (const Node *n = document().node(id))
             t.append(edited(*n, editNode));
         else if (const Connection *c = document().connection(id))
@@ -310,9 +303,15 @@ Transaction Editor::editedSelection(EditNode editNode, EditConnection editConnec
     return t;
 }
 
+template <typename EditConnection>
+Transaction Editor::editedSelectedConnections(EditConnection editConnection) const
+{
+    return editedItems(m_selection, [](Node &) {}, editConnection);
+}
+
 void Editor::setColor(const QString &color)
 {
-    commit(editedSelection([&](Node &n) { n.color = color; }, [&](Connection &c) { c.color = color; }),
+    commit(editedItems(m_selection, [&](Node &n) { n.color = color; }, [&](Connection &c) { c.color = color; }),
            tr("Change color"));
 }
 
@@ -628,43 +627,44 @@ void Editor::removeWaypoint(const QString &connectionId, int index)
 
 void Editor::setConnectionStyle(const QString &style)
 {
-    commit(editedSelection(keepNode, [&](Connection &c) { c.style = pathStyleFromString(style, c.style); }),
+    commit(editedSelectedConnections([&](Connection &c) { c.style = pathStyleFromString(style, c.style); }),
            tr("Change path style"));
 }
 
 void Editor::setArrows(bool fromArrow, bool toArrow)
 {
-    commit(editedSelection(keepNode, [&](Connection &c) {
+    commit(editedSelectedConnections([&](Connection &c) {
                c.fromArrow = fromArrow;
                c.toArrow = toArrow;
            }),
            tr("Change arrows"));
 }
 
-// Only Groups and Connections have a Label. A Label of only spaces would be an empty box, so
-// spaces around it are dropped.
 void Editor::setLabel(const QString &id, const QString &label)
 {
-    const QString trimmed = label.trimmed();
-    if (const Node *n = document().node(id); n && n->kind == NodeKind::Group)
-        commit({edited(*n, [&](Node &group) { group.label = trimmed; })}, tr("Edit label"));
-    else if (const Connection *c = document().connection(id))
-        commit({edited(*c, [&](Connection &changed) { changed.label = trimmed; })}, tr("Edit label"));
+    setLabelsOf({id}, label);
 }
 
 void Editor::setLabels(const QString &label)
 {
-    const QString trimmed = label.trimmed();   // as in setLabel()
+    setLabelsOf(m_selection, label);
+}
+
+// Only Groups and Connections have a Label. A Label of only spaces would be an empty box, so
+// spaces around it are dropped.
+void Editor::setLabelsOf(const QStringList &ids, const QString &label)
+{
+    const QString trimmed = label.trimmed();
     auto setGroupLabel = [&](Node &n) {
         if (n.kind == NodeKind::Group)
             n.label = trimmed;
     };
-    commit(editedSelection(setGroupLabel, [&](Connection &c) { c.label = trimmed; }), tr("Edit label"));
+    commit(editedItems(ids, setGroupLabel, [&](Connection &c) { c.label = trimmed; }), tr("Edit label"));
 }
 
 void Editor::removeConnectionLabels()
 {
-    commit(editedSelection(keepNode, [](Connection &c) { c.label.clear(); }), tr("Remove label"));
+    commit(editedSelectedConnections([](Connection &c) { c.label.clear(); }), tr("Remove label"));
 }
 
 // ---- Clipboard ----
@@ -703,12 +703,12 @@ void Editor::copy()
 {
     const QJsonObject fragment = Fragment::copy(document(), document().nodesWithContents(m_selection));
     if (!fragment["nodes"].toArray().isEmpty())
-        QGuiApplication::clipboard()->setText(QString::fromUtf8(QJsonDocument(fragment).toJson(QJsonDocument::Compact)));
+        m_clipboard->setText(QString::fromUtf8(QJsonDocument(fragment).toJson(QJsonDocument::Compact)));
 }
 
 void Editor::paste(QPointF center)
 {
-    const QString text = QGuiApplication::clipboard()->text();
+    const QString text = m_clipboard->text();
     const QJsonObject fragment = QJsonDocument::fromJson(text.toUtf8()).object();
     const QRectF bounds = Fragment::bounds(fragment);
     if (!bounds.isEmpty()) {
@@ -729,12 +729,6 @@ void Editor::duplicate()
 }
 
 // ---- Files ----
-
-void Editor::start()
-{
-    m_library->load();
-    loadCurrent();   // in case load() found nothing to open
-}
 
 // Shows the Library's current Canvas.
 void Editor::loadCurrent()
@@ -767,20 +761,6 @@ QUrl Editor::exportCanvas(const QUrl &url)
         return {};
     }
     return QUrl::fromLocalFile(path);
-}
-
-QVariantMap Editor::savedView() const
-{
-    const auto view = m_library->view(m_library->currentProject(), m_library->currentCanvas());
-    if (!view)
-        return {};
-    return {{"x", view->center.x()}, {"y", view->center.y()}, {"zoom", view->zoom}};
-}
-
-void Editor::rememberView(QPointF center, qreal zoom)
-{
-    m_library->setView(m_library->currentProject(), m_library->currentCanvas(), {center, zoom});
-    m_viewSaveTimer.start();
 }
 
 QUrl Editor::exportImage(const QUrl &url, const QVariantMap &palette)

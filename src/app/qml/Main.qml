@@ -89,7 +89,7 @@ ApplicationWindow {
         function onErrorOccurred(message) { toast.show(message, { error: true }) }
     }
 
-    Component.onCompleted: editor.start()
+    Component.onCompleted: library.load()   // the Editor then opens what was open last time
 
     Connections {
         target: window.libraryRows
@@ -196,6 +196,8 @@ ApplicationWindow {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             editor: window.editor
+            library: window.library
+            ask: askDialog
             enabled: window.editor.loadError === ""
         }
 

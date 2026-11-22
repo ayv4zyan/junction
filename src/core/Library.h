@@ -16,6 +16,7 @@
 #include <QJsonObject>
 #include <QObject>
 #include <QPointF>
+#include <QTimer>
 #include <QUrl>
 #include <QVector>
 #include <optional>
@@ -23,6 +24,11 @@
 // What part of a Canvas was on screen: the world point at the center of the view, and the zoom.
 struct Viewport
 {
+    Q_GADGET
+    Q_PROPERTY(QPointF center MEMBER center)
+    Q_PROPERTY(qreal zoom MEMBER zoom)
+
+public:
     QPointF center;
     qreal zoom = 1;
 };
@@ -104,11 +110,16 @@ public:
     Q_INVOKABLE void setExpanded(const QString &project, bool expanded);
     std::optional<Viewport> view(const QString &project, const QString &canvas) const;
     void setView(const QString &project, const QString &canvas, const Viewport &view);
+    // The same for the open Canvas, for QML: currentView() is a Viewport, or null when it was
+    // never panned or zoomed. A remembered view is written to the index a moment later.
+    Q_INVOKABLE QVariant currentView() const;
+    Q_INVOKABLE void rememberCurrentView(QPointF center, qreal zoom);
 
     static QString nameProblem(const QString &name);   // characters and length only
     static QString uniqueName(const QString &base, const QStringList &taken);
 
 signals:
+    void loaded();          // load() is done; currentPath() is empty if the folder can't be written
     void aboutToChange();   // files are about to change or another Canvas to open: save now
     void changed();         // Projects or Canvases were added, removed, renamed or reordered
     void expandedChanged(const QString &project);
@@ -136,4 +147,5 @@ private:
     QString m_currentProject;
     QString m_currentCanvas;
     QString m_announcedPath;   // currentPath() as of the last currentChanged()
+    QTimer m_viewSaveTimer;    // saves the index once the view stops changing
 };

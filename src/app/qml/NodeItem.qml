@@ -7,6 +7,7 @@ import "CanvasColors.js" as CanvasColors
 // selected and edited in place, and has its color. CardItem and GroupItem build on it.
 Item {
     required property CanvasView canvasView
+    required property Editor editor
     required property string nodeId
     required property real nodeX
     required property real nodeY
@@ -14,7 +15,6 @@ Item {
     required property real nodeHeight
     required property string nodeColor
 
-    readonly property Editor editor: canvasView.editor
     readonly property bool selected: editor.selection.includes(nodeId)
     readonly property bool editing: canvasView.editingNodeId === nodeId
     readonly property color accent: CanvasColors.resolve(nodeColor, Colors.presets, Colors.cardBorder)

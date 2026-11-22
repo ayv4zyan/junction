@@ -66,6 +66,7 @@ NodeItem {
 
         SelectMoveArea {
             canvasView: group.canvasView
+            editor: group.editor
             nodeId: group.nodeId
             anchors.fill: parent
             visible: !group.editing   // hidden, not disabled, so the label's I-beam shows while editing
@@ -75,6 +76,7 @@ NodeItem {
 
     ResizeEdges {
         canvasView: group.canvasView
+        editor: group.editor
         nodeId: group.nodeId
     }
 }

@@ -141,6 +141,7 @@ NodeItem {
     SelectMoveArea {
         id: body
         canvasView: card.canvasView
+        editor: card.editor
         nodeId: card.nodeId
         anchors.fill: parent
         visible: !card.editing   // hidden, not disabled, so the text's I-beam shows while editing
@@ -153,6 +154,7 @@ NodeItem {
     ResizeEdges {
         id: resizeEdges
         canvasView: card.canvasView
+        editor: card.editor
         nodeId: card.nodeId
     }
 

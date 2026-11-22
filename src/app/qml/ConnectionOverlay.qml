@@ -11,7 +11,7 @@ import Junction
 Item {
     id: overlay
     required property CanvasView canvasView
-    readonly property Editor editor: canvasView.editor
+    required property Editor editor
     readonly property var connection: editor.selectedConnection   // null unless one Connection is selected
     readonly property bool active: connection !== null
     readonly property string connectionId: connection?.id ?? ""

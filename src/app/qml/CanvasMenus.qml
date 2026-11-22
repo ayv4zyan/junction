@@ -11,8 +11,8 @@ import JunctionDesign
 Item {
     id: menus
     required property CanvasView canvasView
+    required property Editor editor
     required property AskDialog ask   // for editing several Labels at once
-    readonly property Editor editor: canvasView.editor
 
     function openFor(id, waypointIndex) {
         if (!editor.selection.includes(id))

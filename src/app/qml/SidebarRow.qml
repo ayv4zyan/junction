@@ -22,10 +22,13 @@ Item {
     required property int canvasCount
     required property bool expanded
     required property bool current
-    required property Sidebar sidebar
+    required property Sidebar sidebar           // its layout sizes, the menu and the search
+    required property Library library
+    required property LibraryRows libraryRows
+    required property SidebarDrag rowDrag
 
     readonly property bool hovered: mouse.containsMouse || plusButton.hovered || moreButton.hovered
-    readonly property bool dragged: sidebar.rowDrag.isDragged(isProject, project, name)
+    readonly property bool dragged: rowDrag.isDragged(isProject, project, name)
 
     function rename() { nameLabel.edit() }
 
@@ -43,13 +46,13 @@ Item {
                 return Colors.current
             if (row.current && !row.expanded)   // a collapsed Project holding the open Canvas
                 return Qt.alpha(Colors.selection, 0.10)
-            if ((row.hovered && !row.sidebar.rowDrag.active) || row.sidebar.menuRow === row.index)
+            if ((row.hovered && !row.rowDrag.active) || row.sidebar.menuRow === row.index)
                 return Colors.hover
             return "transparent"
         }
         Behavior on color { ColorAnimation { duration: Motion.fast } }
         // a collapsed Project a Canvas is being dropped into
-        border.width: row.sidebar.rowDrag.dropsInto(row.index) ? 1.5 : 0
+        border.width: row.rowDrag.dropsInto(row.index) ? 1.5 : 0
         border.color: Colors.selection
 
         // The open Canvas: an accent edge on the left, so "where am I" reads at a glance.
@@ -70,7 +73,7 @@ Item {
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         enabled: !nameLabel.editing
-        cursorShape: row.sidebar.rowDrag.active ? Qt.ClosedHandCursor : Qt.ArrowCursor
+        cursorShape: row.rowDrag.active ? Qt.ClosedHandCursor : Qt.ArrowCursor
 
         onPressed: (event) => {
             row.sidebar.focusCanvas()
@@ -81,27 +84,27 @@ Item {
             if (!pressed || !(event.buttons & Qt.LeftButton))
                 return
             if (!moved && Math.hypot(event.x - pressPoint.x, event.y - pressPoint.y) > 6
-                    && row.sidebar.libraryRows.filter === "") {
+                    && row.libraryRows.filter === "") {
                 moved = true
-                row.sidebar.rowDrag.start(row.sidebar.libraryRows.rowAt(row.index))
+                row.rowDrag.start(row.libraryRows.rowAt(row.index))
             }
-            if (row.sidebar.rowDrag.active)
-                row.sidebar.rowDrag.move(mapToItem(row.sidebar.list, event.x, event.y))
+            if (row.rowDrag.active)
+                row.rowDrag.move(mapToItem(row.sidebar.list, event.x, event.y))
         }
         onReleased: {
-            if (row.sidebar.rowDrag.active)
-                row.sidebar.rowDrag.end()
+            if (row.rowDrag.active)
+                row.rowDrag.end()
         }
-        onCanceled: row.sidebar.rowDrag.cancel()
+        onCanceled: row.rowDrag.cancel()
         onClicked: (event) => {
             if (moved)
                 return
             if (event.button === Qt.RightButton)
                 row.sidebar.openMenu(row, row, event.x, event.y)
             else if (row.isProject)
-                row.sidebar.library.openProject(row.project)
+                row.library.openProject(row.project)
             else
-                row.sidebar.library.open(row.project, row.name)
+                row.library.open(row.project, row.name)
         }
         onDoubleClicked: (event) => {
             if (event.button === Qt.LeftButton)
@@ -122,8 +125,8 @@ Item {
             implicitWidth: row.sidebar.chevronSize
             implicitHeight: row.sidebar.chevronSize
             focusPolicy: Qt.NoFocus
-            enabled: row.sidebar.libraryRows.filter === ""
-            onClicked: row.sidebar.library.setExpanded(row.project, !row.expanded)
+            enabled: row.libraryRows.filter === ""
+            onClicked: row.library.setExpanded(row.project, !row.expanded)
             contentItem: IconImage {
                 source: "../icons/chevron.svg"
                 sourceSize: Qt.size(Sizes.iconSmall, Sizes.iconSmall)
@@ -153,13 +156,13 @@ Item {
             font.weight: row.isProject ? Font.DemiBold : Font.Normal
             color: Colors.text
             problemFor: (name) => row.isProject
-                ? row.sidebar.library.projectNameProblem(name, row.name)
-                : row.sidebar.library.canvasNameProblem(row.project, name, row.name)
+                ? row.library.projectNameProblem(name, row.name)
+                : row.library.canvasNameProblem(row.project, name, row.name)
             onRenamed: (name) => {
                 if (row.isProject)
-                    row.sidebar.library.renameProject(row.project, name)
+                    row.library.renameProject(row.project, name)
                 else
-                    row.sidebar.library.renameCanvas(row.project, row.name, name)
+                    row.library.renameCanvas(row.project, row.name, name)
             }
             onFinished: row.sidebar.focusCanvas()
         }
@@ -180,7 +183,7 @@ Item {
             tip: qsTr("New canvas in %1").arg(row.project)
             onClicked: {
                 row.sidebar.focusCanvas()
-                row.sidebar.library.createCanvas(row.project)
+                row.library.createCanvas(row.project)
             }
         }
 

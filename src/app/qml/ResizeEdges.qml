@@ -1,11 +1,13 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import Junction
 
 // Invisible strips along the border of a Card or Group, like Obsidian: hovering one shows a
 // resize cursor, dragging it moves that side, or both sides at a corner.
 Item {
     id: edges
     required property CanvasView canvasView
+    required property Editor editor
     required property string nodeId
     readonly property real thickness: 10 / canvasView.zoom   // half inside the border, half outside
 
@@ -34,10 +36,10 @@ Item {
                        : vertical === 0 ? Qt.SizeHorCursor
                        : horizontal === vertical ? Qt.SizeFDiagCursor : Qt.SizeBDiagCursor
 
-            onTapped: (modifiers) => edges.canvasView.editor.select(edges.nodeId, edges.canvasView.isToggle(modifiers))
-            onDragStarted: edges.canvasView.editor.beginResize(edges.nodeId, strip.sides)
-            onDragged: (delta, invertSnap) => edges.canvasView.editor.updateResize(delta, invertSnap)
-            onDragFinished: edges.canvasView.editor.endResize()
+            onTapped: (modifiers) => edges.editor.select(edges.nodeId, edges.canvasView.isToggle(modifiers))
+            onDragStarted: edges.editor.beginResize(edges.nodeId, strip.sides)
+            onDragged: (delta, invertSnap) => edges.editor.updateResize(delta, invertSnap)
+            onDragFinished: edges.editor.endResize()
             onMenuRequested: edges.canvasView.openMenuFor(edges.nodeId)
         }
     }

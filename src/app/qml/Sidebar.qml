@@ -23,7 +23,6 @@ Rectangle {
     readonly property int rowInset: Space.sm
     readonly property int chevronSize: Sizes.icon + Space.xs
     readonly property int canvasIndent: rowInset + Space.xs + chevronSize + Space.xs
-    readonly property alias rowDrag: rowDrag   // dragging rows to reorder them
     property int menuRow: -1               // the row whose menu is open
     property var menuRowData: ({})
 
@@ -221,6 +220,9 @@ Rectangle {
 
         delegate: SidebarRow {
             sidebar: sidebar
+            library: sidebar.library
+            libraryRows: sidebar.libraryRows
+            rowDrag: rowDrag
         }
 
         // A new row fades in; rows making room for it slide (continuity).

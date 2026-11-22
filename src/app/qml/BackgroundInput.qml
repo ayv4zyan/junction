@@ -7,6 +7,8 @@ import Junction
 MouseArea {
     id: background
     required property CanvasView canvasView
+    required property Editor editor
+    required property HitTest hitTest
     required property CanvasMenus menus
 
     enum Mode { Idle, Panning, Selecting }   // what the press started
@@ -30,33 +32,33 @@ MouseArea {
             mode = BackgroundInput.Panning
             return
         }
-        const hit = canvasView.hitTest.connectionAt(canvasView.toWorld(last), canvasView.connectionTolerance)
+        const hit = hitTest.connectionAt(canvasView.toWorld(last), canvasView.connectionTolerance)
         if (mouse.button === Qt.RightButton) {
             if (hit) {
                 canvasView.openMenuFor(hit)
             } else {
-                canvasView.editor.clearSelection()
+                editor.clearSelection()
                 background.menus.openAt(canvasView.toWorld(last))
             }
             return
         }
         const additive = canvasView.isToggle(mouse.modifiers)
         if (hit) {
-            canvasView.editor.select(hit, additive)
+            editor.select(hit, additive)
             mode = BackgroundInput.Idle
             return
         }
         if (!additive)
-            canvasView.editor.clearSelection()
+            editor.clearSelection()
         mode = BackgroundInput.Selecting
         selectionRect = Qt.rect(last.x, last.y, 0, 0)
         selectionDragStart = last
-        selectionBeforeDrag = canvasView.editor.selection
+        selectionBeforeDrag = editor.selection
     }
 
     onPositionChanged: (mouse) => {
         if (!pressed) {
-            overConnection = canvasView.hitTest.connectionAt(canvasView.toWorld(Qt.point(mouse.x, mouse.y)), canvasView.connectionTolerance) !== ""
+            overConnection = hitTest.connectionAt(canvasView.toWorld(Qt.point(mouse.x, mouse.y)), canvasView.connectionTolerance) !== ""
         } else if (mode === BackgroundInput.Panning) {
             canvasView.panBy(mouse.x - last.x, mouse.y - last.y)
             last = Qt.point(mouse.x, mouse.y)
@@ -65,7 +67,7 @@ MouseArea {
                                     Math.abs(mouse.x - selectionDragStart.x), Math.abs(mouse.y - selectionDragStart.y))
             // The selection follows the rectangle as it is dragged, not only on release.
             const a = canvasView.toWorld(Qt.point(selectionRect.x, selectionRect.y))
-            canvasView.editor.selectInRect(Qt.rect(a.x, a.y, selectionRect.width / canvasView.zoom,
+            editor.selectInRect(Qt.rect(a.x, a.y, selectionRect.width / canvasView.zoom,
                                                    selectionRect.height / canvasView.zoom), selectionBeforeDrag)
         }
     }
@@ -76,11 +78,11 @@ MouseArea {
         if (mouse.button !== Qt.LeftButton)
             return
         const world = canvasView.toWorld(Qt.point(mouse.x, mouse.y))
-        const hit = canvasView.hitTest.connectionAt(world, canvasView.connectionTolerance)
+        const hit = hitTest.connectionAt(world, canvasView.connectionTolerance)
         if (hit)
             canvasView.editLabel(hit)
         else
-            canvasView.editNew(canvasView.editor.createCard(world))
+            canvasView.editNew(editor.createCard(world))
     }
 
     onWheel: (wheel) => {

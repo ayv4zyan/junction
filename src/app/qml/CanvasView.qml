@@ -273,6 +273,8 @@ Item {
         id: background
         anchors.fill: parent
         canvasView: canvasView
+        editor: canvasView.editor
+        hitTest: canvasView.hitTest
         menus: menus
     }
 
@@ -293,7 +295,7 @@ Item {
         Repeater {
             id: groupRepeater
             model: canvasView.editor.groups
-            delegate: GroupItem { canvasView: canvasView }
+            delegate: GroupItem { canvasView: canvasView; editor: canvasView.editor }
         }
     }
 
@@ -316,10 +318,10 @@ Item {
         Repeater {
             id: cardRepeater
             model: canvasView.editor.cards
-            delegate: CardItem { canvasView: canvasView }
+            delegate: CardItem { canvasView: canvasView; editor: canvasView.editor }
         }
-        ConnectionOverlay { canvasView: canvasView }
-        LabelEditor { canvasView: canvasView }
+        ConnectionOverlay { canvasView: canvasView; editor: canvasView.editor }
+        LabelEditor { canvasView: canvasView; editor: canvasView.editor }
     }
 
     Rectangle {
@@ -336,6 +338,7 @@ Item {
         id: menus
         anchors.fill: parent
         canvasView: canvasView
+        editor: canvasView.editor
         ask: canvasView.ask
     }
 

@@ -11,7 +11,7 @@ import JunctionDesign
 Rectangle {
     id: box
     required property CanvasView canvasView
-    readonly property Editor editor: canvasView.editor
+    required property Editor editor
     readonly property string connectionId: canvasView.editingLabelId
     // The label stays where the Connection's middle is, even when its cards move (undo).
     readonly property point center: editor.selectedConnection?.labelPosition ?? Qt.point(0, 0)

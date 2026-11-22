@@ -7,8 +7,8 @@ import Junction
 // Right-click: the selection's menu. Double-click is left to the item.
 DragArea {
     id: area
+    required property Editor editor
     required property string nodeId
-    readonly property Editor editor: canvasView.editor
     readonly property bool selected: editor.selection.includes(nodeId)
     property bool moving: false
 

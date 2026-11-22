@@ -10,7 +10,8 @@ import JunctionDesign
 // Opened by CanvasView.editLabel(). Enter, Esc or clicking away keeps the text.
 Rectangle {
     id: box
-    required property CanvasView canvasView
+    // The CanvasView this is part of. Typed Item: Qt 6.9 rejects a type naming the view that creates it.
+    required property Item canvasView
     required property Editor editor
     readonly property string connectionId: canvasView.editingLabelId
     // The label stays where the Connection's middle is, even when its cards move (undo).

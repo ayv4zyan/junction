@@ -6,7 +6,8 @@ import "CanvasColors.js" as CanvasColors
 // What every Card and Group on the canvas has: it sits at its node's rectangle, can be
 // selected and edited in place, and has its color. CardItem and GroupItem build on it.
 Item {
-    required property CanvasView canvasView
+    // The CanvasView this is part of. Typed Item: Qt 6.9 rejects a type naming the view that creates it.
+    required property Item canvasView
     required property Editor editor
     required property string nodeId
     required property real nodeX

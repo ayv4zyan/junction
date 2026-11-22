@@ -5,7 +5,8 @@ import JunctionDesign
 // grab: a Handle, a Waypoint or a Connection end. Round on purpose in a square UI: it marks a
 // point, not a surface.
 Rectangle {
-    required property CanvasView canvasView
+    // The CanvasView this is part of. Typed Item: Qt 6.9 rejects a type naming the view that creates it.
+    required property Item canvasView
     property point center
     property bool filled: true
     property real screenRadius: 6

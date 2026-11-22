@@ -6,7 +6,8 @@ import Junction
 // double-click to add a Card (or edit a Connection's label), and the wheel to scroll and zoom.
 MouseArea {
     id: background
-    required property CanvasView canvasView
+    // The CanvasView this is part of. Typed Item: Qt 6.9 rejects a type naming the view that creates it.
+    required property Item canvasView
     required property Editor editor
     required property HitTest hitTest
     required property CanvasMenus menus

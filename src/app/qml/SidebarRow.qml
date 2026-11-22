@@ -22,7 +22,9 @@ Item {
     required property int canvasCount
     required property bool expanded
     required property bool current
-    required property Sidebar sidebar           // its layout sizes, the menu and the search
+    // The Sidebar: its layout sizes, the menu and the search. Typed Item: Qt 6.9 rejects a type
+    // naming the view that creates it.
+    required property Item sidebar
     required property Library library
     required property LibraryRows libraryRows
     required property SidebarDrag rowDrag

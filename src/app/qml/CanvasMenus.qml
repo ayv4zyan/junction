@@ -10,7 +10,8 @@ import JunctionDesign
 // Right-clicking empty space opens canvasMenu.
 Item {
     id: menus
-    required property CanvasView canvasView
+    // The CanvasView this is part of. Typed Item: Qt 6.9 rejects a type naming the view that creates it.
+    required property Item canvasView
     required property Editor editor
     required property AskDialog ask   // for editing several Labels at once
 

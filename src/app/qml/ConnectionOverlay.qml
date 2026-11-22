@@ -10,7 +10,8 @@ import Junction
 //  - dots on both ends: drag onto a card to re-attach (onto a Handle to pin that side)
 Item {
     id: overlay
-    required property CanvasView canvasView
+    // The CanvasView this is part of. Typed Item: Qt 6.9 rejects a type naming the view that creates it.
+    required property Item canvasView
     required property Editor editor
     readonly property var connection: editor.selection.connection   // null unless one Connection is selected
     readonly property bool active: connection !== null

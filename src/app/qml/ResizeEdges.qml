@@ -6,7 +6,8 @@ import Junction
 // resize cursor, dragging it moves that side, or both sides at a corner.
 Item {
     id: edges
-    required property CanvasView canvasView
+    // The CanvasView this is part of. Typed Item: Qt 6.9 rejects a type naming the view that creates it.
+    required property Item canvasView
     required property Editor editor
     required property string nodeId
     readonly property real thickness: 10 / canvasView.zoom   // half inside the border, half outside

@@ -1,2 +1,4 @@
 build/
 *.user
+# Written by CMake for the QML language server; holds this machine's build paths
+.qmlls.ini

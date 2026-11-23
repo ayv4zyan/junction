@@ -11,6 +11,13 @@ qt_standard_project_setup(REQUIRES 6.9)
 # Every QML module in one folder, so they find each other (the app imports JunctionDesign).
 set(QT_QML_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml)
 
+# Editor support: build/compile_commands.json tells clangd how each C++ file is compiled,
+# and .qmlls.ini files tell qmlls (the QML language server) where our QML modules are built.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(QT_QML_GENERATE_QMLLS_INI ON)
+# Qt Creator's QML code model reads this cache variable to find the same modules.
+set(QML_IMPORT_PATH ${QT_QML_OUTPUT_DIRECTORY} CACHE STRING "Where editors find this project's QML modules" FORCE)
+
 add_subdirectory(src/core)
 add_subdirectory(src/render)
 add_subdirectory(src/design)

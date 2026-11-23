@@ -16,23 +16,23 @@ constexpr QSizeF GroupSize(480, 320);
 
 CanvasItem translated(CanvasItem item, QPointF delta)
 {
-    if (Node *n = std::get_if<Node>(&item)) {
-        n->rect.translate(delta);
-    } else {
-        for (QPointF &p : std::get<Connection>(item).waypoints)
-            p += delta;
-    }
-    return item;
+	if (Node *n = std::get_if<Node>(&item)) {
+		n->rect.translate(delta);
+	} else {
+		for (QPointF &p : std::get<Connection>(item).waypoints)
+			p += delta;
+	}
+	return item;
 }
 
 Connection newConnection(const QString &from, const QString &to, Side toSide)
 {
-    Connection c;
-    c.id = Document::newId();
-    c.fromNode = from;
-    c.toNode = to;
-    c.toSide = toSide;
-    return c;
+	Connection c;
+	c.id = Document::newId();
+	c.fromNode = from;
+	c.toNode = to;
+	c.toSide = toSide;
+	return c;
 }
 
 // For editedItems() on the Connections only: the nodes stay as they are.
@@ -42,66 +42,66 @@ void keepNode(Node &) {}
 template <typename T, typename Edit>
 Change edited(const T &item, Edit edit)
 {
-    T changed = item;
-    edit(changed);
-    return Change::updated(item, changed);
+	T changed = item;
+	edit(changed);
+	return Change::updated(item, changed);
 }
 
 } // namespace
 
 Editor::Editor(Library *library, QClipboard *clipboard, QObject *parent)
-    : QObject(parent), m_library(library), m_clipboard(clipboard)
+	: QObject(parent), m_library(library), m_clipboard(clipboard)
 {
-    // The open Canvas follows the Library. Before the Library changes files or opens another
-    // Canvas, the open one is saved, without a drag still in progress.
-    connect(m_library, &Library::openCanvasMustBeSaved, this, [this] {
-        cancelDrag();
-        m_session.savePending();
-    });
-    connect(m_library, &Library::currentChanged, this, &Editor::loadCurrent);
-    connect(m_library, &Library::canvasMoved, &m_session, &CanvasSession::fileMoved);
-    connect(m_library, &Library::canvasRemoved, &m_session, &CanvasSession::fileRemoved);
+	// The open Canvas follows the Library. Before the Library changes files or opens another
+	// Canvas, the open one is saved, without a drag still in progress.
+	connect(m_library, &Library::openCanvasMustBeSaved, this, [this] {
+		cancelDrag();
+		m_session.savePending();
+	});
+	connect(m_library, &Library::currentChanged, this, &Editor::loadCurrent);
+	connect(m_library, &Library::canvasMoved, &m_session, &CanvasSession::fileMoved);
+	connect(m_library, &Library::canvasRemoved, &m_session, &CanvasSession::fileRemoved);
 
-    connect(&m_session, &CanvasSession::opened, this, &Editor::canvasOpened);
+	connect(&m_session, &CanvasSession::opened, this, &Editor::canvasOpened);
 
-    connect(m_library, &Library::loaded, this, &Editor::loadCurrent);   // also when nothing could be opened
+	connect(m_library, &Library::loaded, this, &Editor::loadCurrent);   // also when nothing could be opened
 }
 
 // Returns whether it went on the undo stack. Nothing else may change the Document while a drag
 // is in progress: the drag's final Transaction is computed from the state at its start.
 bool Editor::commit(const Transaction &transaction, const QString &text)
 {
-    return !isDragging() && m_session.push(transaction, text);
+	return !isDragging() && m_session.push(transaction, text);
 }
 
 // Commits a Transaction that adds the item `selected`, and makes that the selection. Returns its
 // id, or "" when it wasn't added (during a drag, or when the Canvas can't be edited).
 QString Editor::addAndSelect(const Transaction &transaction, const QString &text, const QString &selected)
 {
-    if (!commit(transaction, text))
-        return {};
-    m_selection.set({selected});
-    return selected;
+	if (!commit(transaction, text))
+		return {};
+	m_selection.set({selected});
+	return selected;
 }
 
 void Editor::undo()
 {
-    if (!isDragging())
-        m_session.undo();
+	if (!isDragging())
+		m_session.undo();
 }
 
 void Editor::redo()
 {
-    if (!isDragging())
-        m_session.redo();
+	if (!isDragging())
+		m_session.redo();
 }
 
 void Editor::setSnapToGrid(bool snap)
 {
-    if (snap == m_snapToGrid)
-        return;
-    m_snapToGrid = snap;
-    emit snapToGridChanged();
+	if (snap == m_snapToGrid)
+		return;
+	m_snapToGrid = snap;
+	emit snapToGridChanged();
 }
 
 // ---- Creating and editing ----
@@ -109,49 +109,49 @@ void Editor::setSnapToGrid(bool snap)
 // A rectangle of `size` centered on `center`, with its corner on the grid when snapping.
 QRectF Editor::placed(QPointF center, QSizeF size) const
 {
-    const QPointF topLeft = center - QPointF(size.width(), size.height()) / 2;
-    return QRectF(snapped(topLeft), size);
+	const QPointF topLeft = center - QPointF(size.width(), size.height()) / 2;
+	return QRectF(snapped(topLeft), size);
 }
 
 Node Editor::newCard(QPointF center, const QString &text) const
 {
-    Node card;
-    card.id = Document::newId();
-    card.content = TextContent{text};
-    card.rect = placed(center, CardSize);
-    return card;
+	Node card;
+	card.id = Document::newId();
+	card.content = TextContent{text};
+	card.rect = placed(center, CardSize);
+	return card;
 }
 
 QString Editor::createCard(QPointF center)
 {
-    const Node card = newCard(center);
-    return addAndSelect({Change::added(card)}, tr("Add card"), card.id);
+	const Node card = newCard(center);
+	return addAndSelect({Change::added(card)}, tr("Add card"), card.id);
 }
 
 // With Cards or Groups selected, the new Group goes around them; otherwise it is an empty
 // Group centered on `center`.
 QString Editor::createGroup(QPointF center)
 {
-    QVector<Node> selected;
-    for (const QString &id : m_selection.ids()) {
-        if (const Node *n = document().node(id))
-            selected.append(*n);
-    }
-    const QRectF bounds = boundingRect(selected);
+	QVector<Node> selected;
+	for (const QString &id : m_selection.ids()) {
+		if (const Node *n = document().node(id))
+			selected.append(*n);
+	}
+	const QRectF bounds = boundingRect(selected);
 
-    Node group;
-    group.id = Document::newId();
-    group.content = GroupContent{GroupContent::defaultLabel()};
-    const qreal margin = Geometry::GridSize * 2;
-    group.rect = bounds.isEmpty() ? placed(center, GroupSize) : bounds.adjusted(-margin, -margin, margin, margin);
-    return addAndSelect({Change::added(group)}, tr("Group"), group.id);
+	Node group;
+	group.id = Document::newId();
+	group.content = GroupContent{GroupContent::defaultLabel()};
+	const qreal margin = Geometry::GridSize * 2;
+	group.rect = bounds.isEmpty() ? placed(center, GroupSize) : bounds.adjusted(-margin, -margin, margin, margin);
+	return addAndSelect({Change::added(group)}, tr("Group"), group.id);
 }
 
 void Editor::setCardText(const QString &id, const QString &text)
 {
-    const Node *existing = document().node(id);
-    if (existing && existing->kind() == NodeKind::Text)
-        commit({edited(*existing, [&](Node &n) { n.content = TextContent{text}; })}, tr("Edit text"));
+	const Node *existing = document().node(id);
+	if (existing && existing->kind() == NodeKind::Text)
+		commit({edited(*existing, [&](Node &n) { n.content = TextContent{text}; })}, tr("Edit text"));
 }
 
 // The Changes that apply `editNode` to the nodes among `ids` and `editConnection` to the
@@ -159,47 +159,47 @@ void Editor::setCardText(const QString &id, const QString &text)
 template <typename EditNode, typename EditConnection>
 Transaction Editor::editedItems(const QStringList &ids, EditNode editNode, EditConnection editConnection) const
 {
-    Transaction t;
-    for (const QString &id : ids) {
-        if (const Node *n = document().node(id))
-            t.append(edited(*n, editNode));
-        else if (const Connection *c = document().connection(id))
-            t.append(edited(*c, editConnection));
-    }
-    return t;
+	Transaction t;
+	for (const QString &id : ids) {
+		if (const Node *n = document().node(id))
+			t.append(edited(*n, editNode));
+		else if (const Connection *c = document().connection(id))
+			t.append(edited(*c, editConnection));
+	}
+	return t;
 }
 
 void Editor::setColor(const QString &color)
 {
-    commit(editedItems(m_selection.ids(), [&](Node &n) { n.color = color; }, [&](Connection &c) { c.color = color; }),
-           tr("Change color"));
+	commit(editedItems(m_selection.ids(), [&](Node &n) { n.color = color; }, [&](Connection &c) { c.color = color; }),
+		   tr("Change color"));
 }
 
 // The Changes that remove the nodes in `nodeIds`, every Connection touching them, and the
 // Connections among `connectionIds`.
 Transaction Editor::removal(const QSet<QString> &nodeIds, const QStringList &connectionIds) const
 {
-    Transaction t;
-    for (const Connection &c : document().connections()) {
-        if (nodeIds.contains(c.fromNode) || nodeIds.contains(c.toNode) || connectionIds.contains(c.id))
-            t.append(Change::removed(c));
-    }
-    for (const Node &n : document().nodes()) {
-        if (nodeIds.contains(n.id))
-            t.append(Change::removed(n));
-    }
-    return t;
+	Transaction t;
+	for (const Connection &c : document().connections()) {
+		if (nodeIds.contains(c.fromNode) || nodeIds.contains(c.toNode) || connectionIds.contains(c.id))
+			t.append(Change::removed(c));
+	}
+	for (const Node &n : document().nodes()) {
+		if (nodeIds.contains(n.id))
+			t.append(Change::removed(n));
+	}
+	return t;
 }
 
 // Removes what is selected; a Group's Cards stay (cut takes them along).
 void Editor::deleteSelection()
 {
-    QSet<QString> nodes;
-    for (const QString &id : m_selection.ids()) {
-        if (document().node(id))
-            nodes.insert(id);
-    }
-    commit(removal(nodes, m_selection.ids()), tr("Delete"));
+	QSet<QString> nodes;
+	for (const QString &id : m_selection.ids()) {
+		if (document().node(id))
+			nodes.insert(id);
+	}
+	commit(removal(nodes, m_selection.ids()), tr("Delete"));
 }
 
 // ---- Dragging ----
@@ -210,262 +210,262 @@ void Editor::deleteSelection()
 template <typename Kind>
 const Kind *Editor::activeDrag() const
 {
-    return m_drag ? std::get_if<Kind>(&m_drag->kind) : nullptr;
+	return m_drag ? std::get_if<Kind>(&m_drag->kind) : nullptr;
 }
 
 // Not on a Canvas that can't be edited: the drag would show changes that can't be kept. A drag
 // still in progress (its release never came) is put back first.
 bool Editor::beginDrag(const QVector<CanvasItem> &items, const decltype(Drag::kind) &kind)
 {
-    cancelDrag();
-    if (!m_session.isEditable())
-        return false;
-    Transaction changes;
-    for (const CanvasItem &item : items)
-        changes.append(Change::updated(item, item));
-    m_drag = Drag{changes, kind};
-    emit draggingChanged();
-    return true;
+	cancelDrag();
+	if (!m_session.isEditable())
+		return false;
+	Transaction changes;
+	for (const CanvasItem &item : items)
+		changes.append(Change::updated(item, item));
+	m_drag = Drag{changes, kind};
+	emit draggingChanged();
+	return true;
 }
 
 template <typename Moved>
 void Editor::moveDraggedItems(Moved moved)
 {
-    QVector<CanvasItem> items;
-    for (Change &change : m_drag->changes) {
-        change = Change::updated(*change.before(), moved(*change.before()));
-        items.append(*change.after());
-    }
-    m_session.showUncommitted(items);
+	QVector<CanvasItem> items;
+	for (Change &change : m_drag->changes) {
+		change = Change::updated(*change.before(), moved(*change.before()));
+		items.append(*change.after());
+	}
+	m_session.showUncommitted(items);
 }
 
 // Puts the dragged items back where the drag began, without an undo step.
 void Editor::cancelDrag()
 {
-    if (!m_drag)
-        return;
-    QVector<CanvasItem> originals;
-    for (const Change &change : std::as_const(m_drag->changes))
-        originals.append(*change.before());
-    m_session.showUncommitted(originals);
-    m_drag.reset();
-    emit draggingChanged();
+	if (!m_drag)
+		return;
+	QVector<CanvasItem> originals;
+	for (const Change &change : std::as_const(m_drag->changes))
+		originals.append(*change.before());
+	m_session.showUncommitted(originals);
+	m_drag.reset();
+	emit draggingChanged();
 }
 
 void Editor::endDrag(const QString &text)
 {
-    if (!m_drag)
-        return;
-    const Drag drag = *std::exchange(m_drag, std::nullopt);
-    emit draggingChanged();
-    commit(drag.changes, text);
+	if (!m_drag)
+		return;
+	const Drag drag = *std::exchange(m_drag, std::nullopt);
+	emit draggingChanged();
+	commit(drag.changes, text);
 }
 
 // Selected nodes move, and so does everything inside a selected Group, and the Waypoints of
 // Connections between two moving nodes.
 QVector<CanvasItem> Editor::itemsMovingWithSelection() const
 {
-    const QSet<QString> moving = document().nodesWithContents(m_selection.ids());
-    QVector<CanvasItem> items;
-    for (const Node &n : document().nodes()) {
-        if (moving.contains(n.id))
-            items.append(n);
-    }
-    // Waypoints of Connections between two moving nodes move along with them.
-    for (const Connection &c : document().connections()) {
-        if (!c.waypoints.isEmpty() && moving.contains(c.fromNode) && moving.contains(c.toNode))
-            items.append(c);
-    }
-    return items;
+	const QSet<QString> moving = document().nodesWithContents(m_selection.ids());
+	QVector<CanvasItem> items;
+	for (const Node &n : document().nodes()) {
+		if (moving.contains(n.id))
+			items.append(n);
+	}
+	// Waypoints of Connections between two moving nodes move along with them.
+	for (const Connection &c : document().connections()) {
+		if (!c.waypoints.isEmpty() && moving.contains(c.fromNode) && moving.contains(c.toNode))
+			items.append(c);
+	}
+	return items;
 }
 
 void Editor::beginMove(const QString &id)
 {
-    const Node *grabbed = document().node(id);
-    if (!grabbed)
-        return;
-    if (!m_selection.ids().contains(id))
-        m_selection.set({id});
-    beginDrag(itemsMovingWithSelection(), MoveDrag{grabbed->rect.topLeft()});
+	const Node *grabbed = document().node(id);
+	if (!grabbed)
+		return;
+	if (!m_selection.ids().contains(id))
+		m_selection.set({id});
+	beginDrag(itemsMovingWithSelection(), MoveDrag{grabbed->rect.topLeft()});
 }
 
 void Editor::nudge(QPointF steps)
 {
-    const QPointF delta = steps * Geometry::GridSize;
-    Transaction t;
-    for (const CanvasItem &item : itemsMovingWithSelection())
-        t.append(Change::updated(item, translated(item, delta)));
-    commit(t, tr("Move"));
+	const QPointF delta = steps * Geometry::GridSize;
+	Transaction t;
+	for (const CanvasItem &item : itemsMovingWithSelection())
+		t.append(Change::updated(item, translated(item, delta)));
+	commit(t, tr("Move"));
 }
 
 void Editor::updateMove(QPointF delta, bool invertSnap)
 {
-    const MoveDrag *move = activeDrag<MoveDrag>();
-    if (!move)
-        return;
-    const QPointF snappedDelta = snapped(move->anchor + delta, invertSnap) - move->anchor;
-    moveDraggedItems([&](const CanvasItem &item) { return translated(item, snappedDelta); });
+	const MoveDrag *move = activeDrag<MoveDrag>();
+	if (!move)
+		return;
+	const QPointF snappedDelta = snapped(move->anchor + delta, invertSnap) - move->anchor;
+	moveDraggedItems([&](const CanvasItem &item) { return translated(item, snappedDelta); });
 }
 
 void Editor::endMove()
 {
-    endDrag(tr("Move"));
+	endDrag(tr("Move"));
 }
 
 void Editor::beginResize(const QString &id, Qt::Edges edges)
 {
-    const Node *n = document().node(id);
-    if (!n)
-        return;
-    m_selection.set({id});
-    beginDrag({*n}, ResizeDrag{edges});
+	const Node *n = document().node(id);
+	if (!n)
+		return;
+	m_selection.set({id});
+	beginDrag({*n}, ResizeDrag{edges});
 }
 
 void Editor::updateResize(QPointF delta, bool invertSnap)
 {
-    const ResizeDrag *resize = activeDrag<ResizeDrag>();
-    if (!resize)
-        return;
-    auto place = [&](qreal side) { return snapped(side, invertSnap); };
-    moveDraggedItems([&](const CanvasItem &item) {
-        Node n = std::get<Node>(item);
-        QRectF &r = n.rect;
-        if (resize->edges & Qt::LeftEdge)
-            r.setLeft(std::min(place(r.left() + delta.x()), r.right() - Node::MinimumSize.width()));
-        if (resize->edges & Qt::RightEdge)
-            r.setRight(std::max(place(r.right() + delta.x()), r.left() + Node::MinimumSize.width()));
-        if (resize->edges & Qt::TopEdge)
-            r.setTop(std::min(place(r.top() + delta.y()), r.bottom() - Node::MinimumSize.height()));
-        if (resize->edges & Qt::BottomEdge)
-            r.setBottom(std::max(place(r.bottom() + delta.y()), r.top() + Node::MinimumSize.height()));
-        return CanvasItem(n);
-    });
+	const ResizeDrag *resize = activeDrag<ResizeDrag>();
+	if (!resize)
+		return;
+	auto place = [&](qreal side) { return snapped(side, invertSnap); };
+	moveDraggedItems([&](const CanvasItem &item) {
+		Node n = std::get<Node>(item);
+		QRectF &r = n.rect;
+		if (resize->edges & Qt::LeftEdge)
+			r.setLeft(std::min(place(r.left() + delta.x()), r.right() - Node::MinimumSize.width()));
+		if (resize->edges & Qt::RightEdge)
+			r.setRight(std::max(place(r.right() + delta.x()), r.left() + Node::MinimumSize.width()));
+		if (resize->edges & Qt::TopEdge)
+			r.setTop(std::min(place(r.top() + delta.y()), r.bottom() - Node::MinimumSize.height()));
+		if (resize->edges & Qt::BottomEdge)
+			r.setBottom(std::max(place(r.bottom() + delta.y()), r.top() + Node::MinimumSize.height()));
+		return CanvasItem(n);
+	});
 }
 
 void Editor::endResize()
 {
-    endDrag(tr("Resize"));
+	endDrag(tr("Resize"));
 }
 
 // With `insert`, a new Waypoint is created at the midpoint `index` (between control point
 // `index` and `index + 1`) and then dragged.
 void Editor::beginWaypointDrag(const QString &connectionId, int index, bool insert)
 {
-    const Connection *c = document().connection(connectionId);
-    const auto route = c ? document().route(*c) : std::nullopt;
-    if (!route)
-        return;
-    const QVector<QPointF> &points = insert ? route->midpoints : c->waypoints;
-    if (index < 0 || index >= points.size())
-        return;
-    if (!beginDrag({*c}, WaypointDrag{index, points[index], insert}))
-        return;
-    showDraggedWaypointAt(points[index]);   // a new Waypoint shows up right away
+	const Connection *c = document().connection(connectionId);
+	const auto route = c ? document().route(*c) : std::nullopt;
+	if (!route)
+		return;
+	const QVector<QPointF> &points = insert ? route->midpoints : c->waypoints;
+	if (index < 0 || index >= points.size())
+		return;
+	if (!beginDrag({*c}, WaypointDrag{index, points[index], insert}))
+		return;
+	showDraggedWaypointAt(points[index]);   // a new Waypoint shows up right away
 }
 
 void Editor::updateWaypointDrag(QPointF delta, bool invertSnap)
 {
-    const WaypointDrag *drag = activeDrag<WaypointDrag>();
-    if (!drag)
-        return;
-    const QPointF point = drag->anchor + delta;
-    showDraggedWaypointAt(snapped(point, invertSnap));
+	const WaypointDrag *drag = activeDrag<WaypointDrag>();
+	if (!drag)
+		return;
+	const QPointF point = drag->anchor + delta;
+	showDraggedWaypointAt(snapped(point, invertSnap));
 }
 
 void Editor::showDraggedWaypointAt(QPointF point)
 {
-    const WaypointDrag *drag = activeDrag<WaypointDrag>();
-    if (!drag)
-        return;
-    moveDraggedItems([&](const CanvasItem &item) {
-        Connection c = std::get<Connection>(item);
-        if (drag->inserted)
-            c.waypoints.insert(drag->index, point);
-        else
-            c.waypoints[drag->index] = point;
-        return CanvasItem(c);
-    });
+	const WaypointDrag *drag = activeDrag<WaypointDrag>();
+	if (!drag)
+		return;
+	moveDraggedItems([&](const CanvasItem &item) {
+		Connection c = std::get<Connection>(item);
+		if (drag->inserted)
+			c.waypoints.insert(drag->index, point);
+		else
+			c.waypoints[drag->index] = point;
+		return CanvasItem(c);
+	});
 }
 
 void Editor::endWaypointDrag()
 {
-    endDrag(tr("Move waypoint"));
+	endDrag(tr("Move waypoint"));
 }
 
 // ---- Connections ----
 
 void Editor::connectNodes(const QString &from, const QString &to, Side toSide)
 {
-    if (from == to || !document().node(from) || !document().node(to))
-        return;
-    const Connection c = newConnection(from, to, toSide);
-    addAndSelect({Change::added(c)}, tr("Connect"), c.id);
+	if (from == to || !document().node(from) || !document().node(to))
+		return;
+	const Connection c = newConnection(from, to, toSide);
+	addAndSelect({Change::added(c)}, tr("Connect"), c.id);
 }
 
 QString Editor::connectToNewCard(const QString &from, QPointF center)
 {
-    if (!document().node(from))
-        return {};
-    const Node card = newCard(center);
-    const Transaction t{Change::added(card), Change::added(newConnection(from, card.id, Side::Floating))};
-    return addAndSelect(t, tr("Add connected card"), card.id);
+	if (!document().node(from))
+		return {};
+	const Node card = newCard(center);
+	const Transaction t{Change::added(card), Change::added(newConnection(from, card.id, Side::Floating))};
+	return addAndSelect(t, tr("Add connected card"), card.id);
 }
 
 void Editor::reattach(const QString &connectionId, bool fromEnd, const QString &nodeId, Side side)
 {
-    const Connection *existing = document().connection(connectionId);
-    if (!existing || !document().node(nodeId))
-        return;
-    Connection c = *existing;
-    if (fromEnd) {
-        c.fromNode = nodeId;
-        c.fromSide = side;
-    } else {
-        c.toNode = nodeId;
-        c.toSide = side;
-    }
-    if (c.fromNode != c.toNode && c != *existing)
-        commit({Change::updated(*existing, c)}, tr("Reattach connection"));
+	const Connection *existing = document().connection(connectionId);
+	if (!existing || !document().node(nodeId))
+		return;
+	Connection c = *existing;
+	if (fromEnd) {
+		c.fromNode = nodeId;
+		c.fromSide = side;
+	} else {
+		c.toNode = nodeId;
+		c.toSide = side;
+	}
+	if (c.fromNode != c.toNode && c != *existing)
+		commit({Change::updated(*existing, c)}, tr("Reattach connection"));
 }
 
 void Editor::removeWaypoint(const QString &connectionId, int index)
 {
-    const Connection *existing = document().connection(connectionId);
-    if (!existing || index < 0 || index >= existing->waypoints.size())
-        return;
-    commit({edited(*existing, [&](Connection &c) { c.waypoints.removeAt(index); })}, tr("Remove waypoint"));
+	const Connection *existing = document().connection(connectionId);
+	if (!existing || index < 0 || index >= existing->waypoints.size())
+		return;
+	commit({edited(*existing, [&](Connection &c) { c.waypoints.removeAt(index); })}, tr("Remove waypoint"));
 }
 
 void Editor::setConnectionStyle(PathStyle style)
 {
-    commit(editedItems(m_selection.ids(), keepNode, [&](Connection &c) { c.style = style; }),
-           tr("Change path style"));
+	commit(editedItems(m_selection.ids(), keepNode, [&](Connection &c) { c.style = style; }),
+		   tr("Change path style"));
 }
 
 void Editor::setArrows(bool fromArrow, bool toArrow)
 {
-    commit(editedItems(m_selection.ids(), keepNode, [&](Connection &c) {
-               c.fromArrow = fromArrow;
-               c.toArrow = toArrow;
-           }),
-           tr("Change arrows"));
+	commit(editedItems(m_selection.ids(), keepNode, [&](Connection &c) {
+			   c.fromArrow = fromArrow;
+			   c.toArrow = toArrow;
+		   }),
+		   tr("Change arrows"));
 }
 
 // Only Groups and Connections have a Label. A Label of only spaces would be an empty box, so
 // spaces around it are dropped.
 void Editor::setLabels(const QStringList &ids, const QString &label)
 {
-    const QString trimmed = label.trimmed();
-    auto setGroupLabel = [&](Node &n) {
-        if (n.kind() == NodeKind::Group)
-            n.content = GroupContent{trimmed};
-    };
-    commit(editedItems(ids, setGroupLabel, [&](Connection &c) { c.label = trimmed; }), tr("Edit label"));
+	const QString trimmed = label.trimmed();
+	auto setGroupLabel = [&](Node &n) {
+		if (n.kind() == NodeKind::Group)
+			n.content = GroupContent{trimmed};
+	};
+	commit(editedItems(ids, setGroupLabel, [&](Connection &c) { c.label = trimmed; }), tr("Edit label"));
 }
 
 void Editor::removeConnectionLabels()
 {
-    commit(editedItems(m_selection.ids(), keepNode, [](Connection &c) { c.label.clear(); }), tr("Remove label"));
+	commit(editedItems(m_selection.ids(), keepNode, [](Connection &c) { c.label.clear(); }), tr("Remove label"));
 }
 
 // ---- Clipboard ----
@@ -474,9 +474,9 @@ void Editor::removeConnectionLabels()
 
 void Editor::insertFragment(const Fragment &fragment, QPointF offset)
 {
-    const Fragment::Insertion insertion = fragment.insertion(offset);
-    if (commit(insertion.transaction, tr("Paste")))
-        m_selection.set(insertion.nodeIds);
+	const Fragment::Insertion insertion = fragment.insertion(offset);
+	if (commit(insertion.transaction, tr("Paste")))
+		m_selection.set(insertion.nodeIds);
 }
 
 // Copies, then removes what was copied and every Connection touching it, so a cut Group takes
@@ -484,42 +484,42 @@ void Editor::insertFragment(const Fragment &fragment, QPointF offset)
 // can't be pasted on its own, but cutting it still takes it away.
 void Editor::cut()
 {
-    const QStringList selected = m_selection.ids();
-    const QSet<QString> ids = document().nodesWithContents(selected);
-    const bool connectionSelected = std::any_of(selected.begin(), selected.end(),
-                                                [&](const QString &id) { return document().connection(id); });
-    if (ids.isEmpty() && !connectionSelected)
-        return;
-    copy();
-    commit(removal(ids, selected), tr("Cut"));
+	const QStringList selected = m_selection.ids();
+	const QSet<QString> ids = document().nodesWithContents(selected);
+	const bool connectionSelected = std::any_of(selected.begin(), selected.end(),
+												[&](const QString &id) { return document().connection(id); });
+	if (ids.isEmpty() && !connectionSelected)
+		return;
+	copy();
+	commit(removal(ids, selected), tr("Cut"));
 }
 
 void Editor::copy()
 {
-    const Fragment fragment = Fragment::of(document(), document().nodesWithContents(m_selection.ids()));
-    if (!fragment.isEmpty())
-        m_clipboard->setText(QString::fromUtf8(QJsonDocument(fragment.toJson()).toJson(QJsonDocument::Compact)));
+	const Fragment fragment = Fragment::of(document(), document().nodesWithContents(m_selection.ids()));
+	if (!fragment.isEmpty())
+		m_clipboard->setText(QString::fromUtf8(QJsonDocument(fragment.toJson()).toJson(QJsonDocument::Compact)));
 }
 
 void Editor::paste(QPointF center)
 {
-    const QString text = m_clipboard->text();
-    const Fragment fragment = Fragment::fromJson(QJsonDocument::fromJson(text.toUtf8()).object());
-    const QRectF bounds = fragment.bounds();
-    if (!bounds.isEmpty()) {
-        const QPointF offset = center - bounds.center();
-        insertFragment(fragment, snapped(offset));
-    } else if (!text.trimmed().isEmpty()) {
-        // Text copied from somewhere else becomes a new card.
-        const Node card = newCard(center, text.trimmed());
-        addAndSelect({Change::added(card)}, tr("Paste"), card.id);
-    }
+	const QString text = m_clipboard->text();
+	const Fragment fragment = Fragment::fromJson(QJsonDocument::fromJson(text.toUtf8()).object());
+	const QRectF bounds = fragment.bounds();
+	if (!bounds.isEmpty()) {
+		const QPointF offset = center - bounds.center();
+		insertFragment(fragment, snapped(offset));
+	} else if (!text.trimmed().isEmpty()) {
+		// Text copied from somewhere else becomes a new card.
+		const Node card = newCard(center, text.trimmed());
+		addAndSelect({Change::added(card)}, tr("Paste"), card.id);
+	}
 }
 
 void Editor::duplicate()
 {
-    const qreal offset = Geometry::GridSize * 2;
-    insertFragment(Fragment::of(document(), document().nodesWithContents(m_selection.ids())), QPointF(offset, offset));
+	const qreal offset = Geometry::GridSize * 2;
+	insertFragment(Fragment::of(document(), document().nodesWithContents(m_selection.ids())), QPointF(offset, offset));
 }
 
 // ---- Files ----
@@ -527,18 +527,18 @@ void Editor::duplicate()
 // Shows the Library's current Canvas.
 void Editor::loadCurrent()
 {
-    const QString path = m_library->currentPath();
-    if (path == m_session.filePath() && !path.isEmpty())
-        return;   // the open file was only renamed or moved; CanvasSession::fileMoved() has followed it
-    cancelDrag();
-    m_selection.set({});
-    if (path.isEmpty())
-        m_session.openNothing(tr("The library folder %1 can't be written to.").arg(m_library->folder().toLocalFile()));
-    else
-        m_session.open(path);
+	const QString path = m_library->currentPath();
+	if (path == m_session.filePath() && !path.isEmpty())
+		return;   // the open file was only renamed or moved; CanvasSession::fileMoved() has followed it
+	cancelDrag();
+	m_selection.set({});
+	if (path.isEmpty())
+		m_session.openNothing(tr("The library folder %1 can't be written to.").arg(m_library->folder().toLocalFile()));
+	else
+		m_session.open(path);
 }
 
 QRectF Editor::contentBounds() const
 {
-    return boundingRect(document().nodes());
+	return boundingRect(document().nodes());
 }

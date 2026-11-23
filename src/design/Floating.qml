@@ -6,16 +6,16 @@ import QtQuick.Effects
 // the canvas, since closer reads as lighter there. Nothing else in the app has a shadow, so a
 // shadow always means "on top, and temporary".
 Rectangle {
-    color: Colors.panel
-    border.color: Colors.cardBorder
-    radius: Sizes.radius
+	color: Colors.panel
+	border.color: Colors.cardBorder
+	radius: Sizes.radius
 
-    RectangularShadow {
-        anchors.fill: parent
-        z: -1                 // under the panel
-        offset.y: Space.xs
-        blur: Space.md
-        radius: parent.radius
-        color: Colors.shadow
-    }
+	RectangularShadow {
+		anchors.fill: parent
+		z: -1                 // under the panel
+		offset.y: Space.xs
+		blur: Space.md
+		radius: parent.radius
+		color: Colors.shadow
+	}
 }

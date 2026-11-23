@@ -12,21 +12,21 @@
 
 class Exporter : public QObject
 {
-    Q_OBJECT
-    QML_ELEMENT
-    QML_UNCREATABLE("Created by main.cpp")
+	Q_OBJECT
+	QML_ELEMENT
+	QML_UNCREATABLE("Created by main.cpp")
 
 public:
-    explicit Exporter(const Document *document, QObject *parent = nullptr);
+	explicit Exporter(const Document *document, QObject *parent = nullptr);
 
-    Q_INVOKABLE QUrl exportCanvasFile(const QUrl &url);
-    // Of the nodes among `ids` (with what is inside their Groups), or the whole Canvas when
-    // there are none; `colors` is Colors.forPainter.
-    Q_INVOKABLE QUrl exportImage(const QUrl &url, const QVariantMap &colors, const QStringList &ids);
+	Q_INVOKABLE QUrl exportCanvasFile(const QUrl &url);
+	// Of the nodes among `ids` (with what is inside their Groups), or the whole Canvas when
+	// there are none; `colors` is Colors.forPainter.
+	Q_INVOKABLE QUrl exportImage(const QUrl &url, const QVariantMap &colors, const QStringList &ids);
 
 signals:
-    void errorOccurred(const QString &message);
+	void errorOccurred(const QString &message);
 
 private:
-    const Document *m_document;
+	const Document *m_document;
 };

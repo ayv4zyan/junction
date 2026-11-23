@@ -1,7 +1,7 @@
 function(junction_test name)
-    qt_add_executable(${name} ${name}.cpp)
-    target_link_libraries(${name} PRIVATE junction_core Qt6::Test)
-    add_test(NAME ${name} COMMAND ${name})
+	qt_add_executable(${name} ${name}.cpp)
+	target_link_libraries(${name} PRIVATE junction_core Qt6::Test)
+	add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
 junction_test(tst_document)
@@ -12,7 +12,7 @@ junction_test(tst_fragment)
 
 # The Editor lives in the app, so its test builds the Editor's sources too.
 qt_add_executable(tst_editor tst_editor.cpp
-    ../src/app/Editor.cpp ../src/app/Selection.cpp ../src/app/LibraryRows.cpp ../src/app/NodeModel.cpp)
+	../src/app/Editor.cpp ../src/app/Selection.cpp ../src/app/LibraryRows.cpp ../src/app/NodeModel.cpp)
 target_include_directories(tst_editor PRIVATE ../src/app)
 target_link_libraries(tst_editor PRIVATE junction_core junction_render Qt6::Test Qt6::Gui Qt6::Qml)
 add_test(NAME tst_editor COMMAND tst_editor)
@@ -32,8 +32,8 @@ set_tests_properties(tst_design_values PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=of
 
 # The real app starts on a small Library without any QML error (see app_starts_cleanly.cmake).
 add_test(NAME app_starts_cleanly
-    COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:junction> -DWORK=${CMAKE_CURRENT_BINARY_DIR}/app_starts_cleanly
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/app_starts_cleanly.cmake)
+	COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:junction> -DWORK=${CMAKE_CURRENT_BINARY_DIR}/app_starts_cleanly
+			-P ${CMAKE_CURRENT_SOURCE_DIR}/app_starts_cleanly.cmake)
 
 # The QML-side logic that has no C++ behind it (tests/qml, Qt Quick Test).
 qt_add_executable(tst_qml tst_qml.cpp)

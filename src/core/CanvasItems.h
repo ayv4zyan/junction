@@ -33,63 +33,63 @@ PathStyle pathStyleFromString(const QString &text, PathStyle fallback);
 // What a node holds depends on its kind.
 struct TextContent         // a Card
 {
-    QString text;          // Markdown
-    bool operator==(const TextContent &) const = default;
+	QString text;          // Markdown
+	bool operator==(const TextContent &) const = default;
 };
 struct GroupContent        // a Group
 {
-    QString label;         // its title; shown as defaultLabel() while empty
-    static QString defaultLabel();
-    bool operator==(const GroupContent &) const = default;
+	QString label;         // its title; shown as defaultLabel() while empty
+	static QString defaultLabel();
+	bool operator==(const GroupContent &) const = default;
 };
 struct UnsupportedContent  // an Unsupported Card
 {
-    QJsonObject raw;       // the JSON it was loaded from, written back as-is
-    bool operator==(const UnsupportedContent &) const = default;
+	QJsonObject raw;       // the JSON it was loaded from, written back as-is
+	bool operator==(const UnsupportedContent &) const = default;
 };
 
 // A Card, a Group or an Unsupported Card. JSON Canvas calls all of these "nodes".
 struct Node
 {
-    static constexpr QSizeF MinimumSize{80, 40};   // smaller can't be resized or read
+	static constexpr QSizeF MinimumSize{80, 40};   // smaller can't be resized or read
 
-    QString id;
-    QRectF rect;
-    QString color;   // "" (default), "1".."6" (preset) or "#rrggbb"
-    std::variant<TextContent, GroupContent, UnsupportedContent> content;
+	QString id;
+	QRectF rect;
+	QString color;   // "" (default), "1".."6" (preset) or "#rrggbb"
+	std::variant<TextContent, GroupContent, UnsupportedContent> content;
 
-    NodeKind kind() const;
-    bool isCard() const { return kind() != NodeKind::Group; }
-    QString text() const;    // a Card's Markdown; "" for the other kinds
-    QString label() const;   // a Group's title; "" for the other kinds
-    // What it shows: a Card's text as Markdown (every newline a line break, as Obsidian shows
-    // it), a Group's label (or its default), or an Unsupported Card's placeholder text.
-    QString displayText() const;
+	NodeKind kind() const;
+	bool isCard() const { return kind() != NodeKind::Group; }
+	QString text() const;    // a Card's Markdown; "" for the other kinds
+	QString label() const;   // a Group's title; "" for the other kinds
+	// What it shows: a Card's text as Markdown (every newline a line break, as Obsidian shows
+	// it), a Group's label (or its default), or an Unsupported Card's placeholder text.
+	QString displayText() const;
 
-    QJsonObject toJson() const;
-    static Node fromJson(const QJsonObject &json);
-    bool operator==(const Node &) const = default;
+	QJsonObject toJson() const;
+	static Node fromJson(const QJsonObject &json);
+	bool operator==(const Node &) const = default;
 };
 
 // JSON Canvas calls these "edges".
 struct Connection
 {
-    QString id;
-    QString fromNode;
-    QString toNode;
-    Side fromSide = Side::Floating;   // the Pinned side, or Floating
-    Side toSide = Side::Floating;
-    bool fromArrow = false;
-    bool toArrow = true;
-    QString color;
-    QString label;
-    PathStyle style = PathStyle::Elbow;
-    QVector<QPointF> waypoints;
+	QString id;
+	QString fromNode;
+	QString toNode;
+	Side fromSide = Side::Floating;   // the Pinned side, or Floating
+	Side toSide = Side::Floating;
+	bool fromArrow = false;
+	bool toArrow = true;
+	QString color;
+	QString label;
+	PathStyle style = PathStyle::Elbow;
+	QVector<QPointF> waypoints;
 
-    // Floating ends are written with the side they currently use, so Obsidian draws them right.
-    QJsonObject toJson(Side resolvedFrom, Side resolvedTo) const;
-    static Connection fromJson(const QJsonObject &json);
-    bool operator==(const Connection &) const = default;
+	// Floating ends are written with the side they currently use, so Obsidian draws them right.
+	QJsonObject toJson(Side resolvedFrom, Side resolvedTo) const;
+	static Connection fromJson(const QJsonObject &json);
+	bool operator==(const Connection &) const = default;
 };
 
 using CanvasItem = std::variant<Node, Connection>;

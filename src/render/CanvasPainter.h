@@ -17,20 +17,20 @@ class QPainter;
 // defaults here on purpose: a second copy of the colors would drift from the tokens.
 struct Palette
 {
-    QColor background;
-    QColor grid;
-    QColor cardFill;
-    QColor cardBorder;
-    QColor text;
-    QColor mutedText;
-    QColor line;
-    QColor selection;
-    QVector<QColor> presets;   // JSON Canvas colors "1".."6"
-    qreal radius = 0;          // corners of Cards, Groups and Connection labels
+	QColor background;
+	QColor grid;
+	QColor cardFill;
+	QColor cardBorder;
+	QColor text;
+	QColor mutedText;
+	QColor line;
+	QColor selection;
+	QVector<QColor> presets;   // JSON Canvas colors "1".."6"
+	qreal radius = 0;          // corners of Cards, Groups and Connection labels
 
-    QColor resolve(const QString &color, const QColor &fallback) const;
-    // Nothing when a color is missing or invalid (tst_design_values checks Colors.forPainter).
-    static std::optional<Palette> fromVariantMap(const QVariantMap &map);
+	QColor resolve(const QString &color, const QColor &fallback) const;
+	// Nothing when a color is missing or invalid (tst_design_values checks Colors.forPainter).
+	static std::optional<Palette> fromVariantMap(const QVariantMap &map);
 };
 
 namespace CanvasPainter {
@@ -47,8 +47,8 @@ QColor colorUnder(QPointF point, const QVector<Node> &nodes, const Palette &pale
 // `showLabel` is false while the label is being edited: the editor takes its place.
 // `labelFill` is the label box's color (see colorUnder); the background when not given.
 void drawConnection(QPainter &painter, const Geometry::Route &route, const Connection &connection,
-                    const Palette &palette, bool selected, bool showLabel = true,
-                    const QColor &labelFill = QColor());
+					const Palette &palette, bool selected, bool showLabel = true,
+					const QColor &labelFill = QColor());
 void drawNode(QPainter &painter, const Node &node, const Palette &palette);
 
 // The box a Connection's label is drawn in, centred on the route's label position (world
@@ -57,6 +57,6 @@ QRectF labelRect(const Geometry::Route &route, const QString &label);
 
 // Writes PNG or SVG depending on the file extension. Empty `onlyIds` means the whole Canvas.
 bool exportImage(const Document &document, const QSet<QString> &onlyIds, const QString &path,
-                  const Palette &palette, QString *error);
+				  const Palette &palette, QString *error);
 
 } // namespace CanvasPainter

@@ -9,67 +9,67 @@ import QtQuick.Layouts
 // Errors get a red edge and stay longer; so does a toast with an action, which also stays while
 // the pointer is over it. Clicking the message dismisses it.
 RisingFloating {
-    id: toast
+	id: toast
 
-    property bool error: false
-    property string actionText
-    property var actionHandler: null
+	property bool error: false
+	property string actionText
+	property var actionHandler: null
 
-    function show(message, options) {
-        options = options ?? {}
-        label.text = message
-        error = options.error === true
-        actionText = options.action ?? ""
-        actionHandler = options.onAction ?? null
-        shown = true
-        timer.restart()
-    }
+	function show(message, options) {
+		options = options ?? {}
+		label.text = message
+		error = options.error === true
+		actionText = options.action ?? ""
+		actionHandler = options.onAction ?? null
+		shown = true
+		timer.restart()
+	}
 
-    implicitWidth: Math.min(row.implicitWidth + 2 * Space.lg, parent ? parent.width - 2 * Space.xl : 480)
-    implicitHeight: row.implicitHeight + 2 * Space.sm
-    border.color: error ? Colors.danger : Colors.cardBorder
-    border.width: error ? 1.5 : 1
+	implicitWidth: Math.min(row.implicitWidth + 2 * Space.lg, parent ? parent.width - 2 * Space.xl : 480)
+	implicitHeight: row.implicitHeight + 2 * Space.sm
+	border.color: error ? Colors.danger : Colors.cardBorder
+	border.width: error ? 1.5 : 1
 
-    Timer {
-        id: timer
-        interval: toast.error || toast.actionText ? 6000 : 3000
-        running: toast.shown && !hover.hovered
-        onTriggered: toast.shown = false
-    }
-    HoverHandler { id: hover }
-    TapHandler { onTapped: toast.shown = false }
+	Timer {
+		id: timer
+		interval: toast.error || toast.actionText ? 6000 : 3000
+		running: toast.shown && !hover.hovered
+		onTriggered: toast.shown = false
+	}
+	HoverHandler { id: hover }
+	TapHandler { onTapped: toast.shown = false }
 
-    RowLayout {
-        id: row
-        anchors.centerIn: parent
-        width: Math.min(implicitWidth, toast.width - 2 * Space.lg)
-        spacing: Space.md
+	RowLayout {
+		id: row
+		anchors.centerIn: parent
+		width: Math.min(implicitWidth, toast.width - 2 * Space.lg)
+		spacing: Space.md
 
-        Label {
-            id: label
-            Layout.fillWidth: true
-            wrapMode: Text.Wrap
-            horizontalAlignment: Text.AlignHCenter
-        }
-        Button {
-            id: actionButton
-            visible: toast.actionText !== ""
-            flat: true
-            horizontalPadding: Space.sm
-            text: toast.actionText
-            contentItem: Label {
-                text: actionButton.text
-                color: Colors.accentText
-                font.weight: Font.DemiBold
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
-            onClicked: {
-                const action = toast.actionHandler
-                toast.shown = false
-                if (action)
-                    action()
-            }
-        }
-    }
+		Label {
+			id: label
+			Layout.fillWidth: true
+			wrapMode: Text.Wrap
+			horizontalAlignment: Text.AlignHCenter
+		}
+		Button {
+			id: actionButton
+			visible: toast.actionText !== ""
+			flat: true
+			horizontalPadding: Space.sm
+			text: toast.actionText
+			contentItem: Label {
+				text: actionButton.text
+				color: Colors.accentText
+				font.weight: Font.DemiBold
+				horizontalAlignment: Text.AlignHCenter
+				verticalAlignment: Text.AlignVCenter
+			}
+			onClicked: {
+				const action = toast.actionHandler
+				toast.shown = false
+				if (action)
+					action()
+			}
+		}
+	}
 }

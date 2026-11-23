@@ -14,13 +14,13 @@ constexpr qreal ElbowStub = 24;   // how far an elbow path leaves a card before 
 
 struct Route
 {
-    QPainterPath path;
-    QPointF start;
-    QPointF end;
-    QPointF startDirection;        // unit vector an arrowhead at the start points to
-    QPointF endDirection;          // unit vector an arrowhead at the end points to
-    QVector<QPointF> midpoints;    // one per span between start, Waypoints and end
-    QPointF labelPosition;
+	QPainterPath path;
+	QPointF start;
+	QPointF end;
+	QPointF startDirection;        // unit vector an arrowhead at the start points to
+	QPointF endDirection;          // unit vector an arrowhead at the end points to
+	QVector<QPointF> midpoints;    // one per span between start, Waypoints and end
+	QPointF labelPosition;
 };
 
 QPointF sidePoint(const QRectF &rect, Side side);

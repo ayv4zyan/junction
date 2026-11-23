@@ -9,22 +9,22 @@
 
 class SingleInstance : public QObject
 {
-    Q_OBJECT
+	Q_OBJECT
 
 public:
-    // `key` names what may be open only once: the Library folder.
-    explicit SingleInstance(const QString &key, QObject *parent = nullptr);
+	// `key` names what may be open only once: the Library folder.
+	explicit SingleInstance(const QString &key, QObject *parent = nullptr);
 
-    // Asks an app already running for the same key to come forward. True if there was one:
-    // this launch should then quit.
-    bool handOverToRunning();
-    // Waits for later launches, from now on.
-    void listen();
+	// Asks an app already running for the same key to come forward. True if there was one:
+	// this launch should then quit.
+	bool handOverToRunning();
+	// Waits for later launches, from now on.
+	void listen();
 
 signals:
-    void activated(const QByteArray &activationToken);   // a later launch; the token may be empty
+	void activated(const QByteArray &activationToken);   // a later launch; the token may be empty
 
 private:
-    QString m_serverName;
-    QLocalServer m_server;
+	QString m_serverName;
+	QLocalServer m_server;
 };

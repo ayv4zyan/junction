@@ -12,9 +12,9 @@ namespace DesignCheck {
 
 struct Violation
 {
-    int line = 0;          // 1-based
-    QString text;          // the offending line, trimmed
-    QString useInstead;    // what to use instead
+	int line = 0;          // 1-based
+	QString text;          // the offending line, trimmed
+	QString useInstead;    // what to use instead
 };
 
 // The violations in one QML or JavaScript source.

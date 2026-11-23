@@ -21,8 +21,8 @@ execute_process(COMMAND "${APP}" TIMEOUT 3 OUTPUT_VARIABLE out ERROR_VARIABLE er
 
 string(STRIP "${out}${err}" log)
 if(NOT log STREQUAL "")
-    message(FATAL_ERROR "The app reported:\n${log}")
+	message(FATAL_ERROR "The app reported:\n${log}")
 endif()
 if(NOT EXISTS "${library}/.junction")
-    message(FATAL_ERROR "The app did not load the Library (no index written)")
+	message(FATAL_ERROR "The app did not load the Library (no index written)")
 endif()
